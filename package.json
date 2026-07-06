@@ -1,0 +1,12 @@
+{
+  "name": "wuwa-planner",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Test harness deps for wuwa-planner.html (the app itself has no build step or dependencies)",
+  "scripts": {
+    "test": "node test-engine.js && node test-ui.js"
+  },
+  "devDependencies": {
+    "jsdom": "^29.1.1"
+  }
+}

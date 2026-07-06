@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Resonance Ledger — Wuthering Waves Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0A0E16; --panel:#121828; --panel2:#0E1420; --line:#232C42; --line2:#2E3A57;
+  --ink:#E9EDF6; --mut:#8A93AB; --faint:#5A6379;
+  --gold:#E5B566; --cyan:#5FD9E4; --vio:#A78BFA; --green:#7BD88F; --red:#E5737B;
+  --r2:#69B876; --r3:#5CA8DE; --r4:#A67FE0; --r5:#E5B566;
+  --spectro:#F0DB6B; --glacio:#7FD8F0;
+}
+*{box-sizing:border-box; margin:0; padding:0}
+html{scrollbar-color:var(--line2) var(--bg)}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:'IBM Plex Sans',system-ui,sans-serif; font-size:14px; line-height:1.45;
+  background-image:radial-gradient(1200px 500px at 80% -10%, rgba(95,217,228,.06), transparent 60%),
+                   radial-gradient(900px 400px at 10% 110%, rgba(229,181,102,.05), transparent 60%);
+  min-height:100vh;
+}
+h1,h2,h3,.disp{font-family:'Chakra Petch',system-ui,sans-serif; letter-spacing:.02em}
+.num{font-variant-numeric:tabular-nums}
+.wrap{max-width:1180px; margin:0 auto; padding:20px 16px 80px}
+
+/* ── header ─────────────────────────────── */
+header{margin-bottom:22px}
+.eyebrow{color:var(--cyan); font-size:11px; text-transform:uppercase; letter-spacing:.22em; font-weight:600}
+h1{font-size:28px; font-weight:700; margin:2px 0 0}
+h1 .thin{color:var(--mut); font-weight:500}
+.wave{display:block; margin-top:6px; width:260px; height:14px}
+.wave path{stroke:var(--cyan); stroke-width:1.6; fill:none; opacity:.85}
+@media (prefers-reduced-motion: no-preference){
+  .wave path{stroke-dasharray:340; stroke-dashoffset:340; animation:trace 1.6s ease-out forwards}
+  @keyframes trace{to{stroke-dashoffset:0}}
+}
+.toolbar{display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; align-items:center}
+.spacer{flex:1}
+.storage-note{font-size:12px; color:var(--faint); margin-top:8px}
+.storage-note.warn{color:var(--gold)}
+
+/* ── buttons & inputs ───────────────────── */
+button{
+  font-family:'Chakra Petch',sans-serif; font-weight:600; font-size:12.5px; letter-spacing:.04em;
+  color:var(--ink); background:var(--panel); border:1px solid var(--line2);
+  padding:7px 13px; border-radius:7px; cursor:pointer; transition:border-color .15s, background .15s;
+}
+button:hover{border-color:var(--cyan)}
+button:focus-visible, select:focus-visible, input:focus-visible{outline:2px solid var(--cyan); outline-offset:1px}
+button.primary{background:linear-gradient(180deg,#1B2A46,#152238); border-color:#3B577F}
+button.primary:hover{border-color:var(--cyan)}
+button.ghost{background:transparent; border-color:var(--line)}
+button.tiny{padding:3px 8px; font-size:11.5px; border-radius:6px}
+button.danger:hover{border-color:var(--red); color:var(--red)}
+button:disabled{opacity:.35; cursor:default}
+button:disabled:hover{border-color:var(--line2)}
+select,input[type=number]{
+  background:var(--panel2); color:var(--ink); border:1px solid var(--line2); border-radius:6px;
+  padding:4px 6px; font:inherit; font-size:13px;
+}
+input[type=number]{width:86px; text-align:right; font-variant-numeric:tabular-nums}
+input[type=number]::-webkit-inner-spin-button{opacity:.5}
+label.chk{display:inline-flex; gap:6px; align-items:center; cursor:pointer; color:var(--mut); font-size:12.5px}
+
+/* ── layout ─────────────────────────────── */
+.cols{display:grid; grid-template-columns:minmax(0,7fr) minmax(0,5fr); gap:18px; align-items:start}
+@media(max-width:940px){.cols{grid-template-columns:1fr}}
+.panel{background:var(--panel); border:1px solid var(--line); border-radius:12px}
+.panel-h{display:flex; align-items:baseline; gap:10px; padding:14px 16px 10px; border-bottom:1px solid var(--line)}
+.panel-h h2{font-size:15px; text-transform:uppercase; letter-spacing:.12em; color:var(--ink)}
+.panel-h .sub{font-size:12px; color:var(--faint)}
+.panel-b{padding:14px 16px}
+.sticky{position:sticky; top:14px}
+@media(max-width:940px){.sticky{position:static}}
+
+/* ── goal cards ─────────────────────────── */
+.goal{border:1px solid var(--line); border-radius:10px; background:var(--panel2); margin-bottom:12px; overflow:hidden}
+.goal.dragging{opacity:.45}
+.goal.drop-before{box-shadow:0 -2px 0 var(--cyan)}
+.goal.drop-after{box-shadow:0 2px 0 var(--cyan)}
+.grip{cursor:grab; color:var(--faint); font-size:15px; padding:2px 3px; user-select:none; touch-action:none}
+.grip:active{cursor:grabbing}
+.goal-top{display:flex; align-items:center; gap:12px; padding:10px 12px}
+.prio{font-family:'Chakra Petch'; font-weight:700; font-size:12px; color:var(--cyan); width:26px; text-align:center}
+.avatar{width:40px; height:40px; border-radius:9px; display:grid; place-items:center;
+  font-family:'Chakra Petch'; font-weight:700; font-size:15px; color:#0A0E16; flex:none;
+  box-shadow:0 0 0 1px rgba(255,255,255,.12) inset; position:relative; overflow:hidden}
+.avatar-img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; border-radius:inherit}
+.ico-wrap{display:inline-flex; width:22px; height:22px; margin-right:8px; vertical-align:-6px;
+  align-items:center; justify-content:center}
+.ico-wrap img{width:22px; height:22px; object-fit:contain; border-radius:5px}
+.ico-wrap .dot{margin-right:0}
+#addMenu button img{width:18px; height:18px; vertical-align:-4px; margin-right:6px; border-radius:4px}
+.gname{font-family:'Chakra Petch'; font-weight:600; font-size:15px}
+.gmeta{font-size:11.5px; color:var(--mut)}
+.badge{display:inline-block; font-size:10px; font-weight:700; letter-spacing:.08em; padding:1px 6px;
+  border-radius:4px; border:1px solid var(--gold); color:var(--gold); vertical-align:1px; margin-left:6px}
+.gctrl{margin-left:auto; display:flex; gap:5px}
+.goal-body{border-top:1px solid var(--line); padding:12px}
+.grid-ct{display:grid; grid-template-columns:1fr auto auto auto; gap:6px 10px; align-items:center; max-width:430px}
+.grid-ct .lbl{color:var(--mut); font-size:12.5px}
+.grid-ct .arrow{color:var(--faint)}
+.sect{font-size:11px; text-transform:uppercase; letter-spacing:.16em; color:var(--faint); margin:12px 0 6px; grid-column:1/-1}
+.sect:first-child{margin-top:0}
+details.brk{margin-top:12px; border-top:1px dashed var(--line); padding-top:10px}
+/* ── forte node tree: 5 columns, top node depends on bottom node ── */
+.ftree{display:flex; gap:16px; margin:6px 0 2px; align-items:flex-end}
+.fcol{display:flex; flex-direction:column; align-items:center}
+.link{width:2px; height:12px; background:var(--line2); margin:3px 0}
+.link.plan{background:var(--cyan); box-shadow:0 0 5px rgba(95,217,228,.4)}
+.link.own{background:var(--gold); box-shadow:0 0 5px rgba(229,181,102,.45)}
+.node{width:26px; height:26px; padding:0; border-radius:50%; border:1.5px solid var(--line2);
+  background:transparent; cursor:pointer; color:var(--mut);
+  font-family:'Chakra Petch'; font-weight:700; font-size:13px;
+  display:grid; place-items:center; transition:border-color .12s, background .12s, box-shadow .12s}
+.node.major{width:30px; height:30px; border-radius:8px; transform:rotate(45deg)}
+.node.inh{width:38px; height:38px; border-radius:10px}
+.node.none:hover{border-color:var(--mut)}
+.node.plan{border-color:var(--cyan); color:var(--cyan); box-shadow:0 0 8px rgba(95,217,228,.35)}
+.node.own{background:var(--gold); border-color:var(--gold); color:#0A0E16; box-shadow:0 0 8px rgba(229,181,102,.45)}
+.ftree-legend{font-size:11.5px; color:var(--faint); margin:8px 0 2px}
+.lg{display:inline-block; width:10px; height:10px; border-radius:50%; border:1.5px solid var(--line2); vertical-align:-1px}
+.lg.plan{border-color:var(--cyan); box-shadow:0 0 5px rgba(95,217,228,.4)}
+.lg.own{background:var(--gold); border-color:var(--gold)}
+details.brk summary{cursor:pointer; color:var(--cyan); font-size:12.5px; font-family:'Chakra Petch'; font-weight:600; letter-spacing:.05em; list-style:none}
+details.brk summary::before{content:'▸ '}
+details.brk[open] summary::before{content:'▾ '}
+.empty{color:var(--faint); padding:22px 6px; text-align:center; font-size:13px}
+
+/* ── material rows ──────────────────────── */
+table.mats{width:100%; border-collapse:collapse; margin-top:6px}
+table.mats td{padding:4px 4px; border-bottom:1px solid rgba(35,44,66,.55); font-size:13px; vertical-align:middle}
+table.mats tr:last-child td{border-bottom:none}
+td.qty{text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap}
+td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
+.dot{display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:8px; vertical-align:0;
+  box-shadow:0 0 6px currentColor}
+.cat{font-size:10.5px; text-transform:uppercase; letter-spacing:.16em; color:var(--faint); padding-top:12px !important}
+td.inv{width:96px; text-align:right}
+.tabs{display:flex; gap:4px; padding:10px 16px 0}
+.tabs button{border-radius:7px 7px 0 0; border-bottom:none; background:transparent; border-color:transparent; color:var(--mut)}
+.tabs button.on{background:var(--panel2); border-color:var(--line); color:var(--ink)}
+.tot-credits{font-family:'Chakra Petch'; font-size:13px; color:var(--gold)}
+.footer{margin-top:26px; color:var(--faint); font-size:11.5px; line-height:1.7}
+.footer b{color:var(--mut)}
+.pill{display:inline-block; border:1px solid var(--line2); border-radius:20px; padding:2px 10px; font-size:11px; color:var(--mut); margin-right:6px}
+.goalstat{display:flex; align-items:center; gap:8px; padding:7px 10px; border:1px solid var(--line); border-radius:8px; margin-bottom:8px; font-size:13px}
+.goalstat .st{margin-left:auto; font-family:'Chakra Petch'; font-size:11.5px; font-weight:600; letter-spacing:.06em}
+.st.ready{color:var(--green)} .st.miss{color:var(--red)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="eyebrow">Wuthering Waves · Resource Planner</div>
+  <h1>Resonance Ledger <span class="thin">/ build queue</span></h1>
+  <svg class="wave" viewBox="0 0 260 14" aria-hidden="true">
+    <path d="M0 7 L30 7 34 2 38 12 42 4 46 10 50 7 90 7 94 3 98 11 102 7 150 7 154 1 158 13 162 5 166 9 170 7 260 7"/>
+  </svg>
+  <div class="toolbar">
+    <button class="primary" id="btnAdd">+ Add goal</button>
+    <span class="spacer"></span>
+    <button class="ghost" id="btnExport">Export JSON</button>
+    <button class="ghost" id="btnImport">Import JSON</button>
+    <button class="ghost danger" id="btnReset">Reset all</button>
+    <input type="file" id="fileImport" accept="application/json" hidden>
+  </div>
+  <div class="storage-note" id="storageNote"></div>
+</header>
+
+<div class="cols">
+  <section class="panel">
+    <div class="panel-h"><h2>Priority queue</h2><span class="sub">top = farm first</span></div>
+    <div class="panel-b" id="goals"></div>
+  </section>
+
+  <aside class="sticky">
+    <section class="panel">
+      <div class="tabs" id="tabs"></div>
+      <div class="panel-b" id="summary"></div>
+    </section>
+    <div class="footer" id="footer"></div>
+  </aside>
+</div>
+</div>
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   GAME DATA — edit this block to add characters after a new patch.
+   Cost templates are identical for every character of a given rarity;
+   a character entry only names WHICH materials it uses.
+   Verified against game config (v3.4) + wiki totals, Jul 2026.
+   ═══════════════════════════════════════════════════════════════════ */
+const GAME = {
+  // cumulative Resonator EXP required to reach each milestone level from Lv.1
+  charExpCum: {1:0, 20:33300, 40:208800, 50:397100, 60:683700, 70:1096700, 80:1669100, 90:2438000},
+  creditPerExp: 0.35,                       // Shell Credits consumed per EXP point applied
+  expItems: [                                // Resonance Potions, low → high tier
+    {id:'exp1', name:'Basic Resonance Potion',    exp:1000,  r:2},
+    {id:'exp2', name:'Medium Resonance Potion',   exp:3000,  r:3},
+    {id:'exp3', name:'Advanced Resonance Potion', exp:8000,  r:4},
+    {id:'exp4', name:'Premium Resonance Potion',  exp:20000, r:5},
+  ],
+
+  // 5★ character ascension: cost paid at each rank (unlocks next 10/20 levels)
+  // c=credits, boss, spec(ialty), cm = [tierIndex0-3, qty]
+  asc5: [
+    {c:5000,  boss:0,  spec:0,  cm:[0,4]},   // rank 1 @ Lv20
+    {c:10000, boss:3,  spec:4,  cm:[1,4]},   // rank 2 @ Lv40
+    {c:15000, boss:6,  spec:8,  cm:[1,8]},   // rank 3 @ Lv50
+    {c:20000, boss:9,  spec:12, cm:[2,4]},   // rank 4 @ Lv60
+    {c:40000, boss:12, spec:16, cm:[2,8]},   // rank 5 @ Lv70
+    {c:80000, boss:16, spec:20, cm:[3,4]},   // rank 6 @ Lv80
+  ],
+
+  // Forte main-node upgrade cost per target level (2..10)
+  // f=[forgeTier,qty], cm=[commonTier,qty], w=weekly qty, c=credits
+  skillUp: {
+    2:{f:[0,2], cm:[0,2], w:0, c:1500},
+    3:{f:[0,3], cm:[0,3], w:0, c:2000},
+    4:{f:[1,2], cm:[1,2], w:0, c:4500},
+    5:{f:[1,3], cm:[1,3], w:0, c:6000},
+    6:{f:[2,3], cm:[2,2], w:0, c:16000},
+    7:{f:[2,5], cm:[2,3], w:1, c:30000},
+    8:{f:[3,2], cm:[3,2], w:1, c:50000},
+    9:{f:[3,3], cm:[3,3], w:1, c:70000},
+    10:{f:[3,6], cm:[3,4], w:1, c:100000},
+  },
+  minorNode:  {f:[2,3], cm:[2,3], w:0, c:50000},   // ×4 lower stat-bonus nodes
+  majorNode:  {f:[3,3], cm:[3,3], w:1, c:100000},  // ×4 upper stat-bonus nodes
+  inherent1:  {f:[1,3], cm:[1,3], w:1, c:10000},
+  inherent2:  {f:[2,3], cm:[2,3], w:1, c:20000},
+
+  skillNames: ['Basic Attack','Resonance Skill','Forte Circuit','Resonance Liberation','Intro Skill'],
+
+  // material families (tiers low → high, rarity 2..5)
+  families: {
+    howler:    ['LF Howler Core','MF Howler Core','HF Howler Core','FF Howler Core'],
+    whisperin: ['LF Whisperin Core','MF Whisperin Core','HF Whisperin Core','FF Whisperin Core'],
+    kernel:    ['Autopuppet Kernel I','Autopuppet Kernel II','Autopuppet Kernel III','Autopuppet Kernel IV'], // 3.5 beta tier names TBC
+    waveworn:  ['Waveworn Residue 210','Waveworn Residue 226','Waveworn Residue 235','Waveworn Residue 239'],
+    helix:     ['Lento Helix','Adagio Helix','Andante Helix','Presto Helix'],
+    strings:   ['Spliced String','Broken String','Solidified String','Melodic String'],
+  },
+
+  /* ── Local icon pack ──
+     Put your image folder next to this file (default name "images/") with
+     one subfolder per kind — "characters/", "materials/", "weapons/" — and
+     files named  <resource_name>_icon.<ext> : lowercase, apostrophes dropped,
+     any other non-alphanumeric run becomes "_". Examples:
+       "Loong's Pearl"        → images/materials/loongs_pearl_icon.png
+       "LF Howler Core"       → images/materials/lf_howler_core_icon.png
+       "Waveworn Residue 210" → images/materials/waveworn_residue_210_icon.png
+       "Premium Resonance Potion" → images/materials/premium_resonance_potion_icon.png
+       character "Jinhsi"     → images/characters/jinhsi_icon.png
+     Extensions are tried in order; any missing file silently falls back to
+     the built-in colored dots / element monograms. For files that don't
+     follow the pattern, map the display name to a base filename (no ext):
+       overrides: { "Shell Credit": "credits" }   →  images/materials/credits.png   */
+  icons: { dir:'images/', kinds:{char:'characters/', mat:'materials/', weapon:'weapons/'},
+           exts:['png','webp','jpg'], overrides:{} },
+
+  characters: {
+    jinhsi: {name:'Jinhsi', mono:'JH', rarity:5, element:'Spectro', elColor:'var(--spectro)',
+      wtype:'Broadblade', common:'howler', forge:'waveworn',
+      boss:'Elegy Tacet Core', spec:"Loong's Pearl", weekly:"Sentinel's Dagger", beta:false},
+    phoebe: {name:'Phoebe', mono:'PH', rarity:5, element:'Spectro', elColor:'var(--spectro)',
+      wtype:'Rectifier', common:'whisperin', forge:'helix',
+      boss:'Cleansing Conch', spec:'Firecracker Jewelweed', weekly:"Sentinel's Dagger", beta:false},
+    suisui: {name:'Suisui', mono:'SS', rarity:5, element:'Glacio', elColor:'var(--glacio)',
+      wtype:'Rectifier', common:'kernel', forge:'strings',
+      boss:"Solidarity's Loneflame", spec:'Flowborne Dream', weekly:'Skyward Glazed Heart', beta:true},
+  },
+
+  /* Weapon templates — level+ascension only, no forte tree.
+     wpnExpCum: 5★ cumulative weapon EXP; wpnCreditPerExp = 0.4.
+     asc5w: cost paid at Lv20/40/50/60/70/80; f=[forgeTier,qty], cm=[commonTier,qty] */
+  wpnExpCum5: {1:0, 20:43300, 40:242200, 50:451200, 60:765300, 70:1211900, 80:1822800, 90:2692400},
+  wpnCreditPerExp: 0.4,
+  asc5w: [
+    {c:10000,  f:null,  cm:[0,6]},
+    {c:20000,  f:[0,6], cm:[1,6]},
+    {c:40000,  f:[1,8], cm:[2,4]},
+    {c:60000,  f:[2,6], cm:[2,6]},
+    {c:80000,  f:[3,8], cm:[3,4]},
+    {c:120000, f:[3,12], cm:[3,8]},
+  ],
+  // Weapon EXP items (tiered "energy" mats) — left empty until Phase 2 seeds
+  // real names/values; raw wexp deficits still surface without a tier plan.
+  wpnExpItems: [],
+
+  /* Seeded weapons — Phase 2 fills this in. One entry per weapon:
+     {name, mono, rarity, wtype, common, forge, beta?}. Shares GAME.families
+     with characters (reuse a family id if the same materials apply). */
+  weapons: {},
+};
+
+/* level-state ordinals: 0=Lv1, 1=20, 2=20✦, 3=40, 4=40✦, 5=50, 6=50✦,
+   7=60, 8=60✦, 9=70, 10=70✦, 11=80, 12=80✦, 13=90 */
+const MILES = [1,20,40,50,60,70,80,90];
+const ORD_LEVEL = o => MILES[Math.floor((o+1)/2)];
+const ORD_LABEL = o => o===0 ? 'Lv 1' : (o%2 ? 'Lv '+ORD_LEVEL(o) : 'Lv '+ORD_LEVEL(o)+' ✦');
+const ORDS = [...Array(14).keys()];
+</script>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   ENGINE — pure calculation layer. No DOM access anywhere in this
+   block, so it can be unit-tested headlessly (Node) as-is.
+   Bags are plain objects {materialId: qty}. Special ids:
+   'credits' (Shell Credits) and 'exp' (raw Resonator EXP).
+   ═══════════════════════════════════════════════════════════════════ */
+
+// ── material registry: id → {name, cat, r(arity), family?, tier?} ──
+function buildMatRegistry(){
+  const M = {};
+  M.credits = {name:'Shell Credit', cat:'Credits', r:3};
+  M.exp     = {name:'Resonator EXP', cat:'EXP', r:0};
+  GAME.expItems.forEach(it => M[it.id] = {name:it.name, cat:'EXP', r:it.r});
+  const famCat = {};
+  for(const c of Object.values(GAME.characters)){
+    famCat[c.common] = 'Enemy Drops';
+    famCat[c.forge]  = 'Forgery';
+    M['boss:'+c.boss]     = {name:c.boss,   cat:'Boss Drops', r:4};
+    M['spec:'+c.spec]     = {name:c.spec,   cat:'Specialty',  r:1};
+    M['wk:'+c.weekly]     = {name:c.weekly, cat:'Weekly Boss', r:4};
+  }
+  for(const [fid, names] of Object.entries(GAME.families))
+    names.forEach((n,i) => M[fid+i] = {name:n, cat:famCat[fid]||'Enemy Drops', r:2+i, family:fid, tier:i});
+  return M;
+}
+const MATS = buildMatRegistry();
+const CATEGORY_ORDER = ['Credits','EXP','Boss Drops','Weekly Boss','Specialty','Enemy Drops','Forgery'];
+
+// ── bag helpers ──
+const bagAdd = (bag, id, qty) => { if(qty>0) bag[id] = (bag[id]||0) + qty; return bag; };
+const bagMerge = (a, b) => { for(const [k,v] of Object.entries(b)) bagAdd(a,k,v); return a; };
+
+// ── default goal states ──
+const freshState = () => ({ord:0, skills:[1,1,1,1,1], inh1:0, inh2:0, minor:0, major:0});
+const maxedState = () => ({ord:13, skills:[10,10,10,10,10], inh1:1, inh2:1, minor:4, major:4});
+
+/* ── core: materials to move one goal from `cur` to `tgt` ──
+   goal = {char, cur, tgt}; state = {ord, skills[5], inh(0-2), minor(0-4), major(0-4)} */
+function costForGoal(goal){
+  const ch = GAME.characters[goal.char];
+  const bag = {};
+  const {cur, tgt} = goal;
+  const addRow = (row) => {                 // row: {c, f?, cm?, w?, boss?, spec?}
+    bagAdd(bag, 'credits', row.c || 0);
+    if(row.boss) bagAdd(bag, 'boss:'+ch.boss, row.boss);
+    if(row.spec) bagAdd(bag, 'spec:'+ch.spec, row.spec);
+    if(row.w)    bagAdd(bag, 'wk:'+ch.weekly, row.w);
+    if(row.cm)   bagAdd(bag, ch.common + row.cm[0], row.cm[1]);
+    if(row.f)    bagAdd(bag, ch.forge  + row.f[0],  row.f[1]);
+  };
+
+  // 1. leveling EXP (+ credits to apply it)
+  const exp = GAME.charExpCum[ORD_LEVEL(tgt.ord)] - GAME.charExpCum[ORD_LEVEL(cur.ord)];
+  if(exp > 0){
+    bagAdd(bag, 'exp', exp);
+    bagAdd(bag, 'credits', Math.round(exp * GAME.creditPerExp));
+  }
+
+  // 2. ascension ranks crossed: rank r sits at ordinal 2r
+  for(let r=1; r<=6; r++)
+    if(cur.ord < 2*r && tgt.ord >= 2*r) addRow(GAME.asc5[r-1]);
+
+  // 3. forte main nodes
+  for(let s=0; s<5; s++)
+    for(let L=(cur.skills[s]||1)+1; L<=(tgt.skills[s]||1); L++)
+      addRow(GAME.skillUp[L]);
+
+  // 4. inherent skills (Ⅱ requires Ⅰ in-game — the node grid enforces it) + stat-bonus nodes
+  if(!cur.inh1 && tgt.inh1) addRow(GAME.inherent1);
+  if(!cur.inh2 && tgt.inh2) addRow(GAME.inherent2);
+  for(let i=0; i<Math.max(0, (tgt.minor||0)-(cur.minor||0)); i++) addRow(GAME.minorNode);
+  for(let i=0; i<Math.max(0, (tgt.major||0)-(cur.major||0)); i++) addRow(GAME.majorNode);
+
+  return bag;
+}
+
+const totalBag = goals => goals.reduce((acc,g) => bagMerge(acc, costForGoal(g)), {});
+
+/* ── EXP → potion plan: greedy from the top tier, minimal overflow ── */
+function expToPotions(exp){
+  const plan = {}; let rem = Math.max(0, exp);
+  const items = [...GAME.expItems].sort((a,b) => b.exp - a.exp);
+  items.forEach((it, i) => {
+    const last = i === items.length - 1;
+    const n = last ? Math.ceil(rem / it.exp) : Math.floor(rem / it.exp);
+    if(n > 0){ plan[it.id] = n; rem -= n * it.exp; }
+  });
+  return plan;                              // rem ≤ 0 by construction
+}
+
+/* ── inventory-aware deficit ──
+   inv: {matId: qty} incl. potion ids and 'credits'.
+   synth: apply 3→1 upward crafting of surplus within each family.
+   Returns {rem, invExp, needExp, potionPlan} */
+function remainingBag(need, inv, synth){
+  const rem = {};
+  const have = id => Math.max(0, Math.floor(inv[id] || 0));
+
+  // family materials, with optional synthesis of surplus
+  const famNeeded = new Set(Object.keys(need).map(id => MATS[id]?.family).filter(Boolean));
+  const famRem = {};
+  for(const fid of famNeeded){
+    const ids = [0,1,2,3].map(t => fid + t);
+    const h = ids.map(have);
+    const n = ids.map(id => need[id] || 0);
+    if(synth)
+      for(let t=0; t<3; t++){
+        const surplus = h[t] - n[t];
+        if(surplus > 0) h[t+1] += Math.floor(surplus / 3);
+      }
+    ids.forEach((id, t) => famRem[id] = Math.max(0, n[t] - h[t]));
+  }
+
+  for(const [id, qty] of Object.entries(need)){
+    if(id === 'exp') continue;
+    const r = id in famRem ? famRem[id] : Math.max(0, qty - have(id));
+    if(r > 0) rem[id] = r;
+  }
+
+  // EXP: potions in inventory count as a pooled EXP reserve
+  const invExp = GAME.expItems.reduce((s, it) => s + have(it.id) * it.exp, 0);
+  const needExp = need.exp || 0;
+  const remExp = Math.max(0, needExp - invExp);
+  if(remExp > 0) rem.exp = remExp;
+
+  return {rem, invExp, needExp, potionPlan: expToPotions(remExp)};
+}
+
+/* ── priority walk: allocate inventory to goals in queue order ──
+   Crafting is intentionally NOT applied here (a craft spent on goal 1
+   would silently eat goal 2's tier-3 stock); plain subtraction only.
+   Returns [{goal, need, rem, ready}] */
+function farmNextWalk(goals, inv){
+  const pool = {};
+  for(const [k,v] of Object.entries(inv)) pool[k] = Math.max(0, Math.floor(v||0));
+  let expPool = GAME.expItems.reduce((s,it) => s + (pool[it.id]||0) * it.exp, 0);
+
+  return goals.map(goal => {
+    const need = costForGoal(goal);
+    const rem = {};
+    for(const [id, qty] of Object.entries(need)){
+      if(id === 'exp'){
+        const use = Math.min(qty, expPool); expPool -= use;
+        if(qty - use > 0) rem.exp = qty - use;
+      } else {
+        const use = Math.min(qty, pool[id] || 0);
+        pool[id] = (pool[id] || 0) - use;
+        if(qty - use > 0) rem[id] = qty - use;
+      }
+    }
+    return {goal, need, rem, ready: Object.keys(rem).length === 0};
+  });
+}
+
+/* ── display helpers (pure) ── */
+const fmt = n => n.toLocaleString('en-US');
+function sortMatIds(ids){
+  return ids.sort((a,b) => {
+    const A = MATS[a], B = MATS[b];
+    const c = CATEGORY_ORDER.indexOf(A.cat) - CATEGORY_ORDER.indexOf(B.cat);
+    if(c) return c;
+    if(A.family && B.family && A.family !== B.family) return A.family < B.family ? -1 : 1;
+    if(A.r !== B.r) return A.r - B.r;
+    return A.name < B.name ? -1 : 1;
+  });
+}
+</script>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   UI LAYER — state, persistence, rendering. Everything below touches
+   the DOM; everything above stays pure.
+   ═══════════════════════════════════════════════════════════════════ */
+const $ = sel => document.querySelector(sel);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
+/* ── icons: resolve by naming convention, fall back gracefully ── */
+const iconSlug = name => name.toLowerCase().replace(/'/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'') + '_icon';
+const iconBase = (name, kind) => GAME.icons.dir + GAME.icons.kinds[kind] + (GAME.icons.overrides[name] || iconSlug(name));
+const icoImg = (name, kind, cls='') =>
+  `<img class="__ico ${cls}" alt="" draggable="false" src="${iconBase(name,kind)}.${GAME.icons.exts[0]}" data-b="${iconBase(name,kind)}" data-i="0">`;
+const matIco = id =>
+  `<span class="ico-wrap">${icoImg(MATS[id].name, 'mat')}<span class="dot" style="color:${dotColor(id)}" hidden></span></span>`;
+function icoFail(img){
+  const i = +img.dataset.i + 1, exts = GAME.icons.exts;
+  if(i < exts.length){ img.dataset.i = i; img.src = img.dataset.b + '.' + exts[i]; }
+  else{
+    img.hidden = true;                                   // reveal what's underneath/next to it
+    const fb = img.nextElementSibling;
+    if(fb && fb.classList.contains('dot')) fb.hidden = false;
+  }
+}
+const bindIcons = root =>
+  root.querySelectorAll('img.__ico').forEach(img => img.addEventListener('error', () => icoFail(img)));
+
+/* ── persistence ── */
+const STORE_KEY = 'wuwa-planner-v1';
+let storageOK = false;
+try { localStorage.setItem('__t','1'); localStorage.removeItem('__t'); storageOK = true; } catch(e){}
+
+/* ── forte node grid model ──
+   goal.nodes = 2×5 matrix, nodes[row][col], row 0 = lower, row 1 = upper.
+   Columns 0,1,3,4 are stat columns (lower = minor, upper = major);
+   column 2 is Inherent Ⅰ (lower) / Inherent Ⅱ (upper).
+   Cell values: 0 = skip · 1 = planned · 2 = owned.
+   In-game rule: an upper node requires its lower node, so every column
+   must satisfy nodes[0][c] ≥ nodes[1][c]. enforceTree() repairs any
+   violation by raising the lower cell. Count fields on cur/tgt are
+   derived from the matrix for the engine. */
+const STAT_COLS = [0,1,3,4], INH_COL = 2;
+const enforceTree = m => { for(let c=0; c<5; c++) m[0][c] = Math.max(m[0][c], m[1][c]); return m; };
+
+const nodesFrom = (raw, cur, tgt) => {
+  const val = v => clamp(Math.floor(+v) || 0, 0, 2);
+  const n = raw && raw.nodes;
+  let m;
+  if(Array.isArray(n) && Array.isArray(n[0]) && Array.isArray(n[1])){
+    m = [0,1].map(r => [0,1,2,3,4].map(c => val(n[r][c])));            // current matrix format
+  } else if(n && Array.isArray(n.minor) && Array.isArray(n.major) && Array.isArray(n.inh)){
+    const g2 = k => [0,1,2,3].map(j => val(n[k][j]));                  // v2 {minor,major,inh} format
+    const mi = g2('minor'), ma = g2('major'), inh = [0,1].map(j => val(n.inh[j]));
+    m = [[mi[0], mi[1], inh[0], mi[2], mi[3]],
+         [ma[0], ma[1], inh[1], ma[2], ma[3]]];
+  } else {                                                             // v1 count-based format
+    const seq = (own, want, len) => [...Array(len).keys()].map(k => k < own ? 2 : k < want ? 1 : 0);
+    const mi = seq(cur.minor, tgt.minor, 4), ma = seq(cur.major, tgt.major, 4);
+    m = [[mi[0], mi[1], cur.inh1 ? 2 : tgt.inh1 ? 1 : 0, mi[2], mi[3]],
+         [ma[0], ma[1], cur.inh2 ? 2 : tgt.inh2 ? 1 : 0, ma[2], ma[3]]];
+  }
+  return enforceTree(m);
+};
+function syncNodeCounts(goal){
+  const m = goal.nodes;
+  const own = cells => cells.filter(v => v === 2).length, want = cells => cells.filter(v => v >= 1).length;
+  const lo = STAT_COLS.map(c => m[0][c]), hi = STAT_COLS.map(c => m[1][c]);
+  goal.cur.minor = own(lo);  goal.tgt.minor = want(lo);
+  goal.cur.major = own(hi);  goal.tgt.major = want(hi);
+  goal.cur.inh1 = m[0][INH_COL] === 2 ? 1 : 0;  goal.tgt.inh1 = m[0][INH_COL] >= 1 ? 1 : 0;
+  goal.cur.inh2 = m[1][INH_COL] === 2 ? 1 : 0;  goal.tgt.inh2 = m[1][INH_COL] >= 1 ? 1 : 0;
+}
+function newGoal(char, open){
+  const g = {char, cur:freshState(), tgt:maxedState(), open:!!open};
+  g.nodes = nodesFrom(null, g.cur, g.tgt);
+  return g;
+}
+
+const defaultState = () => ({
+  goals: [newGoal('jinhsi', true), newGoal('phoebe', false), newGoal('suisui', false)],
+  inv:{}, synth:true, tab:'total',
+});
+
+function sanitize(raw){
+  const st = {goals:[], inv:{}, synth: raw ? !!raw.synth : true,
+              tab: ['total','left','next'].includes(raw && raw.tab) ? raw.tab : 'total'};
+  const fix = x => {
+    const o = freshState();
+    if(x && typeof x === 'object'){
+      o.ord = clamp(Math.floor(+x.ord)||0, 0, 13);
+      o.skills = [0,1,2,3,4].map(k => clamp(Math.floor(+((x.skills||[])[k]))||1, 1, 10));
+      const legacy = clamp(Math.floor(+x.inh)||0, 0, 2);       // pre-grid saves used a count
+      o.inh1 = x.inh1 !== undefined ? (x.inh1 ? 1 : 0) : (legacy >= 1 ? 1 : 0);
+      o.inh2 = x.inh2 !== undefined ? (x.inh2 ? 1 : 0) : (legacy >= 2 ? 1 : 0);
+      o.minor = clamp(Math.floor(+x.minor)||0, 0, 4);
+      o.major = clamp(Math.floor(+x.major)||0, 0, 4);
+    }
+    return o;
+  };
+  if(raw && Array.isArray(raw.goals))
+    for(const g of raw.goals){
+      if(!GAME.characters[g.char] || st.goals.some(x => x.char === g.char)) continue;
+      const cur = fix(g.cur), tgt = fix(g.tgt);
+      tgt.ord = Math.max(tgt.ord, cur.ord);
+      tgt.skills = tgt.skills.map((v,k) => Math.max(v, cur.skills[k]));
+      const goal = {char:g.char, cur, tgt, open:!!g.open};
+      goal.nodes = nodesFrom(g, cur, tgt);
+      syncNodeCounts(goal);                                    // grid always wins
+      st.goals.push(goal);
+    }
+  if(raw && raw.inv && typeof raw.inv === 'object')
+    for(const [k,v] of Object.entries(raw.inv))
+      if(MATS[k] && Math.floor(+v) > 0) st.inv[k] = Math.floor(+v);
+  return st;
+}
+
+function load(){
+  if(storageOK){
+    try{
+      const raw = localStorage.getItem(STORE_KEY);
+      if(raw) return sanitize(JSON.parse(raw));
+    }catch(e){}
+  }
+  return defaultState();
+}
+let state = load();
+
+function note(msg, warn){
+  const n = $('#storageNote');
+  n.textContent = msg;
+  n.className = 'storage-note' + (warn ? ' warn' : '');
+}
+function save(){
+  if(!storageOK){ return; }
+  try{
+    localStorage.setItem(STORE_KEY, JSON.stringify(state));
+    const t = new Date();
+    note('Saved in this browser · ' + t.toTimeString().slice(0,5));
+  }catch(e){ note('Could not save — use Export to keep your plan.', true); }
+}
+
+/* ── shared row builders ── */
+function dotColor(id){
+  if(id === 'credits') return 'var(--gold)';
+  if(id === 'exp') return 'var(--cyan)';
+  return ({1:'#9BA6BC', 2:'var(--r2)', 3:'var(--r3)', 4:'var(--r4)', 5:'var(--r5)'})[MATS[id].r] || 'var(--mut)';
+}
+function potionText(plan){
+  const parts = [...GAME.expItems].reverse()
+    .filter(it => plan[it.id])
+    .map(it => esc(it.name.split(' ')[0]) + ' ×' + fmt(plan[it.id]));
+  return parts.length ? '≈ ' + parts.join(' · ') : '';
+}
+function catRow(cat, span){ return `<tr><td class="cat" colspan="${span}">${cat}</td></tr>`; }
+function matRows(bag){
+  const ids = sortMatIds(Object.keys(bag));
+  let html = '', lastCat = null;
+  for(const id of ids){
+    const m = MATS[id];
+    if(m.cat !== lastCat){ html += catRow(m.cat, 2); lastCat = m.cat; }
+    html += `<tr><td>${matIco(id)}${esc(m.name)}</td>` +
+            `<td class="qty">${fmt(bag[id])}</td></tr>`;
+    if(id === 'exp'){
+      const p = potionText(expToPotions(bag[id]));
+      if(p) html += `<tr><td colspan="2" style="color:var(--faint);font-size:12px;padding-left:16px">${p}</td></tr>`;
+    }
+  }
+  return html;
+}
+
+/* ── goal cards ── */
+const ordOpts = ORDS.map(o => ({v:o, l:ORD_LABEL(o)}));
+const skOpts  = [...Array(10).keys()].map(k => ({v:k+1, l:String(k+1)}));
+
+const getF = (st,f) => f === 'ord' ? st.ord : f[0] === 's' ? st.skills[+f[1]] : st[f];
+const setF = (st,f,v) => { if(f === 'ord') st.ord = v; else if(f[0] === 's') st.skills[+f[1]] = v; else st[f] = v; };
+
+function sel(i, side, f, opts, val){
+  return `<select data-g="${i}" data-side="${side}" data-f="${f}">` +
+    opts.map(o => `<option value="${o.v}"${o.v === val ? ' selected' : ''}>${o.l}</option>`).join('') +
+    '</select>';
+}
+function ctrlRow(label, i, f, opts, g){
+  return `<span class="lbl">${label}</span>${sel(i,'cur',f,opts,getF(g.cur,f))}` +
+         `<span class="arrow">→</span>${sel(i,'tgt',f,opts,getF(g.tgt,f))}`;
+}
+
+function nodeBtn(i, r, c, s, label){
+  const st = ['none','plan','own'][s];
+  const kind = c === INH_COL ? 'inh' : r === 1 ? 'major' : 'minor';
+  const what = c === INH_COL ? 'Inherent Skill ' + (r+1)
+             : (r === 1 ? 'Major' : 'Minor') + ' stat node (column ' + (c < INH_COL ? c+1 : c) + ')';
+  const dep = r === 1 ? ' · requires the node below' : '';
+  const how = {none:'skipped', plan:'planned', own:'owned'}[st];
+  return `<button type="button" class="node ${kind} ${st}" data-g="${i}" data-r="${r}" data-c="${c}"` +
+         ` title="${what} — ${how} (click to cycle)${dep}" aria-label="${what}: ${how}">${label || ''}</button>`;
+}
+function forteTree(g, i){
+  const m = g.nodes;
+  const cols = [0,1,2,3,4].map(c => {
+    const linkSt = m[1][c] === 2 ? 'own' : m[1][c] === 1 ? 'plan' : '';
+    return `<div class="fcol">` +
+      nodeBtn(i, 1, c, m[1][c], c === INH_COL ? 'Ⅱ' : '') +
+      `<span class="link${linkSt ? ' ' + linkSt : ''}"></span>` +
+      nodeBtn(i, 0, c, m[0][c], c === INH_COL ? 'Ⅰ' : '') +
+    `</div>`;
+  }).join('');
+  return `<div class="ftree">${cols}</div>
+  <div class="ftree-legend">click a node: <span class="lg"></span> skip → <span class="lg plan"></span> planned → <span class="lg own"></span> owned · upper nodes need their lower node</div>`;
+}
+
+function goalCard(g, i){
+  const ch = GAME.characters[g.char];
+  const last = state.goals.length - 1;
+  let body = '';
+  if(g.open){
+    body = `<div class="goal-body"><div class="grid-ct">
+      <div class="sect">Level</div>
+      ${ctrlRow('Level', i, 'ord', ordOpts, g)}
+      <div class="sect">Forte skills</div>
+      ${GAME.skillNames.map((n,k) => ctrlRow(n, i, 's'+k, skOpts, g)).join('')}
+    </div>
+    <div class="sect" style="margin-top:14px">Passives &amp; stat nodes</div>
+    ${forteTree(g, i)}
+    <details class="brk"><summary>Material breakdown</summary>
+      <table class="mats">${matRows(costForGoal(g)) || '<tr><td class="empty">Nothing needed — current already meets target.</td></tr>'}</table>
+    </details></div>`;
+  }
+  return `<div class="goal" data-g="${i}">
+    <div class="goal-top">
+      <span class="grip" draggable="true" data-g="${i}" title="Drag to reorder">⠿</span>
+      <span class="prio">P${i+1}</span>
+      <span class="avatar" style="background:${ch.elColor}">${ch.mono}${icoImg(ch.name, 'char', 'avatar-img')}</span>
+      <div><div class="gname">${esc(ch.name)}${ch.beta ? '<span class="badge">3.5 BETA</span>' : ''}</div>
+        <div class="gmeta">${ch.rarity}★ ${ch.element} · ${ch.wtype} · ${ORD_LABEL(g.cur.ord)} → ${ORD_LABEL(g.tgt.ord)}</div></div>
+      <div class="gctrl">
+        <button class="tiny" data-act="up" data-g="${i}" ${i === 0 ? 'disabled' : ''} title="Move up">▲</button>
+        <button class="tiny" data-act="down" data-g="${i}" ${i === last ? 'disabled' : ''} title="Move down">▼</button>
+        <button class="tiny" data-act="fold" data-g="${i}" title="${g.open ? 'Collapse' : 'Expand'}">${g.open ? '▾' : '▸'}</button>
+        <button class="tiny danger" data-act="del" data-g="${i}" title="Remove">✕</button>
+      </div>
+    </div>${body}</div>`;
+}
+
+function renderGoals(){
+  const box = $('#goals');
+  box.innerHTML = state.goals.length
+    ? state.goals.map(goalCard).join('')
+    : '<div class="empty">No goals yet — use “+ Add goal” to queue a character.</div>';
+  box.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', onAct));
+  box.querySelectorAll('select[data-f]').forEach(s => s.addEventListener('change', onField));
+  box.querySelectorAll('.node').forEach(b => b.addEventListener('click', onNode));
+  bindDnD(box);
+  bindIcons(box);
+  $('#btnAdd').disabled = availableChars().length === 0;
+}
+
+function onNode(e){
+  const el = e.currentTarget;
+  const g = state.goals[+el.dataset.g];
+  const r = +el.dataset.r, c = +el.dataset.c, m = g.nodes;
+  m[r][c] = (m[r][c] + 1) % 3;
+  if(r === 1) m[0][c] = Math.max(m[0][c], m[1][c]);   // raising the top pulls the bottom up
+  else        m[1][c] = Math.min(m[1][c], m[0][c]);   // lowering the bottom pulls the top down
+  syncNodeCounts(g);
+  save(); render();
+}
+
+/* reorder: `to` is the insertion index in the pre-removal array */
+function moveGoal(from, to){
+  if(from === to || from + 1 === to){ dragIdx = null; render(); return; }
+  const [g] = state.goals.splice(from, 1);
+  state.goals.splice(to > from ? to - 1 : to, 0, g);
+  dragIdx = null;
+  save(); render();
+}
+
+let dragIdx = null;
+function bindDnD(box){
+  box.querySelectorAll('.goal').forEach(card => {
+    const i = +card.dataset.g;
+    const grip = card.querySelector('.grip');
+    if(grip){
+      grip.addEventListener('dragstart', e => {
+        dragIdx = i;
+        card.classList.add('dragging');
+        if(e.dataTransfer){
+          e.dataTransfer.effectAllowed = 'move';
+          try{ e.dataTransfer.setData('text/plain', String(i)); }catch(_){}
+          if(e.dataTransfer.setDragImage) e.dataTransfer.setDragImage(card, 24, 24);
+        }
+      });
+      grip.addEventListener('dragend', () => { dragIdx = null; render(); });
+    }
+    card.addEventListener('dragover', e => {
+      if(dragIdx === null) return;
+      e.preventDefault();
+      if(e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+      const r = card.getBoundingClientRect();
+      const after = (e.clientY || 0) > r.top + r.height / 2;
+      card.classList.toggle('drop-after', after);
+      card.classList.toggle('drop-before', !after);
+    });
+    card.addEventListener('dragleave', () => card.classList.remove('drop-before','drop-after'));
+    card.addEventListener('drop', e => {
+      e.preventDefault();
+      if(dragIdx === null) return;
+      const r = card.getBoundingClientRect();
+      const after = (e.clientY || 0) > r.top + r.height / 2;
+      moveGoal(dragIdx, i + (after ? 1 : 0));
+    });
+  });
+}
+
+function onAct(e){
+  const i = +e.currentTarget.dataset.g, act = e.currentTarget.dataset.act;
+  if(act === 'up')   return moveGoal(i, i - 1);
+  if(act === 'down') return moveGoal(i, i + 2);
+  if(act === 'fold') state.goals[i].open = !state.goals[i].open;
+  if(act === 'del') state.goals.splice(i, 1);
+  save(); render();
+}
+function onField(e){
+  const el = e.currentTarget;
+  const g = state.goals[+el.dataset.g], f = el.dataset.f, v = +el.value;
+  setF(g[el.dataset.side], f, v);
+  if(el.dataset.side === 'cur') setF(g.tgt, f, Math.max(getF(g.tgt, f), v));
+  else setF(g.cur, f, Math.min(getF(g.cur, f), v));
+  save(); render();
+}
+
+/* ── add-goal menu ── */
+const availableChars = () => Object.keys(GAME.characters).filter(c => !state.goals.some(g => g.char === c));
+$('#btnAdd').addEventListener('click', () => {
+  const old = $('#addMenu');
+  if(old){ old.remove(); return; }
+  const div = document.createElement('div');
+  div.id = 'addMenu';
+  div.style.cssText = 'margin:0 0 12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center';
+  div.innerHTML = '<span class="gmeta">Queue:</span>' +
+    availableChars().map(c => `<button data-c="${c}">${icoImg(GAME.characters[c].name, 'char')}${esc(GAME.characters[c].name)}</button>`).join('');
+  $('#goals').prepend(div);
+  bindIcons(div);
+  div.querySelectorAll('button').forEach(b => b.addEventListener('click', e => {
+    state.goals.push(newGoal(e.currentTarget.dataset.c, true));
+    save(); render();
+  }));
+});
+
+/* ── summary panel ── */
+let INVROWS = [];
+const TABS = [['total','Total'], ['left','Remaining'], ['next','Farm next']];
+
+function invRow(id, needTxt, left){
+  const i = INVROWS.push(id) - 1;
+  const leftCell = left === undefined ? '<td class="qty"></td>'
+    : `<td class="qty ${left ? 'short' : 'ok'}">${left ? fmt(left) : '✓'}</td>`;
+  return `<tr><td>${matIco(id)}${esc(MATS[id].name)}</td>` +
+         `<td class="qty">${needTxt}</td>` +
+         `<td class="inv"><input type="number" min="0" step="1" class="invIn" data-i="${i}" value="${state.inv[id] ?? ''}" placeholder="0"></td>` +
+         leftCell + '</tr>';
+}
+
+function renderSummary(){
+  $('#tabs').innerHTML = TABS.map(([k,l]) =>
+    `<button class="${state.tab === k ? 'on' : ''}" data-t="${k}">${l}</button>`).join('');
+  $('#tabs').querySelectorAll('button').forEach(b => b.addEventListener('click', e => {
+    state.tab = e.currentTarget.dataset.t; save(); renderSummary();
+  }));
+
+  const el = $('#summary');
+  if(!state.goals.length){ el.innerHTML = '<div class="empty">Add a goal to see totals.</div>'; return; }
+  const need = totalBag(state.goals);
+
+  if(state.tab === 'total'){
+    el.innerHTML = `<div class="gmeta" style="margin-bottom:4px">Everything required for ${state.goals.length} goal${state.goals.length > 1 ? 's' : ''}, ignoring inventory.</div>` +
+      `<table class="mats">${matRows(need) || '<tr><td class="empty">All targets already met.</td></tr>'}</table>`;
+    bindIcons(el);
+    return;
+  }
+
+  if(state.tab === 'left'){
+    const res = remainingBag(need, state.inv, state.synth);
+    INVROWS = [];
+    let html = `<label class="chk" style="margin-bottom:8px"><input type="checkbox" id="synthChk"${state.synth ? ' checked' : ''}> Craft surplus 3→1 within material families</label>`;
+    html += `<table class="mats"><tr>
+      <td style="color:var(--faint)">Material</td><td class="qty" style="color:var(--faint)">Need</td>
+      <td class="inv" style="color:var(--faint)">Have</td><td class="qty" style="color:var(--faint)">Left</td></tr>`;
+    for(const cat of CATEGORY_ORDER){
+      if(cat === 'EXP'){
+        if(!need.exp) continue;
+        html += catRow(cat, 4);
+        for(const it of [...GAME.expItems].reverse()) html += invRow(it.id, '—');
+        const left = res.rem.exp || 0;
+        html += `<tr><td><span class="dot" style="color:var(--cyan)"></span>Resonator EXP</td>` +
+          `<td class="qty">${fmt(need.exp)}</td><td class="inv" style="color:var(--faint);padding-right:8px">${fmt(res.invExp)}</td>` +
+          `<td class="qty ${left ? 'short' : 'ok'}">${left ? fmt(left) : '✓'}</td></tr>`;
+        if(left) html += `<tr><td colspan="4" style="color:var(--faint);font-size:12px;padding-left:16px">${potionText(res.potionPlan)}</td></tr>`;
+        continue;
+      }
+      const ids = sortMatIds(Object.keys(need)).filter(id => id !== 'exp' && MATS[id].cat === cat);
+      if(!ids.length) continue;
+      html += catRow(cat, 4);
+      for(const id of ids) html += invRow(id, fmt(need[id]), res.rem[id] || 0);
+    }
+    html += '</table>';
+    el.innerHTML = html;
+    el.querySelectorAll('.invIn').forEach(inp => inp.addEventListener('change', e => {
+      const id = INVROWS[+e.currentTarget.dataset.i];
+      const v = Math.max(0, Math.floor(+e.currentTarget.value || 0));
+      if(v) state.inv[id] = v; else delete state.inv[id];
+      save(); renderSummary();
+    }));
+    const chk = $('#synthChk');
+    if(chk) chk.addEventListener('change', e => { state.synth = e.currentTarget.checked; save(); renderSummary(); });
+    bindIcons(el);
+    return;
+  }
+
+  // Farm next
+  const walk = farmNextWalk(state.goals, state.inv);
+  let html = '<div class="gmeta" style="margin-bottom:8px">Inventory is spent top-down in queue order — this is what the top unmet goal still needs.</div>';
+  let expanded = false;
+  walk.forEach((w, i) => {
+    const ch = GAME.characters[w.goal.char];
+    const missN = Object.keys(w.rem).length;
+    html += `<div class="goalstat"><span class="prio">P${i+1}</span>` +
+      `<span class="avatar" style="background:${ch.elColor};width:24px;height:24px;font-size:10px;border-radius:6px">${ch.mono}${icoImg(ch.name, 'char', 'avatar-img')}</span>` +
+      `<strong>${esc(ch.name)}</strong><span class="gmeta">→ ${ORD_LABEL(w.goal.tgt.ord)}</span>` +
+      `<span class="st ${w.ready ? 'ready' : 'miss'}">${w.ready ? 'READY' : 'MISSING ' + missN}</span></div>`;
+    if(!w.ready && !expanded){
+      expanded = true;
+      html += `<table class="mats" style="margin:2px 0 14px">${matRows(w.rem)}</table>`;
+    }
+  });
+  html += '<div style="color:var(--faint);font-size:11.5px;margin-top:6px">Crafting isn’t applied in this view, so tier surpluses stay reserved for lower-priority goals.</div>';
+  el.innerHTML = html;
+  bindIcons(el);
+}
+
+/* ── toolbar: export / import / reset ── */
+$('#btnExport').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify({v:1, ...state}, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'wuwa-planner-save.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+$('#btnImport').addEventListener('click', () => $('#fileImport').click());
+$('#fileImport').addEventListener('change', e => {
+  const f = e.currentTarget.files[0];
+  if(!f) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    try{ state = sanitize(JSON.parse(rd.result)); save(); render(); }
+    catch(err){ note('Import failed — that file isn’t a valid planner save.', true); }
+  };
+  rd.readAsText(f);
+  e.currentTarget.value = '';
+});
+$('#btnReset').addEventListener('click', () => {
+  if(confirm('Clear all goals and inventory?')){ state = defaultState(); save(); render(); }
+});
+
+/* ── footer & boot ── */
+function renderFooter(){
+  $('#footer').innerHTML =
+    '<span class="pill">cost tables · v3.4 game config</span>' +
+    '<span class="pill">Suisui · 3.5 beta data</span>' +
+    `<span class="pill">${storageOK ? 'autosaves · this browser' : 'preview · no autosave'}</span><br>` +
+    'To add a new patch character, edit the <b>GAME.characters</b> block near the top of this file — ' +
+    'one small entry per character; the shared cost templates do the rest. Suisui’s material names follow ' +
+    '3.5 beta info and may shift at launch. Weekly-boss materials can’t be crafted, so plan those runs first. ' +
+    '<b>Icons:</b> place an “images” folder (with characters/, materials/, weapons/ subfolders) next to this ' +
+    'file, files named like <b>lf_howler_core_icon.png</b> — see the GAME.icons comment for the full convention; anything missing ' +
+    'falls back to the colored markers. Drag the ⠿ grip to reorder goals (▲▼ still work, and are the way to go on touch screens).';
+}
+function render(){ renderGoals(); renderSummary(); renderFooter(); }
+render();
+if(storageOK){
+  try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }catch(e){}  // normalize any old/corrupt save
+  note('Autosaves in this browser · Export for a portable backup.');
+} else {
+  note('Preview mode — autosave unavailable here. Download this file and open it locally (or use Export) to keep changes.', true);
+}
+</script>
+</body>
+</html>

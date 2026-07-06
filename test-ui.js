@@ -1,0 +1,240 @@
+// UI smoke test: loads the real file in jsdom and simulates user interaction.
+const fs = require('fs');
+const path = require('path');
+const {JSDOM} = require('jsdom');
+
+const html = fs.readFileSync(path.join(__dirname, 'wuwa-planner.html'), 'utf8');
+const dom = new JSDOM(html, {runScripts:'dangerously', url:'https://localhost/', pretendToBeVisual:true});
+const w = dom.window, d = w.document;
+
+let pass = 0, fail = 0;
+const ok = (label, cond) => { (cond ? pass++ : fail++); console.log((cond ? 'PASS' : 'FAIL') + '  ' + label); };
+const fire = (el, type) => el.dispatchEvent(new w.Event(type, {bubbles:true}));
+const texts = sel => [...d.querySelectorAll(sel)].map(e => e.textContent);
+
+// ── initial render ──
+ok('3 goal cards rendered', d.querySelectorAll('.goal').length === 3);
+ok('priority order J/P/S', texts('.gname').join(',').startsWith('Jinhsi,Phoebe,Suisui'));
+ok('Suisui has beta badge', d.querySelectorAll('.badge').length === 1);
+ok('first card open, others collapsed', d.querySelectorAll('.goal-body').length === 1);
+ok('summary shows totals table', d.querySelector('#summary table.mats') !== null);
+ok('storage detected (jsdom has localStorage)', /Autosaves/.test(d.querySelector('#storageNote').textContent));
+
+// grand total sanity: 3 full builds → credits row = 9,159,900; Sentinel's Dagger merged = 52
+const sumTxt = d.querySelector('#summary').textContent;
+ok('total credits 3× full build', sumTxt.includes('9,159,900'));
+ok("shared weekly (Sentinel's Dagger) merged to 52",
+   sumTxt.includes("Sentinel's Dagger") && sumTxt.includes('52'));
+ok('total EXP 3× full build', sumTxt.includes('7,314,000'));
+
+// ── change a select: Jinhsi current level 1 → 50✦ (ord 6) ──
+const lvlSel = d.querySelector('select[data-g="0"][data-side="cur"][data-f="ord"]');
+lvlSel.value = '6'; fire(lvlSel, 'change');
+ok('meta line reflects new current level', d.querySelector('.gmeta').textContent.includes('Lv 50 ✦ → Lv 90'));
+ok('totals shrink after raising current', !d.querySelector('#summary').textContent.includes('9,159,900'));
+
+// cur > tgt clamping: set current skill above target, target must follow
+const s0cur = d.querySelector('select[data-g="0"][data-side="cur"][data-f="s0"]');
+s0cur.value = '10'; fire(s0cur, 'change');
+const s0tgt = d.querySelector('select[data-g="0"][data-side="tgt"][data-f="s0"]');
+ok('target skill clamped up to current', s0tgt.value === '10');
+
+// ── reorder: move Phoebe (index 1) up ──
+fire(d.querySelector('button[data-act="up"][data-g="1"]'), 'click');
+ok('Phoebe now first', texts('.gname')[0].startsWith('Phoebe'));
+ok('first up-button disabled', d.querySelector('button[data-act="up"][data-g="0"]').disabled === true);
+
+// ── remove + re-add ──
+fire(d.querySelector('button[data-act="del"][data-g="2"]'), 'click'); // remove Suisui
+ok('goal removed', d.querySelectorAll('.goal').length === 2);
+fire(d.querySelector('#btnAdd'), 'click');
+const addBtn = d.querySelector('#addMenu button[data-c="suisui"]');
+ok('add menu offers only Suisui', addBtn !== null && d.querySelectorAll('#addMenu button').length === 1);
+fire(addBtn, 'click');
+ok('goal re-added at end', texts('.gname')[2].startsWith('Suisui'));
+ok('add button disabled when roster exhausted', d.querySelector('#btnAdd').disabled === true);
+
+// ── Remaining tab: inventory + synthesis ──
+fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Remaining'), 'click');
+ok('remaining tab has inventory inputs', d.querySelectorAll('#summary .invIn').length > 10);
+ok('synth toggle present & on', d.querySelector('#synthChk').checked === true);
+
+// give 100 premium potions → EXP "have" reflects 2,000,000
+const rows = [...d.querySelectorAll('#summary table.mats tr')];
+const premRow = rows.find(r => r.textContent.includes('Premium Resonance Potion'));
+const premIn = premRow.querySelector('.invIn');
+premIn.value = '100'; fire(premIn, 'change');
+ok('potion pool counts toward EXP', d.querySelector('#summary').textContent.includes('2,000,000'));
+
+// boss mats fully covered show ✓
+const bossRow = [...d.querySelectorAll('#summary table.mats tr')].find(r => r.textContent.includes('Cleansing Conch'));
+const bossIn = bossRow.querySelector('.invIn');
+bossIn.value = '46'; fire(bossIn, 'change');
+const bossRow2 = [...d.querySelectorAll('#summary table.mats tr')].find(r => r.textContent.includes('Cleansing Conch'));
+ok('covered material shows ✓', bossRow2.textContent.includes('✓'));
+
+// synthesis visibly changes a deficit: 100 spare LF Whisperin → crafts up
+const lfRow = [...d.querySelectorAll('#summary table.mats tr')].find(r => r.textContent.includes('LF Whisperin Core'));
+const lfIn = lfRow.querySelector('.invIn');
+lfIn.value = '1000'; fire(lfIn, 'change');
+const mfLeftOn = [...d.querySelectorAll('#summary table.mats tr')].find(r => r.textContent.includes('MF Whisperin Core')).textContent;
+const synthChk = d.querySelector('#synthChk');
+synthChk.checked = false; fire(synthChk, 'change');
+const mfLeftOff = [...d.querySelectorAll('#summary table.mats tr')].find(r => r.textContent.includes('MF Whisperin Core')).textContent;
+ok('synthesis toggle changes MF deficit', mfLeftOn.includes('✓') && !mfLeftOff.includes('✓'));
+
+// ── Farm next tab ──
+fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Farm next'), 'click');
+ok('walk lists all goals', d.querySelectorAll('#summary .goalstat').length === 3);
+ok('top unmet goal expanded with its missing mats',
+   d.querySelector('#summary table.mats') !== null &&
+   d.querySelector('#summary .st.miss') !== null);
+
+// ── persistence round-trip ──
+const saved = JSON.parse(w.localStorage.getItem('wuwa-planner-v1'));
+ok('state persisted to localStorage', saved && saved.goals.length === 3 && saved.inv.exp4 === 100);
+ok('persisted order Phoebe first', saved.goals[0].char === 'phoebe');
+ok('synth=off persisted', saved.synth === false);
+
+// reload in a fresh DOM with same storage contents
+const dom2 = new JSDOM(html, {runScripts:'dangerously', url:'https://localhost/'});
+dom2.window.localStorage.setItem('wuwa-planner-v1', JSON.stringify(saved));
+// re-run scripts against pre-seeded storage: third DOM
+const dom3 = new JSDOM(html, {runScripts:'outside-only', url:'https://localhost/'});
+dom3.window.localStorage.setItem('wuwa-planner-v1', JSON.stringify(saved));
+dom3.window.eval([...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).join('\n;\n'));
+ok('reload restores goal order & inventory',
+   [...dom3.window.document.querySelectorAll('.gname')][0].textContent.startsWith('Phoebe') &&
+   JSON.parse(dom3.window.localStorage.getItem('wuwa-planner-v1')).inv.exp4 === 100);
+
+// sanitize hardening: corrupt storage falls back cleanly
+const dom4 = new JSDOM(html, {runScripts:'outside-only', url:'https://localhost/'});
+dom4.window.localStorage.setItem('wuwa-planner-v1', '{"goals":[{"char":"nope"},{"char":"jinhsi","cur":{"ord":99,"skills":"x"},"tgt":{"ord":-5}}],"inv":{"hack":9,"exp4":-3,"credits":"12.9"}}');
+dom4.window.eval([...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).join('\n;\n'));
+const d4 = dom4.window.document;
+ok('corrupt save: unknown char dropped, valid char kept', d4.querySelectorAll('.goal').length === 1);
+ok('corrupt save: ords clamped, tgt ≥ cur',
+   d4.querySelector('.gmeta').textContent.includes('Lv 90 → Lv 90'));
+const inv4 = JSON.parse(dom4.window.localStorage.getItem('wuwa-planner-v1') || '{}').inv || {};
+ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4) && inv4.credits === 12);
+
+// ── icons ──
+{
+  // convention: character avatar + material rows resolve to slugged filenames
+  const av = d.querySelector('.goal[data-g="0"] .avatar img.__ico');
+  ok('avatar icon uses slug (phoebe first after reorder)', av && av.getAttribute('src') === 'images/characters/phoebe_icon.png');
+  const srcs = [...d.querySelectorAll('#summary .ico-wrap img.__ico')].map(im => im.getAttribute('src'));
+  ok('material icons rendered in summary', srcs.length > 0 && srcs.every(s => s.startsWith('images/materials/') && s.includes('_icon.')));
+  ok("apostrophes dropped in slugs (Sentinel's Dagger)",
+     [...d.querySelectorAll('img.__ico')].some(im => im.getAttribute('src') === 'images/materials/sentinels_dagger_icon.png'));
+
+  // fallback chain: error → .webp → .jpg → hidden img + visible dot
+  const im = d.querySelector('#summary .ico-wrap img.__ico');
+  fire(im, 'error');
+  ok('1st failure retries .webp', im.getAttribute('src').endsWith('.webp'));
+  fire(im, 'error');
+  ok('2nd failure retries .jpg', im.getAttribute('src').endsWith('.jpg'));
+  fire(im, 'error');
+  ok('3rd failure hides img, reveals dot', im.hidden === true && im.nextElementSibling.hidden === false);
+
+  // override map wins over slug
+  w.eval("GAME.icons.overrides['Shell Credit'] = 'credits'; render();");
+  ok('override filename respected',
+     [...d.querySelectorAll('img.__ico')].some(x => x.getAttribute('src') === 'images/materials/credits.png'));
+}
+
+// ── drag & drop ──
+{
+  ok('grips are draggable', [...d.querySelectorAll('.grip')].every(g => g.getAttribute('draggable') === 'true'));
+  const order0 = texts('.gname').map(t => t.slice(0,3)).join(',');
+  // drag last card (index 2) and drop on first card → moves to top (jsdom rects are 0 ⇒ "before")
+  fire(d.querySelector('.grip[data-g="2"]'), 'dragstart');
+  ok('dragging class applied', d.querySelector('.goal[data-g="2"]').classList.contains('dragging'));
+  fire(d.querySelector('.goal[data-g="0"]'), 'drop');
+  const order1 = texts('.gname').map(t => t.slice(0,3)).join(',');
+  ok('drop moves goal to top', order0 === 'Pho,Jin,Sui' && order1 === 'Sui,Pho,Jin');
+  // no-op drop: drag card 1 onto itself
+  fire(d.querySelector('.grip[data-g="1"]'), 'dragstart');
+  fire(d.querySelector('.goal[data-g="1"]'), 'drop');
+  ok('self-drop is a no-op', texts('.gname').map(t => t.slice(0,3)).join(',') === 'Sui,Pho,Jin');
+  // ▲▼ buttons still route correctly through moveGoal
+  fire(d.querySelector('button[data-act="down"][data-g="0"]'), 'click');
+  ok('▼ still works after unification', texts('.gname').map(t => t.slice(0,3)).join(',') === 'Pho,Sui,Jin');
+  ok('drag order persisted', JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).goals.map(g => g.char).join(',') === 'phoebe,suisui,jinhsi');
+}
+
+// ── forte node tree (2×5 matrix with column dependencies) ──
+{
+  const tree = d.querySelector('.goal[data-g="1"] .ftree');
+  ok('tree rendered: 5 columns × 2 nodes + connectors', tree &&
+     tree.querySelectorAll('.node').length === 10 &&
+     tree.querySelectorAll('.fcol').length === 5 &&
+     tree.querySelectorAll('.link').length === 5);
+  ok('tree shape: 4 minors, 4 majors, 2 inherents',
+     tree.querySelectorAll('.node.minor').length === 4 &&
+     tree.querySelectorAll('.node.major').length === 4 &&
+     tree.querySelectorAll('.node.inh').length === 2);
+  ok('fresh→maxed default shows all planned', [...tree.querySelectorAll('.node')].every(n => n.classList.contains('plan')));
+
+  const cell = (r, c) => d.querySelector(`.goal[data-g="1"] .node[data-r="${r}"][data-c="${c}"]`);
+  const saved = () => JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).goals[1];
+
+  // cascade down: owning a top node pulls its bottom node to owned
+  fire(cell(1, 0), 'click');                       // top col0: plan → own
+  let g1 = saved();
+  ok('top→own cascades bottom→own', g1.nodes[1][0] === 2 && g1.nodes[0][0] === 2);
+  ok('derived counts follow cascade', g1.cur.major === 1 && g1.cur.minor === 1);
+
+  // cascade up: skipping a bottom node clears its top node
+  fire(cell(0, 0), 'click');                       // bottom col0: own → skip
+  g1 = saved();
+  ok('bottom→skip cascades top→skip', g1.nodes[0][0] === 0 && g1.nodes[1][0] === 0);
+  ok('counts drop on both rows', g1.tgt.major === 3 && g1.tgt.minor === 3);
+
+  // top can sit below bottom: bottom owned, top planned is legal
+  fire(cell(0, 1), 'click');                       // bottom col1: plan → own
+  g1 = saved();
+  ok('bottom owned + top planned is legal', g1.nodes[0][1] === 2 && g1.nodes[1][1] === 1);
+
+  // inherent ordering: Ⅱ owned pulls Ⅰ owned; skipping Ⅰ clears Ⅱ
+  fire(cell(1, 2), 'click');                       // Ⅱ: plan → own
+  g1 = saved();
+  ok('Passive Ⅱ owned requires Ⅰ owned', g1.cur.inh2 === 1 && g1.cur.inh1 === 1 && g1.nodes[0][2] === 2);
+  fire(cell(0, 2), 'click');                       // Ⅰ: own → skip
+  g1 = saved();
+  ok('skipping Ⅰ clears Ⅱ', g1.nodes[0][2] === 0 && g1.nodes[1][2] === 0 && g1.tgt.inh2 === 0);
+
+  // connector reflects the pair's state (colored by the upper node)
+  const links = [...d.querySelectorAll('.goal[data-g="1"] .link')];
+  ok('column connector colored by top state',
+     !links[0].classList.contains('plan') && !links[0].classList.contains('own') /* col0 skipped */ &&
+     links[1].classList.contains('plan') /* col1: bottom owned, top planned */);
+}
+
+// ── save migrations → matrix ──
+{
+  const run = payload => {
+    const dm = new JSDOM(html, {runScripts:'outside-only', url:'https://localhost/'});
+    dm.window.localStorage.setItem('wuwa-planner-v1', JSON.stringify(payload));
+    dm.window.eval([...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).join('\n;\n'));
+    return {saved: JSON.parse(dm.window.localStorage.getItem('wuwa-planner-v1')).goals[0], doc: dm.window.document};
+  };
+  // v1 count-based, with counts that violate the new rule (3 majors, 1 minor)
+  const v1 = run({goals:[{char:'jinhsi',
+    cur:{ord:6, skills:[6,6,6,6,6], inh:2, minor:1, major:3},
+    tgt:{ord:13, skills:[10,10,10,10,10], inh:2, minor:4, major:4}, open:true}], inv:{}, synth:true, tab:'total'});
+  ok('v1 migration: matrix built and repaired (minors raised under majors)',
+     JSON.stringify(v1.saved.nodes) === JSON.stringify([[2,2,2,2,1],[2,2,2,2,1]]));
+  ok('v1 migration: counts resynced to a legal state', v1.saved.cur.minor === 3 && v1.saved.cur.major === 3);
+  // v2 grid format {minor,major,inh}, also with a violation (major owned over skipped minor)
+  const v2 = run({goals:[{char:'phoebe', cur:{ord:0}, tgt:{ord:13},
+    nodes:{minor:[0,1,0,0], major:[2,0,0,0], inh:[0,2]}, open:true}], inv:{}, synth:true, tab:'total'});
+  ok('v2 migration: violations repaired by raising lower cells',
+     JSON.stringify(v2.saved.nodes) === JSON.stringify([[2,1,2,0,0],[2,0,2,0,0]]));
+  ok('v2 migration: inherent ordering repaired', v2.saved.cur.inh1 === 1 && v2.saved.cur.inh2 === 1);
+  ok('migrated grid renders repaired states',
+     [...v2.doc.querySelectorAll('.ftree .node[data-r="0"]')].filter(n => n.classList.contains('own')).length === 2);
+}
+
+console.log(`\n${pass} passed, ${fail} failed`);
+process.exit(fail ? 1 : 0);

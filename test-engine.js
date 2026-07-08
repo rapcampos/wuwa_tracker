@@ -7,7 +7,8 @@ const html = fs.readFileSync(path.join(__dirname, 'wuwa-planner.html'), 'utf8');
 const blocks = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).slice(0, 2);
 eval(blocks.join('\n;\n') + `
 ;Object.assign(globalThis, {GAME, MATS, MILES, ORD_LEVEL, ORD_LABEL, CATEGORY_ORDER,
-  costForGoal, totalBag, freshState, maxedState, expToPotions, remainingBag, farmNextWalk, sortMatIds});`);
+  costForGoal, totalBag, freshState, maxedState, expToPotions, remainingBag, farmNextWalk, sortMatIds,
+  freshWpnState, maxedWpnState, wexpToCores});`);
 
 let pass = 0, fail = 0;
 const canon = v => (v && typeof v === 'object' && !Array.isArray(v))
@@ -134,6 +135,91 @@ eq('ordinal labels', [ORD_LABEL(0), ORD_LABEL(1), ORD_LABEL(2), ORD_LABEL(13)],
 eq('shared weekly merges', MATS["wk:Sentinel's Dagger"].name, "Sentinel's Dagger");
 eq('category of forge family', MATS.helix3.cat, 'Forgery');
 eq('category of common family', MATS.kernel0.cat, 'Enemy Drops');
+
+// ═══ 11. WEAPONS — FULL 5★ BUILD: Lv1→90 ═══
+// Verified vs Game8 per-rank tables (Ages of Harvest 458249, Luminous Hymn
+// 498527) + wuthering.gg spot-checks: ascension credits 330,000; forge tiers
+// 6/8/6/20; enemy tiers 6/6/10/12; EXP 2,692,400 @ 0.4 credits/EXP.
+for(const wid of ['agesOfHarvest','luminousHymn','firstlightsHerald']){
+  const wp = GAME.weapons[wid];
+  const bag = costForGoal({weapon:wid, cur:freshWpnState(), tgt:maxedWpnState()});
+  eq(`${wid} full: forge`,   [0,1,2,3].map(t=>bag[wp.forge+t]),  [6,8,6,20]);
+  eq(`${wid} full: commons`, [0,1,2,3].map(t=>bag[wp.common+t]), [6,6,10,12]);
+  eq(`${wid} full: credits`, bag.credits, 330000 + Math.round(2692400*0.4)); // 1,406,960
+  eq(`${wid} full: wexp`,    bag.wexp, 2692400);
+  eq(`${wid} full: no char-only mats`, Object.keys(bag).some(k => /^(boss|spec|wk):|^exp$/.test(k)), false);
+}
+
+// ═══ 11b. WEAPONS — FULL 4★ BUILD: Lv1→90 ═══
+// Datamine anchors (WeaponBreach/WeaponLevel, all 4★ share the table):
+// ascension credits 264,000; forge 5/7/5/17; enemy 5/5/9/11; EXP 2,289,200.
+for(const wid of ['autumntrace','lumingloss','thunderbolt','stonard','augment']){
+  const wp = GAME.weapons[wid];
+  const bag = costForGoal({weapon:wid, cur:freshWpnState(), tgt:maxedWpnState()});
+  eq(`${wid} full: forge`,   [0,1,2,3].map(t=>bag[wp.forge+t]),  [5,7,5,17]);
+  eq(`${wid} full: commons`, [0,1,2,3].map(t=>bag[wp.common+t]), [5,5,9,11]);
+  eq(`${wid} full: credits`, bag.credits, 264000 + Math.round(2289200*0.4)); // 1,179,680
+  eq(`${wid} full: wexp`,    bag.wexp, 2289200);
+}
+
+// ═══ 12. WEAPONS — PARTIAL RANGE: Lv50✦ (ord 6) → Lv80 unascended (ord 11) ═══
+// wexp 1,822,800−451,200 = 1,371,600; ranks 4 & 5 crossed:
+// credits 60k+80k + round(1,371,600×0.4)=548,640 → 688,640
+// forge  r4 T3×6 + r5 T4×8 · enemy r4 T3×6 + r5 T4×4
+{
+  const bag = costForGoal({weapon:'agesOfHarvest', cur:{ord:6}, tgt:{ord:11}});
+  eq('wpn 50✦→80: wexp', bag.wexp, 1371600);
+  eq('wpn 50✦→80: credits', bag.credits, 688640);
+  eq('wpn 50✦→80: forge',   [0,1,2,3].map(t=>bag['waveworn'+t]),  [undefined,undefined,6,8]);
+  eq('wpn 50✦→80: commons', [0,1,2,3].map(t=>bag['whisperin'+t]), [undefined,undefined,6,4]);
+}
+
+// ═══ 13. WEAPONS — SINGLE ASCENSION: Lv20 → Lv20✦ (rank 1: no forge mat) ═══
+{
+  const bag = costForGoal({weapon:'luminousHymn', cur:{ord:1}, tgt:{ord:2}});
+  eq('wpn 20→20✦: bag', bag, {credits:10000, rings0:6});
+}
+
+// ═══ 14. WEAPON EXP → ENERGY CORES (same greedy as potions) ═══
+eq('cores 1,371,600', wexpToCores(1371600), {wexp4:68, wexp3:1, wexp2:1, wexp1:1});
+eq('cores 0', wexpToCores(0), {});
+eq('cores 500 (rounds up)', wexpToCores(500), {wexp1:1});
+
+// ═══ 15. WEAPONS — INVENTORY: exp and wexp are separate pools ═══
+{
+  const need = totalBag([
+    {char:'jinhsi', cur:{...freshState(), ord:11}, tgt:{...freshState(), ord:13}},   // char EXP only
+    {weapon:'agesOfHarvest', cur:{ord:11}, tgt:{ord:13}},                            // weapon EXP only
+  ]);
+  // potions must NOT cover weapon EXP, cores must NOT cover character EXP
+  const r = remainingBag(need, {exp4: 1000, credits: 10**9}, false);
+  eq('potions never feed weapon EXP', r.rem.wexp, need.wexp);
+  eq('char EXP covered by potions', r.rem.exp, undefined);
+  const r2 = remainingBag(need, {wexp4: 1000, credits: 10**9}, false);
+  eq('cores never feed char EXP', r2.rem.exp, need.exp);
+  eq('weapon EXP covered by cores', r2.rem.wexp, undefined);
+  eq('core plan for wexp remainder', r.corePlan, wexpToCores(need.wexp));
+}
+
+// ═══ 16. WEAPONS — FARM-NEXT WALK: mixed queue shares mats & credits ═══
+{
+  const gW = {weapon:'agesOfHarvest', cur:{ord:1}, tgt:{ord:2}};  // 6 whisperin0 + 10k
+  const gC = {char:'phoebe', cur:{...freshState(), ord:1}, tgt:{...freshState(), ord:2}}; // 4 whisperin0 + 5k
+  const walk = farmNextWalk([gW, gC], {whisperin0: 8, credits: 15000, wexp1: 50});
+  eq('walk: weapon goal first, ready', walk[0].ready, true);
+  eq('walk: char goal starved by weapon', walk[1].rem, {whisperin0: 2});
+  // wexp pool depletes independently of exp pool
+  const gW2 = {weapon:'agesOfHarvest', cur:{ord:0}, tgt:{ord:1}}; // 43,300 wexp + credits
+  const walk2 = farmNextWalk([gW2], {wexp4: 2, exp4: 100, credits: 17320});
+  eq('walk: cores partially cover wexp', walk2[0].rem, {wexp: 43300 - 40000});
+}
+
+// ═══ 17. WEAPONS — REGISTRY ═══
+eq('wexp registered', [MATS.wexp.name, MATS.wexp.cat], ['Weapon EXP', 'EXP']);
+eq('energy cores registered', GAME.wpnExpItems.map(it => MATS[it.id].name),
+   ['Basic Energy Core','Medium Energy Core','Advanced Energy Core','Premium Energy Core']);
+eq('weapon-only enemy family categorized', MATS.rings0.cat, 'Enemy Drops');
+eq('weapon-only enemy family categorized (exoswarm)', MATS.exoswarm3.cat, 'Enemy Drops');
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -34,10 +34,19 @@ it goes in block 2 with tests; presentation goes in block 3.
   "Ranks crossed" between two states is a clean integer comparison — this
   encoding exists to kill off-by-one bugs; don't replace it with raw levels.
 - **Bags** are plain `{materialId: qty}` objects. Special ids: `credits`
-  (Shell Credits) and `exp` (raw Resonator EXP). Family materials are
-  `<familyId><tierIndex 0-3>` (e.g. `howler2`); named mats are prefixed
-  `boss:`, `spec:`, `wk:` + display name — the `wk:` keying is what makes a
-  shared weekly (Sentinel's Dagger: Jinhsi + Phoebe) merge in totals.
+  (Shell Credits), `exp` (raw Resonator EXP), and `wexp` (raw Weapon EXP —
+  a fully separate pool: potions never feed `wexp`, energy cores never feed
+  `exp`). Family materials are `<familyId><tierIndex 0-3>` (e.g. `howler2`);
+  named mats are prefixed `boss:`, `spec:`, `wk:` + display name — the `wk:`
+  keying is what makes a shared weekly (Sentinel's Dagger: Jinhsi + Phoebe)
+  merge in totals.
+- **Weapon goals** are `{weapon: id, cur: {ord}, tgt: {ord}}` — the `weapon`
+  key is the discriminator vs `char` goals (old saves only ever have `char`),
+  and the state is level ordinal only: no forte tree, no boss/spec/weekly
+  mats. `costForGoal` dispatches on it; rarity (5/4★) picks the template
+  (`asc5w`/`asc4w`, `wpnExpCum5`/`wpnExpCum4`). Unlike characters, duplicate
+  weapon goals are allowed (players level multiple copies) — sanitize and
+  the add-menu deliberately don't dedupe them.
 - **Cost templates are shared per rarity.** Every 5★ character costs the same
   amounts; a character entry only names *which* materials it uses (boss,
   specialty, weekly, common family, forge family). Adding a new character is
@@ -72,13 +81,32 @@ full 5★ build (Lv1→90, all forte 10, both inherents, all 8 nodes):
 
 The engine test suite asserts these exactly — if a data edit breaks them,
 the edit is wrong (or the game changed; re-verify before touching tests).
-Weapon templates (5★: 330k credits; EXP total 2,692,400; 0.4 credits/EXP)
-are already in `GAME` awaiting the weapons UI.
+
+Weapon anchor totals (full Lv1→90, ascension + leveling; verified against
+the WeaponBreach/WeaponLevel/WeaponExpItem datamine tables, cross-checked
+with Game8 per-rank pages and wuthering.gg):
+
+- 5★: ascension credits 330,000 · forge tiers 6/8/6/20 · enemy 6/6/10/12 ·
+  EXP 2,692,400 (rank 1 uses no forge mat)
+- 4★: ascension credits 264,000 · forge tiers 5/7/5/17 · enemy 5/5/9/11 ·
+  EXP 2,289,200 (all 4★ weapons share one WeaponBreach table)
+- credits-per-EXP is 0.4 for both rarities (energy cores are
+  rarity-independent: 400/1,200/3,200/8,000 credits per core)
+- energy cores mirror potions exactly: 1k/3k/8k/20k EXP, rarities 2–5
+
+A weapon's FORGERY family is fixed by weapon type (Broadblade→waveworn,
+Sword→drip, Pistols→phlogiston, Gauntlets→cadence, Rectifier→helix —
+newer-region weapons may use newer sets, e.g. Firstlight's Herald→strings);
+the ENEMY family is per-weapon. Verify both when seeding a weapon.
 
 **Suisui is 3.5 beta data** (release 2026-07-10): quantities are
-template-locked, but material *names* (esp. "Autopuppet Kernel I–IV" tier
-names) are placeholders — verify at launch and update `GAME.families.kernel`
-and her entry. She carries a BETA badge in the UI; remove it when confirmed.
+template-locked, but the "Autopuppet Kernel I–IV" tier names are
+placeholders — verify at launch and update `GAME.families.kernel` and her
+entry. Her strings forge family and the exoswarm enemy family are live-game
+canon already (Lahai-Roi, 3.x) — only kernel remains unverified. Her
+signature weapon "Firstlight's Herald" is also beta-named (an older leak
+translation called it "Dew Imbiber") — confirm the English name at launch.
+Both carry BETA badges in the UI; remove them when confirmed.
 
 ## Icons
 
@@ -92,7 +120,7 @@ Pearl" → `images/materials/loongs_pearl_icon.png`, character "Jinhsi" →
 error-listener chaining (`bindIcons`/`icoFail`); final fallback is the
 built-in rarity dot / element monogram, so missing files must never break
 layout. `overrides` maps display name → base filename (no extension).
-Weapons must reuse this same pipeline when added.
+Weapons reuse this same pipeline (kind `weapon` → `images/weapons/`).
 
 ## Testing (non-negotiable workflow)
 
@@ -136,13 +164,12 @@ are no screenshot tests — be extra careful with CSS-only changes.
 
 ## Roadmap / open items
 
-1. **Weapons** (next feature): engine support is trivial (templates + curves
-   already in `GAME`; no forte tree — level + ascension only), needs weapon
-   goal type, card variant, seeded weapons (verify each weapon's forge/common
-   families via search before encoding), tests. Icons follow the same slug.
-2. **3.5 launch checkpoint (2026-07-10):** confirm Suisui materials/names,
-   drop the beta badge.
-3. Backlog (user-approved ideas, unscheduled): day-of-week forgery hints,
+1. **3.5 launch checkpoint (2026-07-10):** confirm Suisui materials/names
+   (kernel tiers) and her signature weapon's English name ("Firstlight's
+   Herald" vs launch rename), drop both beta badges, add the missing icons
+   (suisui, firstlights_herald, solidaritys_loneflame, flowborne_dream,
+   skyward_glazed_heart, kernel I–IV).
+2. Backlog (user-approved ideas, unscheduled): day-of-week forgery hints,
    waveplate-cost estimates, optional synthesis in Farm Next, "set current =
    target" quick action, optional per-character stat labels on tree nodes
    (declined for now — cosmetic), Echo XP/tuners as a separate section.
@@ -152,6 +179,8 @@ are no screenshot tests — be extra careful with CSS-only changes.
 - Discuss plans before large implementations; they review and redirect.
 - Verify game data with sources (datamine > wiki > guides) rather than
   memory; new/unfamiliar names (post-cutoff characters) must be searched.
+  Trusted sources: Dimbreath/WutheringData datamine, Game8, wuthering.gg,
+  the fandom wiki, and prydwen.gg (user-endorsed).
 - The user plays the game and is the authority on in-game mechanics — when
   they correct a rule (as with node dependencies), trust the correction.
 - Keep responses concrete about what changed, what was tested, and any

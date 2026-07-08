@@ -240,6 +240,11 @@ const GAME = {
   families: {
     howler:    ['LF Howler Core','MF Howler Core','HF Howler Core','FF Howler Core'],
     whisperin: ['LF Whisperin Core','MF Whisperin Core','HF Whisperin Core','FF Whisperin Core'],
+    exoswarm:  ['LF Exoswarm Core','MF Exoswarm Core','HF Exoswarm Core','FF Exoswarm Core'],
+    rings:     ['Crude Ring','Basic Ring','Improved Ring','Tailored Ring'],
+    drip:      ['Inert Metallic Drip','Reactive Metallic Drip','Polarized Metallic Drip','Heterized Metallic Drip'],
+    phlogiston:['Impure Phlogiston','Extracted Phlogiston','Refined Phlogiston','Flawless Phlogiston'],
+    cadence:   ['Cadence Seed','Cadence Bud','Cadence Leaf','Cadence Blossom'],
     kernel:    ['Autopuppet Kernel I','Autopuppet Kernel II','Autopuppet Kernel III','Autopuppet Kernel IV'], // 3.5 beta tier names TBC
     waveworn:  ['Waveworn Residue 210','Waveworn Residue 226','Waveworn Residue 235','Waveworn Residue 239'],
     helix:     ['Lento Helix','Adagio Helix','Andante Helix','Presto Helix'],
@@ -279,7 +284,8 @@ const GAME = {
      wpnExpCum: 5★ cumulative weapon EXP; wpnCreditPerExp = 0.4.
      asc5w: cost paid at Lv20/40/50/60/70/80; f=[forgeTier,qty], cm=[commonTier,qty] */
   wpnExpCum5: {1:0, 20:43300, 40:242200, 50:451200, 60:765300, 70:1211900, 80:1822800, 90:2692400},
-  wpnCreditPerExp: 0.4,
+  wpnExpCum4: {1:0, 20:41100, 40:200000, 50:357400, 60:594500, 70:940500, 80:1435300, 90:2289200},
+  wpnCreditPerExp: 0.4,                     // rarity-independent (WeaponExpItem config)
   asc5w: [
     {c:10000,  f:null,  cm:[0,6]},
     {c:20000,  f:[0,6], cm:[1,6]},
@@ -288,14 +294,46 @@ const GAME = {
     {c:80000,  f:[3,8], cm:[3,4]},
     {c:120000, f:[3,12], cm:[3,8]},
   ],
-  // Weapon EXP items (tiered "energy" mats) — left empty until Phase 2 seeds
-  // real names/values; raw wexp deficits still surface without a tier plan.
-  wpnExpItems: [],
+  // 4★ ascension — WeaponBreach datamine; all 4★ weapons share this table
+  asc4w: [
+    {c:8000,  f:null,   cm:[0,5]},
+    {c:16000, f:[0,5],  cm:[1,5]},
+    {c:32000, f:[1,7],  cm:[2,4]},
+    {c:48000, f:[2,5],  cm:[2,5]},
+    {c:64000, f:[3,7],  cm:[3,4]},
+    {c:96000, f:[3,10], cm:[3,7]},
+  ],
+  // Weapon EXP items — exact mirror of Resonance Potions (verified vs wiki/Game8)
+  wpnExpItems: [
+    {id:'wexp1', name:'Basic Energy Core',    exp:1000,  r:2},
+    {id:'wexp2', name:'Medium Energy Core',   exp:3000,  r:3},
+    {id:'wexp3', name:'Advanced Energy Core', exp:8000,  r:4},
+    {id:'wexp4', name:'Premium Energy Core',  exp:20000, r:5},
+  ],
 
-  /* Seeded weapons — Phase 2 fills this in. One entry per weapon:
-     {name, mono, rarity, wtype, common, forge, beta?}. Shares GAME.families
-     with characters (reuse a family id if the same materials apply). */
-  weapons: {},
+  /* Seeded weapons — one small entry each, shared cost templates per rarity.
+     The FORGERY family is fixed by weapon type (Broadblade→waveworn,
+     Rectifier→helix, …new-region weapons may use newer sets); the ENEMY
+     family is per-weapon. Verify both when adding a weapon (Game8/wiki). */
+  weapons: {
+    agesOfHarvest: {name:'Ages of Harvest', mono:'AH', rarity:5, wtype:'Broadblade',
+      common:'whisperin', forge:'waveworn', beta:false},   // Jinhsi signature
+    luminousHymn: {name:'Luminous Hymn', mono:'LH', rarity:5, wtype:'Rectifier',
+      common:'rings', forge:'helix', beta:false},          // Phoebe signature
+    firstlightsHerald: {name:"Firstlight's Herald", mono:'FH', rarity:5, wtype:'Rectifier',
+      common:'exoswarm', forge:'strings', beta:true},      // Suisui signature, 3.5 — name may shift at launch
+    // Battle Pass (Pioneer Podcast selector) 4★ set — verified per weapon
+    autumntrace: {name:'Autumntrace', mono:'AT', rarity:4, wtype:'Broadblade',
+      common:'whisperin', forge:'waveworn', beta:false},
+    lumingloss: {name:'Lumingloss', mono:'LG', rarity:4, wtype:'Sword',
+      common:'howler', forge:'drip', beta:false},
+    thunderbolt: {name:'Thunderbolt', mono:'TB', rarity:4, wtype:'Pistols',
+      common:'rings', forge:'phlogiston', beta:false},
+    stonard: {name:'Stonard', mono:'ST', rarity:4, wtype:'Gauntlets',
+      common:'howler', forge:'cadence', beta:false},
+    augment: {name:'Augment', mono:'AU', rarity:4, wtype:'Rectifier',
+      common:'rings', forge:'helix', beta:false},
+  },
 };
 
 /* level-state ordinals: 0=Lv1, 1=20, 2=20✦, 3=40, 4=40✦, 5=50, 6=50✦,
@@ -319,7 +357,9 @@ function buildMatRegistry(){
   const M = {};
   M.credits = {name:'Shell Credit', cat:'Credits', r:3};
   M.exp     = {name:'Resonator EXP', cat:'EXP', r:0};
+  M.wexp    = {name:'Weapon EXP', cat:'EXP', r:0};
   GAME.expItems.forEach(it => M[it.id] = {name:it.name, cat:'EXP', r:it.r});
+  GAME.wpnExpItems.forEach(it => M[it.id] = {name:it.name, cat:'EXP', r:it.r});
   const famCat = {};
   for(const c of Object.values(GAME.characters)){
     famCat[c.common] = 'Enemy Drops';
@@ -327,6 +367,10 @@ function buildMatRegistry(){
     M['boss:'+c.boss]     = {name:c.boss,   cat:'Boss Drops', r:4};
     M['spec:'+c.spec]     = {name:c.spec,   cat:'Specialty',  r:1};
     M['wk:'+c.weekly]     = {name:c.weekly, cat:'Weekly Boss', r:4};
+  }
+  for(const w of Object.values(GAME.weapons)){
+    famCat[w.common] = famCat[w.common] || 'Enemy Drops';
+    famCat[w.forge]  = 'Forgery';
   }
   for(const [fid, names] of Object.entries(GAME.families))
     names.forEach((n,i) => M[fid+i] = {name:n, cat:famCat[fid]||'Enemy Drops', r:2+i, family:fid, tier:i});
@@ -342,10 +386,43 @@ const bagMerge = (a, b) => { for(const [k,v] of Object.entries(b)) bagAdd(a,k,v)
 // ── default goal states ──
 const freshState = () => ({ord:0, skills:[1,1,1,1,1], inh1:0, inh2:0, minor:0, major:0});
 const maxedState = () => ({ord:13, skills:[10,10,10,10,10], inh1:1, inh2:1, minor:4, major:4});
+const freshWpnState = () => ({ord:0});
+const maxedWpnState = () => ({ord:13});
 
 /* ── core: materials to move one goal from `cur` to `tgt` ──
-   goal = {char, cur, tgt}; state = {ord, skills[5], inh(0-2), minor(0-4), major(0-4)} */
+   Character goal = {char, cur, tgt}; state = {ord, skills[5], inh1/2, minor, major}.
+   Weapon goal    = {weapon, cur, tgt}; state = {ord} — no forte tree.
+   The `weapon` key is the discriminator (old saves only ever have `char`). */
 function costForGoal(goal){
+  return goal.weapon !== undefined ? costForWeaponGoal(goal) : costForCharGoal(goal);
+}
+
+function costForWeaponGoal(goal){
+  const w = GAME.weapons[goal.weapon];
+  const bag = {};
+  const {cur, tgt} = goal;
+  const curve = w.rarity === 4 ? GAME.wpnExpCum4 : GAME.wpnExpCum5;
+  const asc   = w.rarity === 4 ? GAME.asc4w     : GAME.asc5w;
+
+  // 1. leveling EXP (+ credits to apply it)
+  const exp = curve[ORD_LEVEL(tgt.ord)] - curve[ORD_LEVEL(cur.ord)];
+  if(exp > 0){
+    bagAdd(bag, 'wexp', exp);
+    bagAdd(bag, 'credits', Math.round(exp * GAME.wpnCreditPerExp));
+  }
+
+  // 2. ascension ranks crossed: rank r sits at ordinal 2r (same encoding as characters)
+  for(let r=1; r<=6; r++)
+    if(cur.ord < 2*r && tgt.ord >= 2*r){
+      const row = asc[r-1];
+      bagAdd(bag, 'credits', row.c || 0);
+      if(row.cm) bagAdd(bag, w.common + row.cm[0], row.cm[1]);
+      if(row.f)  bagAdd(bag, w.forge  + row.f[0],  row.f[1]);
+    }
+  return bag;
+}
+
+function costForCharGoal(goal){
   const ch = GAME.characters[goal.char];
   const bag = {};
   const {cur, tgt} = goal;
@@ -385,10 +462,10 @@ function costForGoal(goal){
 
 const totalBag = goals => goals.reduce((acc,g) => bagMerge(acc, costForGoal(g)), {});
 
-/* ── EXP → potion plan: greedy from the top tier, minimal overflow ── */
-function expToPotions(exp){
+/* ── EXP → item plan: greedy from the top tier, minimal overflow ── */
+function expToItems(exp, source){
   const plan = {}; let rem = Math.max(0, exp);
-  const items = [...GAME.expItems].sort((a,b) => b.exp - a.exp);
+  const items = [...source].sort((a,b) => b.exp - a.exp);
   items.forEach((it, i) => {
     const last = i === items.length - 1;
     const n = last ? Math.ceil(rem / it.exp) : Math.floor(rem / it.exp);
@@ -396,6 +473,8 @@ function expToPotions(exp){
   });
   return plan;                              // rem ≤ 0 by construction
 }
+const expToPotions = exp => expToItems(exp, GAME.expItems);
+const wexpToCores  = exp => expToItems(exp, GAME.wpnExpItems);
 
 /* ── inventory-aware deficit ──
    inv: {matId: qty} incl. potion ids and 'credits'.
@@ -421,18 +500,24 @@ function remainingBag(need, inv, synth){
   }
 
   for(const [id, qty] of Object.entries(need)){
-    if(id === 'exp') continue;
+    if(id === 'exp' || id === 'wexp') continue;
     const r = id in famRem ? famRem[id] : Math.max(0, qty - have(id));
     if(r > 0) rem[id] = r;
   }
 
-  // EXP: potions in inventory count as a pooled EXP reserve
+  // EXP: potions/cores in inventory count as pooled EXP reserves
   const invExp = GAME.expItems.reduce((s, it) => s + have(it.id) * it.exp, 0);
   const needExp = need.exp || 0;
   const remExp = Math.max(0, needExp - invExp);
   if(remExp > 0) rem.exp = remExp;
 
-  return {rem, invExp, needExp, potionPlan: expToPotions(remExp)};
+  const invWexp = GAME.wpnExpItems.reduce((s, it) => s + have(it.id) * it.exp, 0);
+  const needWexp = need.wexp || 0;
+  const remWexp = Math.max(0, needWexp - invWexp);
+  if(remWexp > 0) rem.wexp = remWexp;
+
+  return {rem, invExp, needExp, potionPlan: expToPotions(remExp),
+          invWexp, needWexp, corePlan: wexpToCores(remWexp)};
 }
 
 /* ── priority walk: allocate inventory to goals in queue order ──
@@ -442,7 +527,8 @@ function remainingBag(need, inv, synth){
 function farmNextWalk(goals, inv){
   const pool = {};
   for(const [k,v] of Object.entries(inv)) pool[k] = Math.max(0, Math.floor(v||0));
-  let expPool = GAME.expItems.reduce((s,it) => s + (pool[it.id]||0) * it.exp, 0);
+  let expPool  = GAME.expItems.reduce((s,it) => s + (pool[it.id]||0) * it.exp, 0);
+  let wexpPool = GAME.wpnExpItems.reduce((s,it) => s + (pool[it.id]||0) * it.exp, 0);
 
   return goals.map(goal => {
     const need = costForGoal(goal);
@@ -451,6 +537,9 @@ function farmNextWalk(goals, inv){
       if(id === 'exp'){
         const use = Math.min(qty, expPool); expPool -= use;
         if(qty - use > 0) rem.exp = qty - use;
+      } else if(id === 'wexp'){
+        const use = Math.min(qty, wexpPool); wexpPool -= use;
+        if(qty - use > 0) rem.wexp = qty - use;
       } else {
         const use = Math.min(qty, pool[id] || 0);
         pool[id] = (pool[id] || 0) - use;
@@ -553,6 +642,7 @@ function newGoal(char, open){
   g.nodes = nodesFrom(null, g.cur, g.tgt);
   return g;
 }
+const newWpnGoal = (weapon, open) => ({weapon, cur:freshWpnState(), tgt:maxedWpnState(), open:!!open});
 
 const defaultState = () => ({
   goals: [newGoal('jinhsi', true), newGoal('phoebe', false), newGoal('suisui', false)],
@@ -577,6 +667,13 @@ function sanitize(raw){
   };
   if(raw && Array.isArray(raw.goals))
     for(const g of raw.goals){
+      if(g && g.weapon !== undefined){                           // weapon goal: level+ascension only
+        if(!GAME.weapons[g.weapon]) continue;                    // duplicates allowed (multiple copies)
+        const ord = x => clamp(Math.floor(+(x && x.ord)) || 0, 0, 13);
+        const cur = {ord: ord(g.cur)}, tgt = {ord: Math.max(ord(g.tgt), ord(g.cur))};
+        st.goals.push({weapon:g.weapon, cur, tgt, open:!!g.open});
+        continue;
+      }
       if(!GAME.characters[g.char] || st.goals.some(x => x.char === g.char)) continue;
       const cur = fix(g.cur), tgt = fix(g.tgt);
       tgt.ord = Math.max(tgt.ord, cur.ord);
@@ -621,14 +718,17 @@ function save(){
 function dotColor(id){
   if(id === 'credits') return 'var(--gold)';
   if(id === 'exp') return 'var(--cyan)';
+  if(id === 'wexp') return 'var(--vio)';
   return ({1:'#9BA6BC', 2:'var(--r2)', 3:'var(--r3)', 4:'var(--r4)', 5:'var(--r5)'})[MATS[id].r] || 'var(--mut)';
 }
-function potionText(plan){
-  const parts = [...GAME.expItems].reverse()
+function planText(plan, source){
+  const parts = [...source].reverse()
     .filter(it => plan[it.id])
     .map(it => esc(it.name.split(' ')[0]) + ' ×' + fmt(plan[it.id]));
   return parts.length ? '≈ ' + parts.join(' · ') : '';
 }
+const potionText = plan => planText(plan, GAME.expItems);
+const coreText   = plan => planText(plan, GAME.wpnExpItems);
 function catRow(cat, span){ return `<tr><td class="cat" colspan="${span}">${cat}</td></tr>`; }
 function matRows(bag){
   const ids = sortMatIds(Object.keys(bag));
@@ -640,6 +740,10 @@ function matRows(bag){
             `<td class="qty">${fmt(bag[id])}</td></tr>`;
     if(id === 'exp'){
       const p = potionText(expToPotions(bag[id]));
+      if(p) html += `<tr><td colspan="2" style="color:var(--faint);font-size:12px;padding-left:16px">${p}</td></tr>`;
+    }
+    if(id === 'wexp'){
+      const p = coreText(wexpToCores(bag[id]));
       if(p) html += `<tr><td colspan="2" style="color:var(--faint);font-size:12px;padding-left:16px">${p}</td></tr>`;
     }
   }
@@ -688,6 +792,39 @@ function forteTree(g, i){
 }
 
 function goalCard(g, i){
+  return g.weapon !== undefined ? wpnCard(g, i) : charCard(g, i);
+}
+
+function wpnCard(g, i){
+  const w = GAME.weapons[g.weapon];
+  const last = state.goals.length - 1;
+  let body = '';
+  if(g.open){
+    body = `<div class="goal-body"><div class="grid-ct">
+      <div class="sect">Level</div>
+      ${ctrlRow('Level', i, 'ord', ordOpts, g)}
+    </div>
+    <details class="brk"><summary>Material breakdown</summary>
+      <table class="mats">${matRows(costForGoal(g)) || '<tr><td class="empty">Nothing needed — current already meets target.</td></tr>'}</table>
+    </details></div>`;
+  }
+  return `<div class="goal" data-g="${i}">
+    <div class="goal-top">
+      <span class="grip" draggable="true" data-g="${i}" title="Drag to reorder">⠿</span>
+      <span class="prio">P${i+1}</span>
+      <span class="avatar" style="background:var(--r${w.rarity})">${w.mono}${icoImg(w.name, 'weapon', 'avatar-img')}</span>
+      <div><div class="gname">${esc(w.name)}${w.beta ? '<span class="badge">3.5 BETA</span>' : ''}</div>
+        <div class="gmeta">${w.rarity}★ ${w.wtype} weapon · ${ORD_LABEL(g.cur.ord)} → ${ORD_LABEL(g.tgt.ord)}</div></div>
+      <div class="gctrl">
+        <button class="tiny" data-act="up" data-g="${i}" ${i === 0 ? 'disabled' : ''} title="Move up">▲</button>
+        <button class="tiny" data-act="down" data-g="${i}" ${i === last ? 'disabled' : ''} title="Move down">▼</button>
+        <button class="tiny" data-act="fold" data-g="${i}" title="${g.open ? 'Collapse' : 'Expand'}">${g.open ? '▾' : '▸'}</button>
+        <button class="tiny danger" data-act="del" data-g="${i}" title="Remove">✕</button>
+      </div>
+    </div>${body}</div>`;
+}
+
+function charCard(g, i){
   const ch = GAME.characters[g.char];
   const last = state.goals.length - 1;
   let body = '';
@@ -730,7 +867,8 @@ function renderGoals(){
   box.querySelectorAll('.node').forEach(b => b.addEventListener('click', onNode));
   bindDnD(box);
   bindIcons(box);
-  $('#btnAdd').disabled = availableChars().length === 0;
+  // weapons allow duplicate goals (multiple copies), so they never run out
+  $('#btnAdd').disabled = availableChars().length === 0 && Object.keys(GAME.weapons).length === 0;
 }
 
 function onNode(e){
@@ -815,12 +953,17 @@ $('#btnAdd').addEventListener('click', () => {
   const div = document.createElement('div');
   div.id = 'addMenu';
   div.style.cssText = 'margin:0 0 12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center';
-  div.innerHTML = '<span class="gmeta">Queue:</span>' +
-    availableChars().map(c => `<button data-c="${c}">${icoImg(GAME.characters[c].name, 'char')}${esc(GAME.characters[c].name)}</button>`).join('');
+  const chars = availableChars().map(c =>
+    `<button data-c="${c}">${icoImg(GAME.characters[c].name, 'char')}${esc(GAME.characters[c].name)}</button>`).join('');
+  const wpns = Object.entries(GAME.weapons).map(([id, w]) =>
+    `<button data-w="${id}">${icoImg(w.name, 'weapon')}${esc(w.name)}</button>`).join('');
+  div.innerHTML = (chars ? '<span class="gmeta">Queue:</span>' + chars : '') +
+                  (wpns ? '<span class="gmeta"' + (chars ? ' style="margin-left:8px"' : '') + '>Weapons:</span>' + wpns : '');
   $('#goals').prepend(div);
   bindIcons(div);
   div.querySelectorAll('button').forEach(b => b.addEventListener('click', e => {
-    state.goals.push(newGoal(e.currentTarget.dataset.c, true));
+    const d = e.currentTarget.dataset;
+    state.goals.push(d.w ? newWpnGoal(d.w, true) : newGoal(d.c, true));
     save(); render();
   }));
 });
@@ -866,14 +1009,24 @@ function renderSummary(){
       <td class="inv" style="color:var(--faint)">Have</td><td class="qty" style="color:var(--faint)">Left</td></tr>`;
     for(const cat of CATEGORY_ORDER){
       if(cat === 'EXP'){
-        if(!need.exp) continue;
+        if(!need.exp && !need.wexp) continue;
         html += catRow(cat, 4);
-        for(const it of [...GAME.expItems].reverse()) html += invRow(it.id, '—');
-        const left = res.rem.exp || 0;
-        html += `<tr><td><span class="dot" style="color:var(--cyan)"></span>Resonator EXP</td>` +
-          `<td class="qty">${fmt(need.exp)}</td><td class="inv" style="color:var(--faint);padding-right:8px">${fmt(res.invExp)}</td>` +
-          `<td class="qty ${left ? 'short' : 'ok'}">${left ? fmt(left) : '✓'}</td></tr>`;
-        if(left) html += `<tr><td colspan="4" style="color:var(--faint);font-size:12px;padding-left:16px">${potionText(res.potionPlan)}</td></tr>`;
+        if(need.exp){
+          for(const it of [...GAME.expItems].reverse()) html += invRow(it.id, '—');
+          const left = res.rem.exp || 0;
+          html += `<tr><td><span class="dot" style="color:var(--cyan)"></span>Resonator EXP</td>` +
+            `<td class="qty">${fmt(need.exp)}</td><td class="inv" style="color:var(--faint);padding-right:8px">${fmt(res.invExp)}</td>` +
+            `<td class="qty ${left ? 'short' : 'ok'}">${left ? fmt(left) : '✓'}</td></tr>`;
+          if(left) html += `<tr><td colspan="4" style="color:var(--faint);font-size:12px;padding-left:16px">${potionText(res.potionPlan)}</td></tr>`;
+        }
+        if(need.wexp){
+          for(const it of [...GAME.wpnExpItems].reverse()) html += invRow(it.id, '—');
+          const left = res.rem.wexp || 0;
+          html += `<tr><td><span class="dot" style="color:var(--vio)"></span>Weapon EXP</td>` +
+            `<td class="qty">${fmt(need.wexp)}</td><td class="inv" style="color:var(--faint);padding-right:8px">${fmt(res.invWexp)}</td>` +
+            `<td class="qty ${left ? 'short' : 'ok'}">${left ? fmt(left) : '✓'}</td></tr>`;
+          if(left) html += `<tr><td colspan="4" style="color:var(--faint);font-size:12px;padding-left:16px">${coreText(res.corePlan)}</td></tr>`;
+        }
         continue;
       }
       const ids = sortMatIds(Object.keys(need)).filter(id => id !== 'exp' && MATS[id].cat === cat);
@@ -900,10 +1053,12 @@ function renderSummary(){
   let html = '<div class="gmeta" style="margin-bottom:8px">Inventory is spent top-down in queue order — this is what the top unmet goal still needs.</div>';
   let expanded = false;
   walk.forEach((w, i) => {
-    const ch = GAME.characters[w.goal.char];
+    const isWpn = w.goal.weapon !== undefined;
+    const ch = isWpn ? GAME.weapons[w.goal.weapon] : GAME.characters[w.goal.char];
+    const bg = isWpn ? `var(--r${ch.rarity})` : ch.elColor;
     const missN = Object.keys(w.rem).length;
     html += `<div class="goalstat"><span class="prio">P${i+1}</span>` +
-      `<span class="avatar" style="background:${ch.elColor};width:24px;height:24px;font-size:10px;border-radius:6px">${ch.mono}${icoImg(ch.name, 'char', 'avatar-img')}</span>` +
+      `<span class="avatar" style="background:${bg};width:24px;height:24px;font-size:10px;border-radius:6px">${ch.mono}${icoImg(ch.name, isWpn ? 'weapon' : 'char', 'avatar-img')}</span>` +
       `<strong>${esc(ch.name)}</strong><span class="gmeta">→ ${ORD_LABEL(w.goal.tgt.ord)}</span>` +
       `<span class="st ${w.ready ? 'ready' : 'miss'}">${w.ready ? 'READY' : 'MISSING ' + missN}</span></div>`;
     if(!w.ready && !expanded){
@@ -947,8 +1102,8 @@ function renderFooter(){
     '<span class="pill">cost tables · v3.4 game config</span>' +
     '<span class="pill">Suisui · 3.5 beta data</span>' +
     `<span class="pill">${storageOK ? 'autosaves · this browser' : 'preview · no autosave'}</span><br>` +
-    'To add a new patch character, edit the <b>GAME.characters</b> block near the top of this file — ' +
-    'one small entry per character; the shared cost templates do the rest. Suisui’s material names follow ' +
+    'To add a new patch character or weapon, edit the <b>GAME.characters</b> / <b>GAME.weapons</b> blocks near ' +
+    'the top of this file — one small entry each; the shared cost templates do the rest. Suisui’s material names follow ' +
     '3.5 beta info and may shift at launch. Weekly-boss materials can’t be crafted, so plan those runs first. ' +
     '<b>Icons:</b> place an “images” folder (with characters/, materials/, weapons/ subfolders) next to this ' +
     'file, files named like <b>lf_howler_core_icon.png</b> — see the GAME.icons comment for the full convention; anything missing ' +

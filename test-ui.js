@@ -49,10 +49,13 @@ fire(d.querySelector('button[data-act="del"][data-g="2"]'), 'click'); // remove 
 ok('goal removed', d.querySelectorAll('.goal').length === 2);
 fire(d.querySelector('#btnAdd'), 'click');
 const addBtn = d.querySelector('#addMenu button[data-c="suisui"]');
-ok('add menu offers only Suisui', addBtn !== null && d.querySelectorAll('#addMenu button').length === 1);
+ok('add menu offers Suisui as the only remaining char',
+   addBtn !== null && d.querySelectorAll('#addMenu button[data-c]').length === 1);
+ok('add menu offers every seeded weapon',
+   d.querySelectorAll('#addMenu button[data-w]').length === w.eval('Object.keys(GAME.weapons).length'));
 fire(addBtn, 'click');
 ok('goal re-added at end', texts('.gname')[2].startsWith('Suisui'));
-ok('add button disabled when roster exhausted', d.querySelector('#btnAdd').disabled === true);
+ok('add button stays enabled (weapons are repeatable)', d.querySelector('#btnAdd').disabled === false);
 
 // ── Remaining tab: inventory + synthesis ──
 fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Remaining'), 'click');
@@ -234,6 +237,72 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok('v2 migration: inherent ordering repaired', v2.saved.cur.inh1 === 1 && v2.saved.cur.inh2 === 1);
   ok('migrated grid renders repaired states',
      [...v2.doc.querySelectorAll('.ftree .node[data-r="0"]')].filter(n => n.classList.contains('own')).length === 2);
+}
+
+// ── weapon goals ──
+{
+  // add via the weapons section of the menu (queue is Pho,Sui,Jin at this point)
+  fire(d.querySelector('#btnAdd'), 'click');
+  ok('menu lists all 8 seeded weapons', d.querySelectorAll('#addMenu button[data-w]').length === 8);
+  fire(d.querySelector('#addMenu button[data-w="agesOfHarvest"]'), 'click');
+  ok('weapon goal appended', texts('.gname')[3] === 'Ages of Harvest');
+  const card = d.querySelector('.goal[data-g="3"]');
+  ok('weapon card: level-only controls, no forte tree',
+     card.querySelector('.ftree') === null && card.querySelectorAll('select').length === 2);
+  ok('weapon meta shows rarity/type', card.textContent.includes('5★ Broadblade weapon'));
+  ok('weapon avatar resolves in images/weapons/',
+     card.querySelector('.avatar img.__ico').getAttribute('src') === 'images/weapons/ages_of_harvest_icon.png');
+
+  // cur > tgt clamping works on weapon cards too
+  const curSel = d.querySelector('select[data-g="3"][data-side="cur"][data-f="ord"]');
+  curSel.value = '13'; fire(curSel, 'change');
+  ok('weapon target clamped up to current',
+     d.querySelector('select[data-g="3"][data-side="tgt"][data-f="ord"]').value === '13');
+  const curSel2 = d.querySelector('select[data-g="3"][data-side="cur"][data-f="ord"]');
+  curSel2.value = '0'; fire(curSel2, 'change');       // back to a full Lv1→90 plan
+
+  // duplicates are allowed (multiple copies of the same weapon)
+  fire(d.querySelector('#btnAdd'), 'click');
+  fire(d.querySelector('#addMenu button[data-w="agesOfHarvest"]'), 'click');
+  ok('duplicate weapon goal allowed', texts('.gname').filter(t => t === 'Ages of Harvest').length === 2);
+  fire(d.querySelector('button[data-act="del"][data-g="4"]'), 'click');
+
+  // beta badge rides on beta weapons
+  fire(d.querySelector('#btnAdd'), 'click');
+  fire(d.querySelector('#addMenu button[data-w="firstlightsHerald"]'), 'click');
+  ok('beta weapon carries the badge', d.querySelector('.goal[data-g="4"] .badge') !== null);
+  fire(d.querySelector('button[data-act="del"][data-g="4"]'), 'click');
+
+  // Remaining tab: Weapon EXP pool with energy-core inputs, separate from potions
+  fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Remaining'), 'click');
+  const sumEl = () => d.querySelector('#summary');
+  ok('weapon EXP row present', sumEl().textContent.includes('Weapon EXP') && sumEl().textContent.includes('2,692,400'));
+  const coreRow = [...d.querySelectorAll('#summary table.mats tr')].find(r => r.textContent.includes('Premium Energy Core'));
+  ok('energy core inventory input present', coreRow && coreRow.querySelector('.invIn') !== null);
+  const coreIn = coreRow.querySelector('.invIn');
+  coreIn.value = '100'; fire(coreIn, 'change');       // 100×20k = 2,000,000 wexp
+  ok('core pool counts toward weapon EXP only', sumEl().textContent.includes('692,400'));
+
+  // Farm next walks weapon goals too
+  fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Farm next'), 'click');
+  ok('walk lists char + weapon goals', d.querySelectorAll('#summary .goalstat').length === 4);
+  ok('weapon row in walk shows its name', sumEl().textContent.includes('Ages of Harvest'));
+
+  // persistence round-trip includes the weapon goal
+  const savedW = JSON.parse(w.localStorage.getItem('wuwa-planner-v1'));
+  ok('weapon goal persisted', savedW.goals.some(g => g.weapon === 'agesOfHarvest') && savedW.inv.wexp4 === 100);
+
+  // sanitize: unknown weapon dropped, ords clamped, tgt ≥ cur
+  const domW = new JSDOM(html, {runScripts:'outside-only', url:'https://localhost/'});
+  domW.window.localStorage.setItem('wuwa-planner-v1',
+    '{"goals":[{"weapon":"nope"},{"weapon":"stonard","cur":{"ord":99},"tgt":{"ord":-2}},{"weapon":"stonard"}],"inv":{"wexp2":3.9}}');
+  domW.window.eval([...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).join('\n;\n'));
+  const dW = domW.window.document;
+  ok('corrupt save: unknown weapon dropped, dup copies kept', dW.querySelectorAll('.goal').length === 2);
+  ok('corrupt save: weapon ords clamped, tgt ≥ cur',
+     dW.querySelector('.gmeta').textContent.includes('Lv 90 → Lv 90'));
+  ok('corrupt save: core inventory floored',
+     JSON.parse(domW.window.localStorage.getItem('wuwa-planner-v1')).inv.wexp2 === 3);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

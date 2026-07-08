@@ -83,10 +83,12 @@ and her entry. She carries a BETA badge in the UI; remove it when confirmed.
 ## Icons
 
 No images are embedded. Icons resolve from a local folder by convention:
-`GAME.icons` = `{dir:'icons/', exts:['png','webp','jpg'], overrides:{}}`.
-Slug rule: lowercase display name, drop apostrophes, non-alphanumeric runs →
-`_`, suffix `_icon` (e.g. "Loong's Pearl" → `loongs_pearl_icon.png`,
-character "Jinhsi" → `jinhsi_icon.png`). Extensions are tried in order via
+`GAME.icons` = `{dir:'images/', kinds:{char:'characters/', mat:'materials/',
+weapon:'weapons/'}, exts:['png','webp','jpg'], overrides:{}}` — kind subfolder
+is picked by what the icon is for. Slug rule: lowercase display name, drop
+apostrophes, non-alphanumeric runs → `_`, suffix `_icon` (e.g. "Loong's
+Pearl" → `images/materials/loongs_pearl_icon.png`, character "Jinhsi" →
+`images/characters/jinhsi_icon.png`). Extensions are tried in order via
 error-listener chaining (`bindIcons`/`icoFail`); final fallback is the
 built-in rarity dot / element monogram, so missing files must never break
 layout. `overrides` maps display name → base filename (no extension).

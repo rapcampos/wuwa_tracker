@@ -1,0 +1,11 @@
+# Normalize all text files to LF in the repo and on checkout.
+# This project is edited from both Windows and WSL; without this,
+# every file flips to CRLF and buries real changes in phantom diffs.
+* text=auto eol=lf
+
+# Binary assets — never touch line endings.
+*.png binary
+*.webp binary
+*.jpg binary
+*.jpeg binary
+*.ico binary

@@ -12,11 +12,19 @@ const ok = (label, cond) => { (cond ? pass++ : fail++); console.log((cond ? 'PAS
 const fire = (el, type) => el.dispatchEvent(new w.Event(type, {bubbles:true}));
 const texts = sel => [...d.querySelectorAll(sel)].map(e => e.textContent);
 
-// ── initial render ──
+// ── initial render: summary left, read-only status cards right ──
 ok('3 goal cards rendered', d.querySelectorAll('.goal').length === 3);
 ok('priority order J/P/S', texts('.gname').join(',').startsWith('Jinhsi,Phoebe,Suisui'));
 ok('Suisui has beta badge', d.querySelectorAll('.badge').length === 1);
-ok('first card open, others collapsed', d.querySelectorAll('.goal-body').length === 1);
+ok('summary aside precedes goals section', d.querySelector('.cols > aside:first-child + section') !== null);
+ok('cards are read-only (no selects, no node buttons)',
+   d.querySelectorAll('#goals select, #goals button.node').length === 0);
+ok('every card always shows its materials', d.querySelectorAll('#goals .goal .goal-mats table.mats').length === 3);
+ok('mini trees with skill levels on all char cards',
+   d.querySelectorAll('#goals .mini').length === 3 &&
+   d.querySelectorAll('#goals .mini .node').length === 30 &&
+   [...d.querySelectorAll('#goals .mini .sk')].every(s => s.textContent === '1→10'));
+ok('breakdown accordion gone', d.querySelector('details.brk') === null);
 ok('summary shows totals table', d.querySelector('#summary table.mats') !== null);
 ok('storage detected (jsdom has localStorage)', /Autosaves/.test(d.querySelector('#storageNote').textContent));
 
@@ -27,17 +35,30 @@ ok("shared weekly (Sentinel's Dagger) merged to 52",
    sumTxt.includes("Sentinel's Dagger") && sumTxt.includes('52'));
 ok('total EXP 3× full build', sumTxt.includes('7,314,000'));
 
-// ── change a select: Jinhsi current level 1 → 50✦ (ord 6) ──
-const lvlSel = d.querySelector('select[data-g="0"][data-side="cur"][data-f="ord"]');
+// ── edit pop-up: Jinhsi current level 1 → 50✦ (ord 6), live apply ──
+const modal = () => d.querySelector('#modalWrap');
+const mbox = () => d.querySelector('#modalBox');
+ok('pop-up hidden at boot', modal().hidden === true);
+fire(d.querySelector('button[data-act="edit"][data-g="0"]'), 'click');
+ok('✎ opens the edit pop-up', modal().hidden === false && mbox().textContent.includes('Jinhsi'));
+const matsBefore = d.querySelector('.goal[data-g="0"] .goal-mats').textContent;
+const lvlSel = mbox().querySelector('select[data-g="0"][data-side="cur"][data-f="ord"]');
 lvlSel.value = '6'; fire(lvlSel, 'change');
-ok('meta line reflects new current level', d.querySelector('.gmeta').textContent.includes('Lv 50 ✦ → Lv 90'));
+ok('live apply: card meta updates while pop-up stays open',
+   modal().hidden === false && d.querySelector('#goals .gmeta').textContent.includes('Lv 50 ✦ → Lv 90'));
+ok('live apply: card materials re-render', d.querySelector('.goal[data-g="0"] .goal-mats').textContent !== matsBefore);
 ok('totals shrink after raising current', !d.querySelector('#summary').textContent.includes('9,159,900'));
 
 // cur > tgt clamping: set current skill above target, target must follow
-const s0cur = d.querySelector('select[data-g="0"][data-side="cur"][data-f="s0"]');
+const s0cur = mbox().querySelector('select[data-g="0"][data-side="cur"][data-f="s0"]');
 s0cur.value = '10'; fire(s0cur, 'change');
-const s0tgt = d.querySelector('select[data-g="0"][data-side="tgt"][data-f="s0"]');
-ok('target skill clamped up to current', s0tgt.value === '10');
+ok('target skill clamped up to current',
+   mbox().querySelector('select[data-g="0"][data-side="tgt"][data-f="s0"]').value === '10');
+ok('card mini tree shows clamped skill', d.querySelector('.goal[data-g="0"] .mini .sk').textContent === '10→10');
+
+// Esc closes (listener is on document)
+d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
+ok('Esc closes the pop-up', modal().hidden === true);
 
 // ── reorder: move Phoebe (index 1) up ──
 fire(d.querySelector('button[data-act="up"][data-g="1"]'), 'click');
@@ -117,7 +138,7 @@ dom4.window.eval([...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[
 const d4 = dom4.window.document;
 ok('corrupt save: unknown char dropped, valid char kept', d4.querySelectorAll('.goal').length === 1);
 ok('corrupt save: ords clamped, tgt ≥ cur',
-   d4.querySelector('.gmeta').textContent.includes('Lv 90 → Lv 90'));
+   d4.querySelector('#goals .gmeta').textContent.includes('Lv 90 → Lv 90'));
 const inv4 = JSON.parse(dom4.window.localStorage.getItem('wuwa-planner-v1') || '{}').inv || {};
 ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4) && inv4.credits === 12);
 
@@ -166,20 +187,22 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok('drag order persisted', JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).goals.map(g => g.char).join(',') === 'phoebe,suisui,jinhsi');
 }
 
-// ── forte node tree (2×5 matrix with column dependencies) ──
+// ── forte node grid in the pop-up (2×5 matrix with column dependencies) ──
 {
-  const tree = d.querySelector('.goal[data-g="1"] .ftree');
-  ok('tree rendered: 5 columns × 2 nodes + connectors', tree &&
+  fire(d.querySelector('button[data-act="edit"][data-g="1"]'), 'click');
+  const tree = mbox().querySelector('.ftree');
+  ok('pop-up game view: 5 columns × (2 nodes + 2 skill selects)', tree &&
      tree.querySelectorAll('.node').length === 10 &&
      tree.querySelectorAll('.fcol').length === 5 &&
-     tree.querySelectorAll('.link').length === 5);
+     tree.querySelectorAll('.link').length === 5 &&
+     tree.querySelectorAll('select').length === 10);
   ok('tree shape: 4 minors, 4 majors, 2 inherents',
      tree.querySelectorAll('.node.minor').length === 4 &&
      tree.querySelectorAll('.node.major').length === 4 &&
      tree.querySelectorAll('.node.inh').length === 2);
   ok('fresh→maxed default shows all planned', [...tree.querySelectorAll('.node')].every(n => n.classList.contains('plan')));
 
-  const cell = (r, c) => d.querySelector(`.goal[data-g="1"] .node[data-r="${r}"][data-c="${c}"]`);
+  const cell = (r, c) => mbox().querySelector(`.node[data-r="${r}"][data-c="${c}"]`);
   const saved = () => JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).goals[1];
 
   // cascade down: owning a top node pulls its bottom node to owned
@@ -208,10 +231,20 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok('skipping Ⅰ clears Ⅱ', g1.nodes[0][2] === 0 && g1.nodes[1][2] === 0 && g1.tgt.inh2 === 0);
 
   // connector reflects the pair's state (colored by the upper node)
-  const links = [...d.querySelectorAll('.goal[data-g="1"] .link')];
+  const links = [...mbox().querySelectorAll('.link')];
   ok('column connector colored by top state',
      !links[0].classList.contains('plan') && !links[0].classList.contains('own') /* col0 skipped */ &&
      links[1].classList.contains('plan') /* col1: bottom owned, top planned */);
+
+  // the read-only card mini tree mirrors the pop-up edits live
+  // state now: col0 skipped(2), col1 bottom own + top plan, col2 skipped(2), cols 3-4 planned(4)
+  ok('card mini tree mirrors pop-up edits',
+     d.querySelectorAll('.goal[data-g="1"] .mini .node.own').length === 1 &&
+     d.querySelectorAll('.goal[data-g="1"] .mini .node.plan').length === 5);
+
+  // backdrop click closes
+  fire(d.querySelector('#modalWrap'), 'click');
+  ok('backdrop click closes the pop-up', d.querySelector('#modalWrap').hidden === true);
 }
 
 // ── save migrations → matrix ──
@@ -235,8 +268,10 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok('v2 migration: violations repaired by raising lower cells',
      JSON.stringify(v2.saved.nodes) === JSON.stringify([[2,1,2,0,0],[2,0,2,0,0]]));
   ok('v2 migration: inherent ordering repaired', v2.saved.cur.inh1 === 1 && v2.saved.cur.inh2 === 1);
+  // repaired v2 state [[2,1,2,0,0],[2,0,2,0,0]] → 4 owned + 1 planned on the card mini tree
   ok('migrated grid renders repaired states',
-     [...v2.doc.querySelectorAll('.ftree .node[data-r="0"]')].filter(n => n.classList.contains('own')).length === 2);
+     v2.doc.querySelectorAll('.mini .node.own').length === 4 &&
+     v2.doc.querySelectorAll('.mini .node.plan').length === 1);
 }
 
 // ── weapon goals ──
@@ -247,25 +282,35 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   fire(d.querySelector('#addMenu button[data-w="agesOfHarvest"]'), 'click');
   ok('weapon goal appended', texts('.gname')[3] === 'Ages of Harvest');
   const card = d.querySelector('.goal[data-g="3"]');
-  ok('weapon card: level-only controls, no forte tree',
-     card.querySelector('.ftree') === null && card.querySelectorAll('select').length === 2);
+  ok('weapon card: read-only, no mini tree (level lives in the meta line)',
+     card.querySelector('.mini') === null && card.querySelectorAll('select').length === 0);
+  ok('weapon card shows its materials', card.querySelector('.goal-mats table.mats') !== null);
   ok('weapon meta shows rarity/type', card.textContent.includes('5★ Broadblade weapon'));
   ok('weapon avatar resolves in images/weapons/',
      card.querySelector('.avatar img.__ico').getAttribute('src') === 'images/weapons/ages_of_harvest_icon.png');
 
-  // cur > tgt clamping works on weapon cards too
-  const curSel = d.querySelector('select[data-g="3"][data-side="cur"][data-f="ord"]');
+  // weapon pop-up: level row only; cur > tgt clamping still applies
+  fire(d.querySelector('button[data-act="edit"][data-g="3"]'), 'click');
+  ok('weapon pop-up: 2 level selects, no forte grid',
+     mbox().querySelectorAll('select').length === 2 && mbox().querySelectorAll('.node').length === 0);
+  const curSel = mbox().querySelector('select[data-side="cur"][data-f="ord"]');
   curSel.value = '13'; fire(curSel, 'change');
   ok('weapon target clamped up to current',
-     d.querySelector('select[data-g="3"][data-side="tgt"][data-f="ord"]').value === '13');
-  const curSel2 = d.querySelector('select[data-g="3"][data-side="cur"][data-f="ord"]');
+     mbox().querySelector('select[data-side="tgt"][data-f="ord"]').value === '13');
+  ok('met target shows empty-mats note on the card',
+     d.querySelector('.goal[data-g="3"]').textContent.includes('Nothing needed'));
+  const curSel2 = mbox().querySelector('select[data-side="cur"][data-f="ord"]');
   curSel2.value = '0'; fire(curSel2, 'change');       // back to a full Lv1→90 plan
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
 
   // duplicates are allowed (multiple copies of the same weapon)
   fire(d.querySelector('#btnAdd'), 'click');
   fire(d.querySelector('#addMenu button[data-w="agesOfHarvest"]'), 'click');
   ok('duplicate weapon goal allowed', texts('.gname').filter(t => t === 'Ages of Harvest').length === 2);
+  // deleting the goal being edited closes the pop-up
+  fire(d.querySelector('button[data-act="edit"][data-g="4"]'), 'click');
   fire(d.querySelector('button[data-act="del"][data-g="4"]'), 'click');
+  ok('deleting the edited goal closes the pop-up', d.querySelector('#modalWrap').hidden === true);
 
   // beta badge rides on beta weapons
   fire(d.querySelector('#btnAdd'), 'click');
@@ -300,7 +345,7 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   const dW = domW.window.document;
   ok('corrupt save: unknown weapon dropped, dup copies kept', dW.querySelectorAll('.goal').length === 2);
   ok('corrupt save: weapon ords clamped, tgt ≥ cur',
-     dW.querySelector('.gmeta').textContent.includes('Lv 90 → Lv 90'));
+     dW.querySelector('#goals .gmeta').textContent.includes('Lv 90 → Lv 90'));
   ok('corrupt save: core inventory floored',
      JSON.parse(domW.window.localStorage.getItem('wuwa-planner-v1')).inv.wexp2 === 3);
 }

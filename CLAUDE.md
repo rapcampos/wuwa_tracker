@@ -148,6 +148,18 @@ are no screenshot tests — be extra careful with CSS-only changes.
 - Aesthetic: dark "resonance" theme; CSS custom props in `:root`; fonts
   Chakra Petch (display) + IBM Plex Sans (body); rarity colors r2–r5;
   tabular numerals for quantities. Keep the waveform header motif.
+- **Layout:** sticky summary panel on the LEFT (5fr), priority queue on the
+  RIGHT (7fr) as a 2-per-row card grid (`#goals`, CSS auto-fill → 1 column
+  when narrow; at ≤940px the page stacks with goals first via `order`).
+- **Cards are read-only status views**: header + mini forte tree (`miniTree`,
+  span-based, no handlers) with per-column skill levels cur→tgt + an
+  always-visible materials list (`goalMats`). All editing happens in the ✎
+  pop-up (`#modalWrap`/`renderModal`): level row plus a game-view forte grid
+  where each skill column stacks its two nodes above its level selects.
+  Live apply — modal controls reuse `onField`/`onNode`, which save+render;
+  `render()` re-renders the open modal in place. `editIdx` is transient
+  (never persisted); Esc/backdrop/✕ close; deleting the edited goal closes.
+  `goal.open` still exists in saves but is legacy/unused.
 - Rendering is "state changes → full re-render" via `render()`; inventory
   edits re-render only the summary. Event handlers bind after each render;
   data attributes carry indices, never material ids (apostrophes in names).
@@ -169,10 +181,12 @@ are no screenshot tests — be extra careful with CSS-only changes.
    Herald" vs launch rename), drop both beta badges, add the missing icons
    (suisui, firstlights_herald, solidaritys_loneflame, flowborne_dream,
    skyward_glazed_heart, kernel I–IV).
-2. Backlog (user-approved ideas, unscheduled): day-of-week forgery hints,
-   waveplate-cost estimates, optional synthesis in Farm Next, "set current =
-   target" quick action, optional per-character stat labels on tree nodes
-   (declined for now — cosmetic), Echo XP/tuners as a separate section.
+2. Backlog (user-approved ideas, unscheduled): waveplate-cost estimates,
+   optional synthesis in Farm Next, "set current = target" quick action
+   (natural fit as a modal button), optional per-character stat labels on
+   tree nodes (declined for now — cosmetic), Echo XP/tuners as a separate
+   section. No farming-schedule/day-of-week features — WuWa domains are
+   always open (user-confirmed).
 
 ## Working agreements with this user
 

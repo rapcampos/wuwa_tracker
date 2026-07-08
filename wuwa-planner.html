@@ -25,7 +25,7 @@ body{
 }
 h1,h2,h3,.disp{font-family:'Chakra Petch',system-ui,sans-serif; letter-spacing:.02em}
 .num{font-variant-numeric:tabular-nums}
-.wrap{max-width:1180px; margin:0 auto; padding:20px 16px 80px}
+.wrap{max-width:1340px; margin:0 auto; padding:20px 16px 80px}
 
 /* ── header ─────────────────────────────── */
 header{margin-bottom:22px}
@@ -67,8 +67,8 @@ input[type=number]::-webkit-inner-spin-button{opacity:.5}
 label.chk{display:inline-flex; gap:6px; align-items:center; cursor:pointer; color:var(--mut); font-size:12.5px}
 
 /* ── layout ─────────────────────────────── */
-.cols{display:grid; grid-template-columns:minmax(0,7fr) minmax(0,5fr); gap:18px; align-items:start}
-@media(max-width:940px){.cols{grid-template-columns:1fr}}
+.cols{display:grid; grid-template-columns:minmax(0,5fr) minmax(0,7fr); gap:18px; align-items:start}
+@media(max-width:940px){.cols{grid-template-columns:1fr} .cols>section{order:-1}}
 .panel{background:var(--panel); border:1px solid var(--line); border-radius:12px}
 .panel-h{display:flex; align-items:baseline; gap:10px; padding:14px 16px 10px; border-bottom:1px solid var(--line)}
 .panel-h h2{font-size:15px; text-transform:uppercase; letter-spacing:.12em; color:var(--ink)}
@@ -77,8 +77,11 @@ label.chk{display:inline-flex; gap:6px; align-items:center; cursor:pointer; colo
 .sticky{position:sticky; top:14px}
 @media(max-width:940px){.sticky{position:static}}
 
-/* ── goal cards ─────────────────────────── */
-.goal{border:1px solid var(--line); border-radius:10px; background:var(--panel2); margin-bottom:12px; overflow:hidden}
+/* ── goal cards: 2-per-row grid of read-only status views ── */
+#goals{display:grid; grid-template-columns:repeat(auto-fill, minmax(min(330px,100%), 1fr)); gap:12px; align-items:start}
+#addMenu, #goals>.empty{grid-column:1/-1}
+.goal{border:1px solid var(--line); border-radius:10px; background:var(--panel2); overflow:hidden}
+.goal-mats{border-top:1px dashed var(--line); padding:4px 12px 10px}
 .goal.dragging{opacity:.45}
 .goal.drop-before{box-shadow:0 -2px 0 var(--cyan)}
 .goal.drop-after{box-shadow:0 2px 0 var(--cyan)}
@@ -100,13 +103,11 @@ label.chk{display:inline-flex; gap:6px; align-items:center; cursor:pointer; colo
 .badge{display:inline-block; font-size:10px; font-weight:700; letter-spacing:.08em; padding:1px 6px;
   border-radius:4px; border:1px solid var(--gold); color:var(--gold); vertical-align:1px; margin-left:6px}
 .gctrl{margin-left:auto; display:flex; gap:5px}
-.goal-body{border-top:1px solid var(--line); padding:12px}
 .grid-ct{display:grid; grid-template-columns:1fr auto auto auto; gap:6px 10px; align-items:center; max-width:430px}
 .grid-ct .lbl{color:var(--mut); font-size:12.5px}
 .grid-ct .arrow{color:var(--faint)}
 .sect{font-size:11px; text-transform:uppercase; letter-spacing:.16em; color:var(--faint); margin:12px 0 6px; grid-column:1/-1}
 .sect:first-child{margin-top:0}
-details.brk{margin-top:12px; border-top:1px dashed var(--line); padding-top:10px}
 /* ── forte node tree: 5 columns, top node depends on bottom node ── */
 .ftree{display:flex; gap:16px; margin:6px 0 2px; align-items:flex-end}
 .fcol{display:flex; flex-direction:column; align-items:center}
@@ -126,10 +127,34 @@ details.brk{margin-top:12px; border-top:1px dashed var(--line); padding-top:10px
 .lg{display:inline-block; width:10px; height:10px; border-radius:50%; border:1.5px solid var(--line2); vertical-align:-1px}
 .lg.plan{border-color:var(--cyan); box-shadow:0 0 5px rgba(95,217,228,.4)}
 .lg.own{background:var(--gold); border-color:var(--gold)}
-details.brk summary{cursor:pointer; color:var(--cyan); font-size:12.5px; font-family:'Chakra Petch'; font-weight:600; letter-spacing:.05em; list-style:none}
-details.brk summary::before{content:'▸ '}
-details.brk[open] summary::before{content:'▾ '}
 .empty{color:var(--faint); padding:22px 6px; text-align:center; font-size:13px}
+
+/* ── mini forte tree: read-only status glyph on cards ── */
+.mini{display:flex; gap:13px; padding:9px 12px 6px; align-items:flex-end}
+.mini .fcol{gap:0}
+.mini .node{width:12px; height:12px; cursor:default; font-size:0}
+.mini .node.major{width:13px; height:13px; border-radius:4px}
+.mini .node.inh{width:18px; height:18px; border-radius:5px; font-size:9px}
+.mini .link{height:7px; margin:2px 0}
+.mini .sk{font-size:10.5px; color:var(--mut); margin-top:5px; font-variant-numeric:tabular-nums; white-space:nowrap}
+.mini .sk b{color:var(--ink); font-weight:600}
+
+/* ── edit pop-up ────────────────────────── */
+#modalWrap{position:fixed; inset:0; z-index:40; background:rgba(6,9,16,.66);
+  display:grid; place-items:center; padding:16px}
+#modalWrap[hidden]{display:none}
+.modal{background:var(--panel); border:1px solid var(--line2); border-radius:12px;
+  width:min(600px,94vw); max-height:88vh; overflow:auto; padding:16px 18px;
+  box-shadow:0 18px 50px rgba(0,0,0,.55)}
+.modal-h{display:flex; align-items:center; gap:10px; margin-bottom:14px}
+.modal-h .gname{font-size:16px}
+.modal-h .close{margin-left:auto}
+.medit{display:flex; gap:14px; margin-top:16px; align-items:flex-end; flex-wrap:wrap}
+.medit .fcol{gap:2px}
+.medit select{width:60px; padding:3px 4px; font-size:12.5px; text-align:center}
+.medit .sklbl{font-size:10px; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--faint); margin:7px 0 3px; text-align:center}
+.medit .arrow-v{color:var(--faint); font-size:10px; line-height:1.4}
 
 /* ── material rows ──────────────────────── */
 table.mats{width:100%; border-collapse:collapse; margin-top:6px}
@@ -173,11 +198,6 @@ td.inv{width:96px; text-align:right}
 </header>
 
 <div class="cols">
-  <section class="panel">
-    <div class="panel-h"><h2>Priority queue</h2><span class="sub">top = farm first</span></div>
-    <div class="panel-b" id="goals"></div>
-  </section>
-
   <aside class="sticky">
     <section class="panel">
       <div class="tabs" id="tabs"></div>
@@ -185,6 +205,15 @@ td.inv{width:96px; text-align:right}
     </section>
     <div class="footer" id="footer"></div>
   </aside>
+
+  <section class="panel">
+    <div class="panel-h"><h2>Priority queue</h2><span class="sub">first = farm first · 2 per row</span></div>
+    <div class="panel-b" id="goals"></div>
+  </section>
+</div>
+
+<div id="modalWrap" hidden>
+  <div class="modal" id="modalBox" role="dialog" aria-modal="true" aria-label="Edit goal"></div>
 </div>
 </div>
 <script>
@@ -777,19 +806,32 @@ function nodeBtn(i, r, c, s, label){
   return `<button type="button" class="node ${kind} ${st}" data-g="${i}" data-r="${r}" data-c="${c}"` +
          ` title="${what} — ${how} (click to cycle)${dep}" aria-label="${what}: ${how}">${label || ''}</button>`;
 }
-function forteTree(g, i){
-  const m = g.nodes;
+
+/* read-only miniature of the forte tree, with each column's skill level
+   (cur→tgt) beneath it — mirrors the in-game forte screen. Cards are pure
+   status views; all editing happens in the pop-up. */
+function miniTree(g){
+  const st = v => v === 2 ? ' own' : v === 1 ? ' plan' : '';
   const cols = [0,1,2,3,4].map(c => {
-    const linkSt = m[1][c] === 2 ? 'own' : m[1][c] === 1 ? 'plan' : '';
+    const inh = c === INH_COL;
     return `<div class="fcol">` +
-      nodeBtn(i, 1, c, m[1][c], c === INH_COL ? 'Ⅱ' : '') +
-      `<span class="link${linkSt ? ' ' + linkSt : ''}"></span>` +
-      nodeBtn(i, 0, c, m[0][c], c === INH_COL ? 'Ⅰ' : '') +
+      `<span class="node ${inh ? 'inh' : 'major'}${st(g.nodes[1][c])}">${inh ? 'Ⅱ' : ''}</span>` +
+      `<span class="link${st(g.nodes[1][c])}"></span>` +
+      `<span class="node ${inh ? 'inh' : 'minor'}${st(g.nodes[0][c])}">${inh ? 'Ⅰ' : ''}</span>` +
+      `<span class="sk num" title="${esc(GAME.skillNames[c])}">${g.cur.skills[c]}→<b>${g.tgt.skills[c]}</b></span>` +
     `</div>`;
   }).join('');
-  return `<div class="ftree">${cols}</div>
-  <div class="ftree-legend">click a node: <span class="lg"></span> skip → <span class="lg plan"></span> planned → <span class="lg own"></span> owned · upper nodes need their lower node</div>`;
+  return `<div class="mini">${cols}</div>`;
 }
+
+const goalMats = g => `<div class="goal-mats"><table class="mats">${matRows(costForGoal(g)) ||
+  '<tr><td class="empty">Nothing needed — current already meets target.</td></tr>'}</table></div>`;
+
+const goalCtrls = (i) =>
+  `<button class="tiny" data-act="edit" data-g="${i}" title="Edit levels &amp; forte">✎</button>` +
+  `<button class="tiny" data-act="up" data-g="${i}" ${i === 0 ? 'disabled' : ''} title="Move up">▲</button>` +
+  `<button class="tiny" data-act="down" data-g="${i}" ${i === state.goals.length - 1 ? 'disabled' : ''} title="Move down">▼</button>` +
+  `<button class="tiny danger" data-act="del" data-g="${i}" title="Remove">✕</button>`;
 
 function goalCard(g, i){
   return g.weapon !== undefined ? wpnCard(g, i) : charCard(g, i);
@@ -797,17 +839,6 @@ function goalCard(g, i){
 
 function wpnCard(g, i){
   const w = GAME.weapons[g.weapon];
-  const last = state.goals.length - 1;
-  let body = '';
-  if(g.open){
-    body = `<div class="goal-body"><div class="grid-ct">
-      <div class="sect">Level</div>
-      ${ctrlRow('Level', i, 'ord', ordOpts, g)}
-    </div>
-    <details class="brk"><summary>Material breakdown</summary>
-      <table class="mats">${matRows(costForGoal(g)) || '<tr><td class="empty">Nothing needed — current already meets target.</td></tr>'}</table>
-    </details></div>`;
-  }
   return `<div class="goal" data-g="${i}">
     <div class="goal-top">
       <span class="grip" draggable="true" data-g="${i}" title="Drag to reorder">⠿</span>
@@ -815,32 +846,12 @@ function wpnCard(g, i){
       <span class="avatar" style="background:var(--r${w.rarity})">${w.mono}${icoImg(w.name, 'weapon', 'avatar-img')}</span>
       <div><div class="gname">${esc(w.name)}${w.beta ? '<span class="badge">3.5 BETA</span>' : ''}</div>
         <div class="gmeta">${w.rarity}★ ${w.wtype} weapon · ${ORD_LABEL(g.cur.ord)} → ${ORD_LABEL(g.tgt.ord)}</div></div>
-      <div class="gctrl">
-        <button class="tiny" data-act="up" data-g="${i}" ${i === 0 ? 'disabled' : ''} title="Move up">▲</button>
-        <button class="tiny" data-act="down" data-g="${i}" ${i === last ? 'disabled' : ''} title="Move down">▼</button>
-        <button class="tiny" data-act="fold" data-g="${i}" title="${g.open ? 'Collapse' : 'Expand'}">${g.open ? '▾' : '▸'}</button>
-        <button class="tiny danger" data-act="del" data-g="${i}" title="Remove">✕</button>
-      </div>
-    </div>${body}</div>`;
+      <div class="gctrl">${goalCtrls(i)}</div>
+    </div>${goalMats(g)}</div>`;
 }
 
 function charCard(g, i){
   const ch = GAME.characters[g.char];
-  const last = state.goals.length - 1;
-  let body = '';
-  if(g.open){
-    body = `<div class="goal-body"><div class="grid-ct">
-      <div class="sect">Level</div>
-      ${ctrlRow('Level', i, 'ord', ordOpts, g)}
-      <div class="sect">Forte skills</div>
-      ${GAME.skillNames.map((n,k) => ctrlRow(n, i, 's'+k, skOpts, g)).join('')}
-    </div>
-    <div class="sect" style="margin-top:14px">Passives &amp; stat nodes</div>
-    ${forteTree(g, i)}
-    <details class="brk"><summary>Material breakdown</summary>
-      <table class="mats">${matRows(costForGoal(g)) || '<tr><td class="empty">Nothing needed — current already meets target.</td></tr>'}</table>
-    </details></div>`;
-  }
   return `<div class="goal" data-g="${i}">
     <div class="goal-top">
       <span class="grip" draggable="true" data-g="${i}" title="Drag to reorder">⠿</span>
@@ -848,13 +859,8 @@ function charCard(g, i){
       <span class="avatar" style="background:${ch.elColor}">${ch.mono}${icoImg(ch.name, 'char', 'avatar-img')}</span>
       <div><div class="gname">${esc(ch.name)}${ch.beta ? '<span class="badge">3.5 BETA</span>' : ''}</div>
         <div class="gmeta">${ch.rarity}★ ${ch.element} · ${ch.wtype} · ${ORD_LABEL(g.cur.ord)} → ${ORD_LABEL(g.tgt.ord)}</div></div>
-      <div class="gctrl">
-        <button class="tiny" data-act="up" data-g="${i}" ${i === 0 ? 'disabled' : ''} title="Move up">▲</button>
-        <button class="tiny" data-act="down" data-g="${i}" ${i === last ? 'disabled' : ''} title="Move down">▼</button>
-        <button class="tiny" data-act="fold" data-g="${i}" title="${g.open ? 'Collapse' : 'Expand'}">${g.open ? '▾' : '▸'}</button>
-        <button class="tiny danger" data-act="del" data-g="${i}" title="Remove">✕</button>
-      </div>
-    </div>${body}</div>`;
+      <div class="gctrl">${goalCtrls(i)}</div>
+    </div>${miniTree(g)}${goalMats(g)}</div>`;
 }
 
 function renderGoals(){
@@ -863,8 +869,7 @@ function renderGoals(){
     ? state.goals.map(goalCard).join('')
     : '<div class="empty">No goals yet — use “+ Add goal” to queue a character.</div>';
   box.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', onAct));
-  box.querySelectorAll('select[data-f]').forEach(s => s.addEventListener('change', onField));
-  box.querySelectorAll('.node').forEach(b => b.addEventListener('click', onNode));
+  // cards are read-only status views — selects and node buttons live in the modal
   bindDnD(box);
   bindIcons(box);
   // weapons allow duplicate goals (multiple copies), so they never run out
@@ -932,8 +937,14 @@ function onAct(e){
   const i = +e.currentTarget.dataset.g, act = e.currentTarget.dataset.act;
   if(act === 'up')   return moveGoal(i, i - 1);
   if(act === 'down') return moveGoal(i, i + 2);
-  if(act === 'fold') state.goals[i].open = !state.goals[i].open;
-  if(act === 'del') state.goals.splice(i, 1);
+  if(act === 'edit'){ editIdx = i; render(); return; }
+  if(act === 'del'){
+    state.goals.splice(i, 1);
+    if(editIdx !== null){                     // keep the pop-up pointed at the same goal
+      if(editIdx === i) editIdx = null;
+      else if(editIdx > i) editIdx--;
+    }
+  }
   save(); render();
 }
 function onField(e){
@@ -952,7 +963,7 @@ $('#btnAdd').addEventListener('click', () => {
   if(old){ old.remove(); return; }
   const div = document.createElement('div');
   div.id = 'addMenu';
-  div.style.cssText = 'margin:0 0 12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center';
+  div.style.cssText = 'margin:0;display:flex;gap:8px;flex-wrap:wrap;align-items:center';  // grid gap spaces it
   const chars = availableChars().map(c =>
     `<button data-c="${c}">${icoImg(GAME.characters[c].name, 'char')}${esc(GAME.characters[c].name)}</button>`).join('');
   const wpns = Object.entries(GAME.weapons).map(([id, w]) =>
@@ -1071,6 +1082,55 @@ function renderSummary(){
   bindIcons(el);
 }
 
+/* ── edit pop-up ──
+   editIdx is transient UI state (never persisted). Live-apply: the modal's
+   selects and node buttons reuse onField/onNode, which save() + render();
+   render() re-renders the open modal in place. */
+let editIdx = null;
+function closeEdit(){ editIdx = null; renderModal(); }
+function renderModal(){
+  const wrap = $('#modalWrap');
+  if(editIdx === null || !state.goals[editIdx]){
+    editIdx = null; wrap.hidden = true;
+    $('#modalBox').innerHTML = '';          // stale content would ghost into global queries
+    return;
+  }
+  const g = state.goals[editIdx], i = editIdx;
+  const isW = g.weapon !== undefined;
+  const it = isW ? GAME.weapons[g.weapon] : GAME.characters[g.char];
+  let html = `<div class="modal-h">
+      <span class="avatar" style="background:${isW ? `var(--r${it.rarity})` : it.elColor}">${it.mono}${icoImg(it.name, isW ? 'weapon' : 'char', 'avatar-img')}</span>
+      <div><div class="gname">${esc(it.name)}</div>
+        <div class="gmeta">${isW ? it.rarity + '★ ' + it.wtype + ' weapon' : it.rarity + '★ ' + it.element + ' · ' + it.wtype}</div></div>
+      <button class="tiny close" data-close title="Close">✕</button>
+    </div>
+    <div class="grid-ct">${ctrlRow('Level', i, 'ord', ordOpts, g)}</div>`;
+  if(!isW){
+    // game-view forte layout: each skill column carries its two nodes above
+    // its level selects (current above target); column c ↔ skill c
+    const m = g.nodes, SHORT = ['Basic','Skill','Circuit','Lib','Intro'];
+    html += `<div class="ftree medit">` + [0,1,2,3,4].map(c => `<div class="fcol">` +
+        nodeBtn(i, 1, c, m[1][c], c === INH_COL ? 'Ⅱ' : '') +
+        `<span class="link${m[1][c] === 2 ? ' own' : m[1][c] === 1 ? ' plan' : ''}"></span>` +
+        nodeBtn(i, 0, c, m[0][c], c === INH_COL ? 'Ⅰ' : '') +
+        `<div class="sklbl" title="${esc(GAME.skillNames[c])}">${SHORT[c]}</div>` +
+        sel(i, 'cur', 's'+c, skOpts, g.cur.skills[c]) +
+        `<span class="arrow-v">↓</span>` +
+        sel(i, 'tgt', 's'+c, skOpts, g.tgt.skills[c]) +
+      `</div>`).join('') + `</div>
+      <div class="ftree-legend">click a node: <span class="lg"></span> skip → <span class="lg plan"></span> planned → <span class="lg own"></span> owned · upper nodes need their lower node · skill levels read current ↓ target</div>`;
+  }
+  const box = $('#modalBox');
+  box.innerHTML = html;
+  box.querySelectorAll('select[data-f]').forEach(s => s.addEventListener('change', onField));
+  box.querySelectorAll('.node').forEach(b => b.addEventListener('click', onNode));
+  box.querySelector('[data-close]').addEventListener('click', closeEdit);
+  bindIcons(box);
+  wrap.hidden = false;
+}
+$('#modalWrap').addEventListener('click', e => { if(e.target === e.currentTarget) closeEdit(); });
+document.addEventListener('keydown', e => { if(e.key === 'Escape' && editIdx !== null) closeEdit(); });
+
 /* ── toolbar: export / import / reset ── */
 $('#btnExport').addEventListener('click', () => {
   const blob = new Blob([JSON.stringify({v:1, ...state}, null, 2)], {type:'application/json'});
@@ -1107,9 +1167,10 @@ function renderFooter(){
     '3.5 beta info and may shift at launch. Weekly-boss materials can’t be crafted, so plan those runs first. ' +
     '<b>Icons:</b> place an “images” folder (with characters/, materials/, weapons/ subfolders) next to this ' +
     'file, files named like <b>lf_howler_core_icon.png</b> — see the GAME.icons comment for the full convention; anything missing ' +
-    'falls back to the colored markers. Drag the ⠿ grip to reorder goals (▲▼ still work, and are the way to go on touch screens).';
+    'falls back to the colored markers. Click ✎ on a card to edit levels, skills, and forte nodes in a pop-up; ' +
+    'cards themselves are read-only status views. Drag the ⠿ grip to reorder goals (▲▼ still work, and are the way to go on touch screens).';
 }
-function render(){ renderGoals(); renderSummary(); renderFooter(); }
+function render(){ renderGoals(); renderSummary(); renderFooter(); renderModal(); }
 render();
 if(storageOK){
   try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }catch(e){}  // normalize any old/corrupt save

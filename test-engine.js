@@ -8,7 +8,7 @@ const blocks = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]
 eval(blocks.join('\n;\n') + `
 ;Object.assign(globalThis, {GAME, MATS, MILES, ORD_LEVEL, ORD_LABEL, CATEGORY_ORDER,
   costForGoal, totalBag, freshState, maxedState, expToPotions, remainingBag, farmNextWalk, sortMatIds,
-  freshWpnState, maxedWpnState, wexpToCores, fmtShort});`);
+  freshWpnState, maxedWpnState, wexpToCores, fmtShort, priorityMatIds});`);
 
 let pass = 0, fail = 0;
 const canon = v => (v && typeof v === 'object' && !Array.isArray(v))
@@ -220,6 +220,16 @@ eq('energy cores registered', GAME.wpnExpItems.map(it => MATS[it.id].name),
    ['Basic Energy Core','Medium Energy Core','Advanced Energy Core','Premium Energy Core']);
 eq('weapon-only enemy family categorized', MATS.rings0.cat, 'Enemy Drops');
 eq('weapon-only enemy family categorized (exoswarm)', MATS.exoswarm3.cat, 'Enemy Drops');
+
+// ═══ 17b. PRIORITY-ORDERED AGGREGATE: P1's mats first, then P2's additions ═══
+{
+  const gP = {char:'phoebe', cur:{...freshState(), ord:0}, tgt:{...freshState(), ord:2}};  // credits, exp, whisperin0
+  const gS = {weapon:'stonard', cur:{ord:0}, tgt:{ord:2}};                                  // credits, wexp, howler0
+  eq('priority order: P1 block then P2 novelties',
+     priorityMatIds([gP, gS]), ['credits','exp','whisperin0','wexp','howler0']);
+  eq('priority order flips with the queue',
+     priorityMatIds([gS, gP]), ['credits','wexp','howler0','exp','whisperin0']);
+}
 
 // ═══ 18. COMPACT QUANTITIES (material tiles): 3 significant digits ═══
 eq('fmtShort exact under 10k', [fmtShort(46), fmtShort(999), fmtShort(9999)], ['46','999','9,999']);

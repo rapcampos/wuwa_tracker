@@ -42,6 +42,20 @@ ok('total EXP 3× full build with potion plan in tooltip',
 ok('tiles carry rarity grounds', d.querySelector('#summary .tile.r5') !== null &&
    d.querySelector('#summary .tile.r2') !== null && d.querySelector('#goals .tile.r4') !== null);
 
+// totals are ordered by queue priority: P1 Jinhsi's boss mat precedes P2 Phoebe's precedes P3 Suisui's
+{
+  const titles = [...d.querySelectorAll('#summary .tile')].map(t => t.getAttribute('title'));
+  const at = s => titles.findIndex(t => t.startsWith(s));
+  ok('totals ordered by priority queue',
+     at('Shell Credit') === 0 && at('Elegy Tacet Core') > -1 &&
+     at('Elegy Tacet Core') < at('Cleansing Conch') && at('Cleansing Conch') < at("Solidarity's Loneflame"));
+}
+
+// element accent: cards expose --acc (element for chars, steel for weapons)
+ok('char cards carry their element accent',
+   (d.querySelector('.goal[data-g="0"]').getAttribute('style') || '').includes('--acc:var(--spectro)') &&
+   (d.querySelector('.goal[data-g="2"]').getAttribute('style') || '').includes('--acc:var(--glacio)'));
+
 // ── edit pop-up: Jinhsi current level 1 → 50✦ (ord 6), live apply ──
 const modal = () => d.querySelector('#modalWrap');
 const mbox = () => d.querySelector('#modalBox');
@@ -292,6 +306,7 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok('weapon card: read-only, no mini tree (level lives in the meta line)',
      card.querySelector('.mini') === null && card.querySelectorAll('select').length === 0);
   ok('weapon card shows its materials as tiles', card.querySelector('.goal-mats .tiles') !== null);
+  ok('weapon card carries the weapon accent', (card.getAttribute('style') || '').includes('--acc:var(--weapon)'));
   ok('weapon meta shows rarity/type', card.textContent.includes('5★ Broadblade weapon'));
   ok('weapon avatar resolves in images/weapons/',
      card.querySelector('.avatar img.__ico').getAttribute('src') === 'images/weapons/ages_of_harvest_icon.png');

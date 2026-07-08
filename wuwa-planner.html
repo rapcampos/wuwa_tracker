@@ -12,7 +12,8 @@
   --ink:#E9EDF6; --mut:#8A93AB; --faint:#5A6379;
   --gold:#E5B566; --cyan:#5FD9E4; --vio:#A78BFA; --green:#7BD88F; --red:#E5737B;
   --r2:#69B876; --r3:#5CA8DE; --r4:#A67FE0; --r5:#E5B566;
-  --spectro:#F0DB6B; --glacio:#7FD8F0;
+  --spectro:#F0DB6B; --glacio:#7FD8F0; --fusion:#F2836B; --electro:#B980F0;
+  --aero:#5BE0AE; --havoc:#E86BA8; --weapon:#9DB4D0;
 }
 *{box-sizing:border-box; margin:0; padding:0}
 html{scrollbar-color:var(--line2) var(--bg)}
@@ -88,7 +89,7 @@ label.chk{display:inline-flex; gap:6px; align-items:center; cursor:pointer; colo
 .grip{cursor:grab; color:var(--faint); font-size:15px; padding:2px 3px; user-select:none; touch-action:none}
 .grip:active{cursor:grabbing}
 .goal-top{display:flex; align-items:center; gap:12px; padding:10px 12px}
-.prio{font-family:'Chakra Petch'; font-weight:700; font-size:12px; color:var(--cyan); width:26px; text-align:center}
+.prio{font-family:'Chakra Petch'; font-weight:700; font-size:12px; color:var(--acc,var(--cyan)); width:26px; text-align:center}
 .avatar{width:40px; height:40px; border-radius:9px; display:grid; place-items:center;
   font-family:'Chakra Petch'; font-weight:700; font-size:15px; color:#0A0E16; flex:none;
   box-shadow:0 0 0 1px rgba(255,255,255,.12) inset; position:relative; overflow:hidden}
@@ -112,7 +113,7 @@ label.chk{display:inline-flex; gap:6px; align-items:center; cursor:pointer; colo
 .ftree{display:flex; gap:16px; margin:6px 0 2px; align-items:flex-end}
 .fcol{display:flex; flex-direction:column; align-items:center}
 .link{width:2px; height:12px; background:var(--line2); margin:3px 0}
-.link.plan{background:var(--cyan); box-shadow:0 0 5px rgba(95,217,228,.4)}
+.link.plan{background:var(--acc,var(--cyan)); box-shadow:0 0 5px color-mix(in srgb, var(--acc,var(--cyan)) 42%, transparent)}
 .link.own{background:var(--gold); box-shadow:0 0 5px rgba(229,181,102,.45)}
 .node{width:26px; height:26px; padding:0; border-radius:50%; border:1.5px solid var(--line2);
   background:transparent; cursor:pointer; color:var(--mut);
@@ -121,7 +122,8 @@ label.chk{display:inline-flex; gap:6px; align-items:center; cursor:pointer; colo
 .node.major{width:30px; height:30px; border-radius:8px; transform:rotate(45deg)}
 .node.inh{width:38px; height:38px; border-radius:10px}
 .node.none:hover{border-color:var(--mut)}
-.node.plan{border-color:var(--cyan); color:var(--cyan); box-shadow:0 0 8px rgba(95,217,228,.35)}
+.node.plan{border-color:var(--acc,var(--cyan)); color:var(--acc,var(--cyan));
+  box-shadow:0 0 8px color-mix(in srgb, var(--acc,var(--cyan)) 38%, transparent)}
 .node.own{background:var(--gold); border-color:var(--gold); color:#0A0E16; box-shadow:0 0 8px rgba(229,181,102,.45)}
 .ftree-legend{font-size:11.5px; color:var(--faint); margin:8px 0 2px}
 .lg{display:inline-block; width:10px; height:10px; border-radius:50%; border:1.5px solid var(--line2); vertical-align:-1px}
@@ -130,7 +132,7 @@ label.chk{display:inline-flex; gap:6px; align-items:center; cursor:pointer; colo
 .empty{color:var(--faint); padding:22px 6px; text-align:center; font-size:13px}
 
 /* ── mini forte tree: read-only status glyph on cards ── */
-.mini{display:flex; gap:13px; padding:9px 12px 6px; align-items:flex-end}
+.mini{display:flex; gap:13px; padding:9px 12px 6px; align-items:flex-end; justify-content:center}
 .mini .fcol{gap:0}
 .mini .node{width:12px; height:12px; cursor:default; font-size:0}
 .mini .node.major{width:13px; height:13px; border-radius:4px}
@@ -595,6 +597,17 @@ function farmNextWalk(goals, inv){
   });
 }
 
+/* ── aggregate ordering: materials appear in the order the priority queue
+   first needs them — P1's mats (category-sorted) first, then whatever P2
+   adds that P1 didn't need, and so on ── */
+function priorityMatIds(goals){
+  const seen = new Set(), out = [];
+  for(const g of goals)
+    for(const id of sortMatIds(Object.keys(costForGoal(g))))
+      if(!seen.has(id)){ seen.add(id); out.push(id); }
+  return out;
+}
+
 /* ── display helpers (pure) ── */
 const fmt = n => n.toLocaleString('en-US');
 /* compact form for material tiles: 2,438,000 → "2.44M", 505,200 → "505K";
@@ -792,8 +805,8 @@ function tileTip(id, qty){
   if(id === 'wexp'){ const p = coreText(wexpToCores(qty)); if(p) tip += ' · ' + p; }
   return tip;
 }
-function matTiles(bag){
-  const ids = sortMatIds(Object.keys(bag));
+function matTiles(bag, order){
+  const ids = order ? order.filter(id => id in bag) : sortMatIds(Object.keys(bag));
   if(!ids.length) return '';
   return `<div class="tiles">` + ids.map(id =>
     `<div class="tile r${MATS[id].r}" title="${esc(tileTip(id, bag[id]))}">` +
@@ -862,7 +875,7 @@ function goalCard(g, i){
 
 function wpnCard(g, i){
   const w = GAME.weapons[g.weapon];
-  return `<div class="goal" data-g="${i}">
+  return `<div class="goal" data-g="${i}" style="--acc:var(--weapon)">
     <div class="goal-top">
       <span class="grip" draggable="true" data-g="${i}" title="Drag to reorder">⠿</span>
       <span class="prio">P${i+1}</span>
@@ -875,7 +888,7 @@ function wpnCard(g, i){
 
 function charCard(g, i){
   const ch = GAME.characters[g.char];
-  return `<div class="goal" data-g="${i}">
+  return `<div class="goal" data-g="${i}" style="--acc:${ch.elColor}">
     <div class="goal-top">
       <span class="grip" draggable="true" data-g="${i}" title="Drag to reorder">⠿</span>
       <span class="prio">P${i+1}</span>
@@ -1028,8 +1041,8 @@ function renderSummary(){
   const need = totalBag(state.goals);
 
   if(state.tab === 'total'){
-    el.innerHTML = `<div class="gmeta" style="margin-bottom:8px">Everything required for ${state.goals.length} goal${state.goals.length > 1 ? 's' : ''}, ignoring inventory. Hover a tile for the name &amp; exact amount.</div>` +
-      (matTiles(need) || '<div class="empty">All targets already met.</div>');
+    el.innerHTML = `<div class="gmeta" style="margin-bottom:8px">Everything required for ${state.goals.length} goal${state.goals.length > 1 ? 's' : ''}, ignoring inventory — ordered by queue priority. Hover a tile for the name &amp; exact amount.</div>` +
+      (matTiles(need, priorityMatIds(state.goals)) || '<div class="empty">All targets already met.</div>');
     bindIcons(el);
     return;
   }
@@ -1091,7 +1104,7 @@ function renderSummary(){
     const ch = isWpn ? GAME.weapons[w.goal.weapon] : GAME.characters[w.goal.char];
     const bg = isWpn ? `var(--r${ch.rarity})` : ch.elColor;
     const missN = Object.keys(w.rem).length;
-    html += `<div class="goalstat"><span class="prio">P${i+1}</span>` +
+    html += `<div class="goalstat" style="--acc:${isWpn ? 'var(--weapon)' : ch.elColor}"><span class="prio">P${i+1}</span>` +
       `<span class="avatar" style="background:${bg};width:24px;height:24px;font-size:10px;border-radius:6px">${ch.mono}${icoImg(ch.name, isWpn ? 'weapon' : 'char', 'avatar-img')}</span>` +
       `<strong>${esc(ch.name)}</strong><span class="gmeta">→ ${ORD_LABEL(w.goal.tgt.ord)}</span>` +
       `<span class="st ${w.ready ? 'ready' : 'miss'}">${w.ready ? 'READY' : 'MISSING ' + missN}</span></div>`;
@@ -1144,6 +1157,7 @@ function renderModal(){
       <div class="ftree-legend">click a node: <span class="lg"></span> skip → <span class="lg plan"></span> planned → <span class="lg own"></span> owned · upper nodes need their lower node · skill levels read current ↓ target</div>`;
   }
   const box = $('#modalBox');
+  box.style.setProperty('--acc', isW ? 'var(--weapon)' : it.elColor);
   box.innerHTML = html;
   box.querySelectorAll('select[data-f]').forEach(s => s.addEventListener('change', onField));
   box.querySelectorAll('.node').forEach(b => b.addEventListener('click', onNode));

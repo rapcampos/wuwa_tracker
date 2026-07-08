@@ -1,0 +1,95 @@
+- Shell Credits
+- Basic Resonance Potion
+- Advanced Resonance Potion
+- Premium Resonance Potion
+- Elegy Tacet Core
+- Rage Tacet Core
+- Thundering Tacet Core
+- Sound-Keeping Tacet Core
+- Uniting Tacet Core
+- Void Thunder Tacet Core
+- Group Abomination Tacet Core
+- Unison Tacet Core
+- Topological Confinement
+- Strife Tacet Core
+- Hidden Thunder Tacet Core
+- Mysterious Code
+- Belle Poppy
+- Pecok Flower
+- Iris
+- Lanternberry
+- Coriolus
+- Violet Coral
+- Wintry Bell
+- Terraspawn Fungus
+- Nova
+- Loong's Pearl
+- Pavo Plum
+- Firecracker Jewelweed
+- Arithmetic Shell
+- Corroborite
+- LF Whisperin Core
+- MF Whisperin Core
+- HF Whisperin Core
+- FF Whisperin Core
+- LF Howler Core
+- MF Howler Core
+- HF Howler Core
+- FF Howler Core
+- Crude Ring
+- Basic Ring
+- Improved Ring
+- Polished Ring
+- LF Tidal Residuum
+- MF Tidal Residuum
+- HF Tidal Residuum
+- FF Tidal Residuum
+- Intact Exoswarm Pendant
+- Chipped Exoswarm Pendant
+- Worn Exoswarm Pendant
+- Fractured Exoswarm Pendant
+- LF Polygon Core
+- MF Polygon Core
+- HF Polygon Core
+- FF Polygon Core
+- LF Mech Core
+- MF Mech Core
+- HF Mech Core
+- FF Mech Core
+- LF Carved Crystal
+- MF Carved Crystal
+- HF Carved Crystal
+- FF Carved Crystal
+- LF Waveworn Shard
+- MF Waveworn Shard
+- HF Waveworn Shard
+- FF Waveworn Shard
+- Lento Helix
+- Adagio Helix
+- Andante Helix
+- Presto Helix
+- Cadence Seed
+- Cadence Bud
+- Cadence Leaf
+- Cadence Blossom
+- Waveworn Residue 210
+- Waveworn Residue 226
+- Waveworn Residue 235
+- Waveworn Residue 239
+- Impure Phlogiston
+- Extracted Phlogiston
+- Refined Phlogiston
+- Flawless Phlogiston
+- Crude Metallic Drip
+- Reactive Metallic Drip
+- Polarized Metallic Drip
+- Heterized Metallic Drip
+- Monument Bell
+- Unending Destruction
+- Dreamless Feather
+- Sentinel's Dagger
+- The Netherworld's Stare
+- When Irises Bloom
+- Topological Corrosion
+- Our Choice
+- Gold in Memory

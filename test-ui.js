@@ -19,21 +19,28 @@ ok('Suisui has beta badge', d.querySelectorAll('.badge').length === 1);
 ok('summary aside precedes goals section', d.querySelector('.cols > aside:first-child + section') !== null);
 ok('cards are read-only (no selects, no node buttons)',
    d.querySelectorAll('#goals select, #goals button.node').length === 0);
-ok('every card always shows its materials', d.querySelectorAll('#goals .goal .goal-mats table.mats').length === 3);
+ok('every card always shows its materials as tiles', d.querySelectorAll('#goals .goal .goal-mats .tiles').length === 3);
 ok('mini trees with skill levels on all char cards',
    d.querySelectorAll('#goals .mini').length === 3 &&
    d.querySelectorAll('#goals .mini .node').length === 30 &&
    [...d.querySelectorAll('#goals .mini .sk')].every(s => s.textContent === '1→10'));
 ok('breakdown accordion gone', d.querySelector('details.brk') === null);
-ok('summary shows totals table', d.querySelector('#summary table.mats') !== null);
+ok('summary shows totals as tile grid', d.querySelectorAll('#summary .tiles .tile').length > 10 &&
+   d.querySelector('#summary table.mats') === null);
 ok('storage detected (jsdom has localStorage)', /Autosaves/.test(d.querySelector('#storageNote').textContent));
 
-// grand total sanity: 3 full builds → credits row = 9,159,900; Sentinel's Dagger merged = 52
-const sumTxt = d.querySelector('#summary').textContent;
-ok('total credits 3× full build', sumTxt.includes('9,159,900'));
+// grand total sanity: 3 full builds → credits 9,159,900 (exact in hover title,
+// abbreviated on the tile); Sentinel's Dagger merged = 52; names only in titles
+const creditTile = d.querySelector('#summary .tile[title="Shell Credit — 9,159,900"]');
+ok('total credits 3× full build (exact in title, 9.16M on tile)',
+   creditTile !== null && creditTile.textContent.includes('9.16M') && !creditTile.textContent.includes('Shell Credit'));
 ok("shared weekly (Sentinel's Dagger) merged to 52",
-   sumTxt.includes("Sentinel's Dagger") && sumTxt.includes('52'));
-ok('total EXP 3× full build', sumTxt.includes('7,314,000'));
+   d.querySelector(`#summary .tile[title="Sentinel's Dagger — 52"]`) !== null);
+const expTile = [...d.querySelectorAll('#summary .tile')].find(t => t.title.startsWith('Resonator EXP'));
+ok('total EXP 3× full build with potion plan in tooltip',
+   expTile && expTile.title.includes('7,314,000') && expTile.title.includes('≈') && expTile.textContent.includes('7.31M'));
+ok('tiles carry rarity grounds', d.querySelector('#summary .tile.r5') !== null &&
+   d.querySelector('#summary .tile.r2') !== null && d.querySelector('#goals .tile.r4') !== null);
 
 // ── edit pop-up: Jinhsi current level 1 → 50✦ (ord 6), live apply ──
 const modal = () => d.querySelector('#modalWrap');
@@ -47,7 +54,7 @@ lvlSel.value = '6'; fire(lvlSel, 'change');
 ok('live apply: card meta updates while pop-up stays open',
    modal().hidden === false && d.querySelector('#goals .gmeta').textContent.includes('Lv 50 ✦ → Lv 90'));
 ok('live apply: card materials re-render', d.querySelector('.goal[data-g="0"] .goal-mats').textContent !== matsBefore);
-ok('totals shrink after raising current', !d.querySelector('#summary').textContent.includes('9,159,900'));
+ok('totals shrink after raising current', d.querySelector('#summary .tile[title*="9,159,900"]') === null);
 
 // cur > tgt clamping: set current skill above target, target must follow
 const s0cur = mbox().querySelector('select[data-g="0"][data-side="cur"][data-f="s0"]');
@@ -110,8 +117,8 @@ ok('synthesis toggle changes MF deficit', mfLeftOn.includes('✓') && !mfLeftOff
 // ── Farm next tab ──
 fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Farm next'), 'click');
 ok('walk lists all goals', d.querySelectorAll('#summary .goalstat').length === 3);
-ok('top unmet goal expanded with its missing mats',
-   d.querySelector('#summary table.mats') !== null &&
+ok('top unmet goal expanded with its missing mats as tiles',
+   d.querySelectorAll('#summary .tiles .tile').length > 0 &&
    d.querySelector('#summary .st.miss') !== null);
 
 // ── persistence round-trip ──
@@ -284,7 +291,7 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   const card = d.querySelector('.goal[data-g="3"]');
   ok('weapon card: read-only, no mini tree (level lives in the meta line)',
      card.querySelector('.mini') === null && card.querySelectorAll('select').length === 0);
-  ok('weapon card shows its materials', card.querySelector('.goal-mats table.mats') !== null);
+  ok('weapon card shows its materials as tiles', card.querySelector('.goal-mats .tiles') !== null);
   ok('weapon meta shows rarity/type', card.textContent.includes('5★ Broadblade weapon'));
   ok('weapon avatar resolves in images/weapons/',
      card.querySelector('.avatar img.__ico').getAttribute('src') === 'images/weapons/ages_of_harvest_icon.png');

@@ -156,6 +156,22 @@ label.chk{display:inline-flex; gap:6px; align-items:center; cursor:pointer; colo
   color:var(--faint); margin:7px 0 3px; text-align:center}
 .medit .arrow-v{color:var(--faint); font-size:10px; line-height:1.4}
 
+/* ── material tiles: icon on rarity-tinted ground, qty below, name on hover ── */
+.tiles{display:flex; flex-wrap:wrap; gap:6px; padding:2px 0}
+.tile{width:46px; border:1px solid var(--line2); border-radius:8px; background:var(--panel);
+  display:flex; flex-direction:column; align-items:center; overflow:hidden; cursor:default}
+.tile .ico-wrap{width:32px; height:32px; margin:5px 0 3px}
+.tile .ico-wrap img{width:30px; height:30px; border-radius:4px}
+.tile .qty{display:block; width:100%; text-align:center; font-size:10.5px; font-weight:600;
+  padding:1px 2px 2px; background:rgba(6,9,16,.5); color:var(--ink); white-space:nowrap}
+.tile.r1{background:rgba(155,166,188,.10); border-color:rgba(155,166,188,.35)}
+.tile.r2{background:rgba(105,184,118,.16); border-color:rgba(105,184,118,.45)}
+.tile.r3{background:rgba(92,168,222,.16);  border-color:rgba(92,168,222,.45)}
+.tile.r4{background:rgba(166,127,224,.18); border-color:rgba(166,127,224,.5)}
+.tile.r5{background:rgba(229,181,102,.18); border-color:rgba(229,181,102,.5)}
+.tile.r0{background:rgba(95,217,228,.08);  border-color:rgba(95,217,228,.3)}
+.mats-note{color:var(--faint); font-size:12px; padding:6px 0}
+
 /* ── material rows ──────────────────────── */
 table.mats{width:100%; border-collapse:collapse; margin-top:6px}
 table.mats td{padding:4px 4px; border-bottom:1px solid rgba(35,44,66,.55); font-size:13px; vertical-align:middle}
@@ -581,6 +597,14 @@ function farmNextWalk(goals, inv){
 
 /* ── display helpers (pure) ── */
 const fmt = n => n.toLocaleString('en-US');
+/* compact form for material tiles: 2,438,000 → "2.44M", 505,200 → "505K";
+   below 10,000 the full number still fits, so keep it exact */
+function fmtShort(n){
+  const sig3 = v => String(v >= 100 ? Math.round(v) : v >= 10 ? Math.round(v*10)/10 : Math.round(v*100)/100);
+  if(n >= 1e6) return sig3(n/1e6) + 'M';
+  if(n >= 1e4) return sig3(n/1e3) + 'K';
+  return fmt(n);
+}
 function sortMatIds(ids){
   return ids.sort((a,b) => {
     const A = MATS[a], B = MATS[b];
@@ -759,24 +783,23 @@ function planText(plan, source){
 const potionText = plan => planText(plan, GAME.expItems);
 const coreText   = plan => planText(plan, GAME.wpnExpItems);
 function catRow(cat, span){ return `<tr><td class="cat" colspan="${span}">${cat}</td></tr>`; }
-function matRows(bag){
+
+/* icon-tile grid: rarity-tinted ground, abbreviated qty; the name (and the
+   exact number, plus the potion/core plan for EXP) lives in the hover title */
+function tileTip(id, qty){
+  let tip = MATS[id].name + ' — ' + fmt(qty);
+  if(id === 'exp'){ const p = potionText(expToPotions(qty)); if(p) tip += ' · ' + p; }
+  if(id === 'wexp'){ const p = coreText(wexpToCores(qty)); if(p) tip += ' · ' + p; }
+  return tip;
+}
+function matTiles(bag){
   const ids = sortMatIds(Object.keys(bag));
-  let html = '', lastCat = null;
-  for(const id of ids){
-    const m = MATS[id];
-    if(m.cat !== lastCat){ html += catRow(m.cat, 2); lastCat = m.cat; }
-    html += `<tr><td>${matIco(id)}${esc(m.name)}</td>` +
-            `<td class="qty">${fmt(bag[id])}</td></tr>`;
-    if(id === 'exp'){
-      const p = potionText(expToPotions(bag[id]));
-      if(p) html += `<tr><td colspan="2" style="color:var(--faint);font-size:12px;padding-left:16px">${p}</td></tr>`;
-    }
-    if(id === 'wexp'){
-      const p = coreText(wexpToCores(bag[id]));
-      if(p) html += `<tr><td colspan="2" style="color:var(--faint);font-size:12px;padding-left:16px">${p}</td></tr>`;
-    }
-  }
-  return html;
+  if(!ids.length) return '';
+  return `<div class="tiles">` + ids.map(id =>
+    `<div class="tile r${MATS[id].r}" title="${esc(tileTip(id, bag[id]))}">` +
+      matIco(id) +
+      `<span class="qty num">${fmtShort(bag[id])}</span>` +
+    `</div>`).join('') + `</div>`;
 }
 
 /* ── goal cards ── */
@@ -824,8 +847,8 @@ function miniTree(g){
   return `<div class="mini">${cols}</div>`;
 }
 
-const goalMats = g => `<div class="goal-mats"><table class="mats">${matRows(costForGoal(g)) ||
-  '<tr><td class="empty">Nothing needed — current already meets target.</td></tr>'}</table></div>`;
+const goalMats = g => `<div class="goal-mats">${matTiles(costForGoal(g)) ||
+  '<div class="mats-note">Nothing needed — current already meets target.</div>'}</div>`;
 
 const goalCtrls = (i) =>
   `<button class="tiny" data-act="edit" data-g="${i}" title="Edit levels &amp; forte">✎</button>` +
@@ -1005,8 +1028,8 @@ function renderSummary(){
   const need = totalBag(state.goals);
 
   if(state.tab === 'total'){
-    el.innerHTML = `<div class="gmeta" style="margin-bottom:4px">Everything required for ${state.goals.length} goal${state.goals.length > 1 ? 's' : ''}, ignoring inventory.</div>` +
-      `<table class="mats">${matRows(need) || '<tr><td class="empty">All targets already met.</td></tr>'}</table>`;
+    el.innerHTML = `<div class="gmeta" style="margin-bottom:8px">Everything required for ${state.goals.length} goal${state.goals.length > 1 ? 's' : ''}, ignoring inventory. Hover a tile for the name &amp; exact amount.</div>` +
+      (matTiles(need) || '<div class="empty">All targets already met.</div>');
     bindIcons(el);
     return;
   }
@@ -1074,7 +1097,7 @@ function renderSummary(){
       `<span class="st ${w.ready ? 'ready' : 'miss'}">${w.ready ? 'READY' : 'MISSING ' + missN}</span></div>`;
     if(!w.ready && !expanded){
       expanded = true;
-      html += `<table class="mats" style="margin:2px 0 14px">${matRows(w.rem)}</table>`;
+      html += `<div style="margin:2px 0 14px">${matTiles(w.rem)}</div>`;
     }
   });
   html += '<div style="color:var(--faint);font-size:11.5px;margin-top:6px">Crafting isn’t applied in this view, so tier surpluses stay reserved for lower-priority goals.</div>';

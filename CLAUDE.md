@@ -151,9 +151,15 @@ are no screenshot tests — be extra careful with CSS-only changes.
 - **Layout:** sticky summary panel on the LEFT (5fr), priority queue on the
   RIGHT (7fr) as a 2-per-row card grid (`#goals`, CSS auto-fill → 1 column
   when narrow; at ≤940px the page stacks with goals first via `order`).
+- **Materials render as icon tiles** (`matTiles`), not lists: rarity-tinted
+  ground (`.tile.r0–r5`, game convention green/blue/purple/gold), abbreviated
+  qty on the tile (`fmtShort`, pure/engine: 3 sig figs, K/M from 10,000 up),
+  name + exact amount + potion/core plan in the hover `title` (`tileTip`).
+  Used on goal cards, the Total tab, and Farm next; the **Remaining tab keeps
+  its table** (Need/Have/Left + inventory inputs don't fit tiles).
 - **Cards are read-only status views**: header + mini forte tree (`miniTree`,
   span-based, no handlers) with per-column skill levels cur→tgt + an
-  always-visible materials list (`goalMats`). All editing happens in the ✎
+  always-visible materials tile grid (`goalMats`). All editing happens in the ✎
   pop-up (`#modalWrap`/`renderModal`): level row plus a game-view forte grid
   where each skill column stacks its two nodes above its level selects.
   Live apply — modal controls reuse `onField`/`onNode`, which save+render;

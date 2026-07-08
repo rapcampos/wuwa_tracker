@@ -8,7 +8,7 @@ const blocks = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]
 eval(blocks.join('\n;\n') + `
 ;Object.assign(globalThis, {GAME, MATS, MILES, ORD_LEVEL, ORD_LABEL, CATEGORY_ORDER,
   costForGoal, totalBag, freshState, maxedState, expToPotions, remainingBag, farmNextWalk, sortMatIds,
-  freshWpnState, maxedWpnState, wexpToCores});`);
+  freshWpnState, maxedWpnState, wexpToCores, fmtShort});`);
 
 let pass = 0, fail = 0;
 const canon = v => (v && typeof v === 'object' && !Array.isArray(v))
@@ -220,6 +220,13 @@ eq('energy cores registered', GAME.wpnExpItems.map(it => MATS[it.id].name),
    ['Basic Energy Core','Medium Energy Core','Advanced Energy Core','Premium Energy Core']);
 eq('weapon-only enemy family categorized', MATS.rings0.cat, 'Enemy Drops');
 eq('weapon-only enemy family categorized (exoswarm)', MATS.exoswarm3.cat, 'Enemy Drops');
+
+// ═══ 18. COMPACT QUANTITIES (material tiles): 3 significant digits ═══
+eq('fmtShort exact under 10k', [fmtShort(46), fmtShort(999), fmtShort(9999)], ['46','999','9,999']);
+eq('fmtShort K range', [fmtShort(10000), fmtShort(43300), fmtShort(505200), fmtShort(915680)],
+   ['10K','43.3K','505K','916K']);
+eq('fmtShort M range', [fmtShort(1000000), fmtShort(2438000), fmtShort(9159900), fmtShort(3053300)],
+   ['1M','2.44M','9.16M','3.05M']);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

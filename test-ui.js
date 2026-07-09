@@ -424,5 +424,31 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   fire(d.querySelector('button[data-act="del"][data-g="4"]'), 'click');
 }
 
+// ── bulk skill ±1 buttons ──
+{
+  fire(d.querySelector('button[data-act="edit"][data-g="1"]'), 'click');   // Suisui: cur 1s, tgt 6s
+  const val = (side, f) => mbox().querySelector(`select[data-side="${side}"][data-f="${f}"]`).value;
+  const SK = ['s0','s1','s2','s3','s4'];
+  fire(mbox().querySelector('[data-bulk="tgt+"]'), 'click');
+  ok('bulk target +1 raises all five', SK.every(f => val('tgt', f) === '7'));
+  fire(mbox().querySelector('[data-bulk="cur+"]'), 'click');
+  ok('bulk current +1, mini tree follows',
+     SK.every(f => val('cur', f) === '2') &&
+     d.querySelector('.goal[data-g="1"] .mini .sk').textContent === '2→7');
+  for(let i = 0; i < 6; i++) fire(mbox().querySelector('[data-bulk="tgt-"]'), 'click');
+  ok('bulk target −1 drags current down at the floor',
+     SK.every(f => val('tgt', f) === '1') && SK.every(f => val('cur', f) === '1'));
+  for(let i = 0; i < 10; i++) fire(mbox().querySelector('[data-bulk="cur+"]'), 'click');
+  ok('bulk current +1 caps at 10 and drags target up',
+     SK.every(f => val('cur', f) === '10') && SK.every(f => val('tgt', f) === '10'));
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
+  ok('weapon pop-up has no bulk buttons', (() => {
+    fire(d.querySelector('button[data-act="edit"][data-g="3"]'), 'click');
+    const none = mbox().querySelector('[data-bulk]') === null;
+    d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
+    return none;
+  })());
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

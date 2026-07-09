@@ -117,7 +117,7 @@ label.chk{display:inline-flex; gap:6px; align-items:center; cursor:pointer; colo
 .fcol{display:flex; flex-direction:column; align-items:center}
 .link{width:2px; height:12px; background:var(--line2); margin:3px 0}
 .link.plan{background:var(--acc,var(--cyan)); box-shadow:0 0 5px color-mix(in srgb, var(--acc,var(--cyan)) 42%, transparent)}
-.link.own{background:var(--gold); box-shadow:0 0 5px rgba(229,181,102,.45)}
+.link.own{background:var(--acc,var(--gold)); box-shadow:0 0 5px color-mix(in srgb, var(--acc,var(--gold)) 45%, transparent)}
 .node{width:26px; height:26px; padding:0; border-radius:50%; border:1.5px solid var(--line2);
   background:transparent; cursor:pointer; color:var(--mut);
   font-family:'Chakra Petch'; font-weight:700; font-size:13px;
@@ -127,11 +127,12 @@ label.chk{display:inline-flex; gap:6px; align-items:center; cursor:pointer; colo
 .node.none:hover{border-color:var(--mut)}
 .node.plan{border-color:var(--acc,var(--cyan)); color:var(--acc,var(--cyan));
   box-shadow:0 0 8px color-mix(in srgb, var(--acc,var(--cyan)) 38%, transparent)}
-.node.own{background:var(--gold); border-color:var(--gold); color:#0A0E16; box-shadow:0 0 8px rgba(229,181,102,.45)}
+.node.own{background:var(--acc,var(--gold)); border-color:var(--acc,var(--gold)); color:#0A0E16;
+  box-shadow:0 0 8px color-mix(in srgb, var(--acc,var(--gold)) 45%, transparent)}
 .ftree-legend{font-size:11.5px; color:var(--faint); margin:8px 0 2px}
 .lg{display:inline-block; width:10px; height:10px; border-radius:50%; border:1.5px solid var(--line2); vertical-align:-1px}
-.lg.plan{border-color:var(--cyan); box-shadow:0 0 5px rgba(95,217,228,.4)}
-.lg.own{background:var(--gold); border-color:var(--gold)}
+.lg.plan{border-color:var(--acc,var(--cyan)); box-shadow:0 0 5px color-mix(in srgb, var(--acc,var(--cyan)) 40%, transparent)}
+.lg.own{background:var(--acc,var(--gold)); border-color:var(--acc,var(--gold))}
 .empty{color:var(--faint); padding:22px 6px; text-align:center; font-size:13px}
 
 /* ── mini forte tree: read-only status glyph on cards ── */
@@ -1362,6 +1363,9 @@ function renderModal(){
     // game-view forte layout: each skill column carries its two nodes above
     // its level selects (current above target); column c ↔ skill c
     const m = g.nodes, SHORT = ['Basic','Skill','Circuit','Lib','Intro'];
+    html += `<div class="gmeta" style="display:flex; gap:6px; align-items:center; margin-top:14px">All skills:
+      <span>current</span><button class="tiny" data-bulk="cur-" title="All current skill levels −1">−1</button><button class="tiny" data-bulk="cur+" title="All current skill levels +1">+1</button>
+      <span style="margin-left:10px">target</span><button class="tiny" data-bulk="tgt-" title="All target skill levels −1">−1</button><button class="tiny" data-bulk="tgt+" title="All target skill levels +1">+1</button></div>`;
     html += `<div class="ftree medit">` + [0,1,2,3,4].map(c => `<div class="fcol">` +
         nodeBtn(i, 1, c, m[1][c], c === INH_COL ? 'Ⅱ' : '') +
         `<span class="link${m[1][c] === 2 ? ' own' : m[1][c] === 1 ? ' plan' : ''}"></span>` +
@@ -1383,6 +1387,20 @@ function renderModal(){
   box.querySelectorAll('select[data-f]').forEach(s => s.addEventListener('change', onField));
   box.querySelectorAll('.node').forEach(b => b.addEventListener('click', onNode));
   box.querySelector('[data-close]').addEventListener('click', closeEdit);
+  box.querySelectorAll('[data-bulk]').forEach(b => b.addEventListener('click', e => {
+    const which = e.currentTarget.dataset.bulk;              // cur-/cur+/tgt-/tgt+
+    const delta = which.endsWith('+') ? 1 : -1;
+    for(let s2 = 0; s2 < 5; s2++){
+      if(which.startsWith('cur')){
+        g.cur.skills[s2] = clamp(g.cur.skills[s2] + delta, 1, 10);
+        g.tgt.skills[s2] = Math.max(g.tgt.skills[s2], g.cur.skills[s2]);  // same rule as onField
+      } else {
+        g.tgt.skills[s2] = clamp(g.tgt.skills[s2] + delta, 1, 10);
+        g.cur.skills[s2] = Math.min(g.cur.skills[s2], g.tgt.skills[s2]);
+      }
+    }
+    save(); render();
+  }));
   box.querySelector('[data-max]').addEventListener('click', () => {
     g.tgt.ord = 13;
     if(!isW){

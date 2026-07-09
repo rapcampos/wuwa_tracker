@@ -193,7 +193,11 @@ are no screenshot tests — be extra careful with CSS-only changes.
    signature weapon's English name ("Firstlight's Herald" vs launch rename);
    drop the beta badges. Also spot-check Rebecca's weekly (We Who Question)
    and forge (Combustor) — single-source cells from the roster sweep.
-   Missing image checklist: `images/missing_icons.md` (48 files).
+   Missing image checklist: `images/missing_icons.md` (10 beta files) — run
+   `node fetch-icons.js` after launch to pull them from the fandom wiki
+   (icon source of record: files named `Item/Resonator/Weapon <Name>.png`,
+   resolved via the MediaWiki API; page fetches are Cloudflare-blocked but
+   the API and static.wikia CDN are not; payloads are WebP saved as .png).
    Note: the Dimbreath/WutheringData datamine is abandoned at 3.1.0 — verify
    post-3.1 data via Game8/prydwen instead.
 2. Backlog (user-approved ideas, unscheduled): waveplate-cost estimates,

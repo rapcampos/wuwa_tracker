@@ -8,7 +8,7 @@ const blocks = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]
 eval(blocks.join('\n;\n') + `
 ;Object.assign(globalThis, {GAME, MATS, MILES, ORD_LEVEL, ORD_LABEL, CATEGORY_ORDER,
   costForGoal, totalBag, freshState, maxedState, expToPotions, remainingBag, farmNextWalk, sortMatIds,
-  freshWpnState, maxedWpnState, wexpToCores, fmtShort, priorityMatIds, defaultGoalTgt});`);
+  freshWpnState, maxedWpnState, wexpToCores, fmtShort, priorityMatIds, defaultGoalTgt, fuzzyScore});`);
 
 let pass = 0, fail = 0;
 const canon = v => (v && typeof v === 'object' && !Array.isArray(v))
@@ -268,6 +268,16 @@ eq('fmtShort K range', [fmtShort(10000), fmtShort(43300), fmtShort(505200), fmtS
    ['10K','43.3K','505K','916K']);
 eq('fmtShort M range', [fmtShort(1000000), fmtShort(2438000), fmtShort(9159900), fmtShort(3053300)],
    ['1M','2.44M','9.16M','3.05M']);
+
+// ═══ 19. FUZZY MATCH (add-goal palette) ═══
+eq('fuzzy: subsequence hits', fuzzyScore('aoh', 'Ages of Harvest') >= 0, true);
+eq('fuzzy: scattered letters still match', fuzzyScore('crl', 'Carlotta') >= 0, true);
+eq('fuzzy: out-of-order letters do not', fuzzyScore('hoa', 'Ages of Harvest'), -1);
+eq('fuzzy: no match', fuzzyScore('xyz', 'Carlotta'), -1);
+eq('fuzzy: shorter name wins the tie', fuzzyScore('car', 'Carlotta') < fuzzyScore('car', 'Cartethyia'), true);
+eq('fuzzy: start-of-name beats mid-name', fuzzyScore('ta', 'Taoqi') < fuzzyScore('ta', 'Cantarella'), true);
+eq('fuzzy: empty query matches everything at 0', fuzzyScore('', 'Jinhsi'), 0);
+eq('fuzzy: case-insensitive', fuzzyScore('JINHSI', 'Jinhsi') >= 0, true);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

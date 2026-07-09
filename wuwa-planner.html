@@ -83,7 +83,7 @@ label.chk{display:inline-flex; gap:6px; align-items:center; cursor:pointer; colo
 
 /* ── goal cards: 2-per-row grid of read-only status views ── */
 #goals{display:grid; grid-template-columns:repeat(auto-fill, minmax(min(330px,100%), 1fr)); gap:12px; align-items:start}
-#addMenu, #goals>.empty{grid-column:1/-1}
+#goals>.empty{grid-column:1/-1}
 .goal{border:1px solid var(--line); border-radius:10px; background:var(--panel2); overflow:hidden}
 .goal-mats{border-top:1px dashed var(--line); padding:4px 12px 10px}
 .goal.dragging{opacity:.45}
@@ -164,6 +164,26 @@ label.chk{display:inline-flex; gap:6px; align-items:center; cursor:pointer; colo
 .medit .gut button{width:34px; height:27px; padding:0; font-size:11px}
 .medit .gut .arrow-v{visibility:hidden}
 
+/* ── add-goal palette (Ctrl+K) ─────────── */
+button.search{display:inline-flex; align-items:center; gap:8px; min-width:230px;
+  background:var(--panel2); color:var(--mut); font-weight:500; text-align:left}
+button.search kbd{margin-left:auto; font-family:inherit; font-size:10px; color:var(--faint);
+  border:1px solid var(--line2); border-radius:4px; padding:1px 5px}
+#palWrap{position:fixed; inset:0; z-index:50; background:rgba(6,9,16,.55);
+  display:flex; justify-content:center; align-items:flex-start; padding:12vh 16px 16px}
+.palette{background:var(--panel); border:1px solid var(--line2); border-radius:12px;
+  width:min(480px,94vw); box-shadow:0 18px 50px rgba(0,0,0,.55); overflow:hidden}
+.palette input{width:100%; border:none; border-bottom:1px solid var(--line); border-radius:0;
+  background:var(--panel2); padding:12px 14px; font:inherit; font-size:14px; color:var(--ink); outline:none}
+#palList{max-height:320px; overflow:auto; overscroll-behavior:contain}
+.pal-item{display:flex; gap:10px; align-items:center; padding:7px 12px; cursor:pointer; font-size:13px}
+.pal-item.on{background:var(--panel2)}
+.pal-item .ico-wrap{width:26px; height:26px; margin:0; flex:none}
+.pal-item .ico-wrap img{width:26px; height:26px}
+.pal-item .tag{margin-left:auto; font-size:10px; color:var(--faint); letter-spacing:.08em;
+  text-transform:uppercase; white-space:nowrap}
+.pal-item .tag.q{color:var(--cyan)}
+
 /* ── material tiles: icon on rarity-tinted ground, qty below, name on hover ── */
 .tiles{display:flex; flex-wrap:wrap; gap:6px; padding:2px 0}
 .tile{width:46px; border:1px solid var(--line2); border-radius:8px; background:var(--panel);
@@ -211,7 +231,8 @@ td.inv{width:96px; text-align:right}
     <path d="M0 7 L30 7 34 2 38 12 42 4 46 10 50 7 90 7 94 3 98 11 102 7 150 7 154 1 158 13 162 5 166 9 170 7 260 7"/>
   </svg>
   <div class="toolbar">
-    <button class="primary" id="btnAdd">+ Add goal</button>
+    <button class="search" id="btnAdd" title="Fuzzy-search characters and weapons (Ctrl+K)">⌕ Add goal…<kbd>Ctrl K</kbd></button>
+    <button class="ghost" id="btnTpl" title="Edit the default goal templates for new 4★/5★ characters">Templates</button>
     <span class="spacer"></span>
     <button class="ghost" id="btnExport">Export JSON</button>
     <button class="ghost" id="btnImport">Import JSON</button>
@@ -238,6 +259,13 @@ td.inv{width:96px; text-align:right}
 
 <div id="modalWrap" hidden>
   <div class="modal" id="modalBox" role="dialog" aria-modal="true" aria-label="Edit goal"></div>
+</div>
+
+<div id="palWrap" hidden>
+  <div class="palette" role="dialog" aria-modal="true" aria-label="Add goal">
+    <input id="palIn" type="text" placeholder="Add a character or weapon…" autocomplete="off" spellcheck="false">
+    <div id="palList"></div>
+  </div>
 </div>
 </div>
 <script>
@@ -812,6 +840,26 @@ function priorityMatIds(goals){
   return out;
 }
 
+/* ── subsequence fuzzy match (add-goal palette) ──
+   Every query char must appear in the name, in order ('aoh' hits "Ages of
+   Harvest"). Returns a penalty — lower is better — or -1 for no match.
+   Penalties: +2 per gap between matched letters, +3 per char of offset
+   before the first hit, +0.1 per unmatched trailing char (shorter names
+   win ties). Empty query matches everything at 0. */
+function fuzzyScore(q, name){
+  q = q.toLowerCase(); const n = name.toLowerCase();
+  if(!q) return 0;
+  let qi = 0, pen = 0, last = -1, first = -1;
+  for(let i = 0; i < n.length && qi < q.length; i++){
+    if(n[i] !== q[qi]) continue;
+    if(first < 0) first = i;
+    if(last >= 0 && i > last + 1) pen += 2;
+    last = i; qi++;
+  }
+  if(qi < q.length) return -1;
+  return pen + first * 3 + (n.length - q.length) * 0.1;
+}
+
 /* ── display helpers (pure) ── */
 const fmt = n => n.toLocaleString('en-US');
 /* compact form for material tiles: 2,438,000 → "2.44M", 505,200 → "505K";
@@ -1123,13 +1171,11 @@ function renderGoals(){
   const box = $('#goals');
   box.innerHTML = state.goals.length
     ? state.goals.map(goalCard).join('')
-    : '<div class="empty">No goals yet — use “+ Add goal” to queue a character.</div>';
+    : '<div class="empty">No goals yet — press Ctrl+K (or “⌕ Add goal…”) to queue a character or weapon.</div>';
   box.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', onAct));
   // cards are read-only status views — selects and node buttons live in the modal
   bindDnD(box);
   bindIcons(box);
-  // weapons allow duplicate goals (multiple copies), so they never run out
-  $('#btnAdd').disabled = availableChars().length === 0 && Object.keys(GAME.weapons).length === 0;
 }
 
 function onNode(e){
@@ -1212,27 +1258,59 @@ function onField(e){
   save(); render();
 }
 
-/* ── add-goal menu ── */
-const availableChars = () => Object.keys(GAME.characters).filter(c => !state.goals.some(g => g.char === c));
-$('#btnAdd').addEventListener('click', () => {
-  const old = $('#addMenu');
-  if(old){ old.remove(); return; }
-  const div = document.createElement('div');
-  div.id = 'addMenu';
-  div.style.cssText = 'margin:0;display:flex;gap:8px;flex-wrap:wrap;align-items:center';  // grid gap spaces it
-  const chars = availableChars().map(c =>
-    `<button data-c="${c}">${icoImg(GAME.characters[c].name, 'char')}${esc(GAME.characters[c].name)}</button>`).join('');
-  const wpns = Object.entries(GAME.weapons).map(([id, w]) =>
-    `<button data-w="${id}">${icoImg(w.name, 'weapon')}${esc(w.name)}</button>`).join('');
-  div.innerHTML = (chars ? '<span class="gmeta">Queue:</span>' + chars : '') +
-                  (wpns ? '<span class="gmeta"' + (chars ? ' style="margin-left:8px"' : '') + '>Weapons:</span>' + wpns : '');
-  $('#goals').prepend(div);
-  bindIcons(div);
-  div.querySelectorAll('button').forEach(b => b.addEventListener('click', e => {
-    const d = e.currentTarget.dataset;
-    state.goals.push(d.w ? newWpnGoal(d.w, true) : newGoal(d.c, true, state.defaults));
-    save(); render();
-  }));
+/* ── add-goal palette: fuzzy search over characters + weapons (Ctrl+K) ──
+   Queued characters stay in the results — activating one jumps to its
+   editor instead of adding a duplicate. Weapons always add (dupes legal). */
+let palSel = 0;
+const palIsOpen = () => !$('#palWrap').hidden;
+function paletteEntries(q){
+  const out = [];
+  for(const [id, ch] of Object.entries(GAME.characters)){
+    const s = fuzzyScore(q, ch.name);
+    if(s >= 0) out.push({score:s, kind:'char', id, name:ch.name,
+      queuedAt: state.goals.findIndex(g => g.char === id)});
+  }
+  for(const [id, wp] of Object.entries(GAME.weapons)){
+    const s = fuzzyScore(q, wp.name);
+    if(s >= 0) out.push({score:s, kind:'wpn', id, name:wp.name, queuedAt:-1});
+  }
+  return out.sort((a,b) => a.score - b.score || (a.name < b.name ? -1 : 1));
+}
+function openPal(){ closeEdit(); $('#palWrap').hidden = false; palSel = 0; renderPal(); $('#palIn').focus(); }
+function closePal(){ $('#palWrap').hidden = true; $('#palIn').value = ''; }
+function renderPal(){
+  const list = paletteEntries($('#palIn').value.trim());
+  palSel = clamp(palSel, 0, Math.max(0, list.length - 1));
+  $('#palList').innerHTML = list.length ? list.map((it, i) =>
+    `<div class="pal-item${i === palSel ? ' on' : ''}" data-i="${i}">` +
+      `<span class="ico-wrap">${icoImg(it.name, it.kind === 'wpn' ? 'weapon' : 'char')}</span>` +
+      `${esc(it.name)}` +
+      `<span class="tag${it.queuedAt >= 0 ? ' q' : ''}">${it.kind === 'wpn' ? 'weapon · add' : it.queuedAt >= 0 ? 'queued · edit' : 'add'}</span>` +
+    `</div>`).join('') : '<div class="empty">No matches.</div>';
+  $('#palList').querySelectorAll('.pal-item').forEach(el => {
+    el.addEventListener('click', () => palActivate(list[+el.dataset.i]));
+    el.addEventListener('mousemove', () => {
+      if(palSel !== +el.dataset.i){ palSel = +el.dataset.i; renderPal(); }
+    });
+  });
+  bindIcons($('#palList'));
+}
+function palActivate(it){
+  if(!it) return;
+  closePal();
+  if(it.kind === 'char' && it.queuedAt >= 0){ editIdx = it.queuedAt; render(); return; }
+  state.goals.push(it.kind === 'wpn' ? newWpnGoal(it.id, true) : newGoal(it.id, true, state.defaults));
+  save(); render();
+}
+$('#btnAdd').addEventListener('click', openPal);
+$('#btnTpl').addEventListener('click', () => { closePal(); editTpl = 5; renderModal(); });
+$('#palWrap').addEventListener('click', e => { if(e.target === e.currentTarget) closePal(); });
+$('#palIn').addEventListener('input', () => { palSel = 0; renderPal(); });
+$('#palIn').addEventListener('keydown', e => {
+  const items = paletteEntries($('#palIn').value.trim());
+  if(e.key === 'ArrowDown'){ e.preventDefault(); palSel = Math.min(palSel + 1, items.length - 1); renderPal(); }
+  else if(e.key === 'ArrowUp'){ e.preventDefault(); palSel = Math.max(palSel - 1, 0); renderPal(); }
+  else if(e.key === 'Enter'){ e.preventDefault(); palActivate(items[palSel]); }
 });
 
 /* ── summary panel ── */
@@ -1343,9 +1421,11 @@ function renderSummary(){
    selects and node buttons reuse onField/onNode, which save() + render();
    render() re-renders the open modal in place. */
 let editIdx = null;
-function closeEdit(){ editIdx = null; renderModal(); }
+let editTpl = null;                          // 4 | 5 → pop-up edits state.defaults[editTpl]
+function closeEdit(){ editIdx = null; editTpl = null; renderModal(); }
 function renderModal(){
   const wrap = $('#modalWrap');
+  if(editTpl !== null){ renderTplModal(wrap); return; }
   if(editIdx === null || !state.goals[editIdx]){
     editIdx = null; wrap.hidden = true;
     $('#modalBox').innerHTML = '';          // stale content would ghost into global queries
@@ -1426,8 +1506,74 @@ function renderModal(){
   bindIcons(box);
   wrap.hidden = false;
 }
+/* ── template editor: same pop-up shell, edits state.defaults[4|5] ──
+   Templates are target-only, so nodes just toggle skip ↔ planned (no
+   "owned"), and each column has a single target-level select. Node
+   positions collapse to counts — every stat node costs the same. */
+function renderTplModal(wrap){
+  const r = editTpl, t = state.defaults[r];
+  const seq = n => [0,1,2,3].map(k => k < n ? 1 : 0);
+  const mi = seq(t.minor), ma = seq(t.major);
+  const m = [[mi[0], mi[1], t.inh1 ? 1 : 0, mi[2], mi[3]],
+             [ma[0], ma[1], t.inh2 ? 1 : 0, ma[2], ma[3]]];
+  const st = v => v ? ' plan' : '';
+  const SHORT = ['Basic','Skill','Circuit','Lib','Intro'];
+  const other = r === 5 ? 4 : 5;
+  const html = `<div class="modal-h">
+      <span class="avatar" style="background:var(--r${r})">${r}★</span>
+      <div><div class="gname">${r}★ default goal</div>
+        <div class="gmeta">the target new ${r}★ character goals start with</div></div>
+      <button class="tiny" data-tplswitch="${other}" title="Edit the ${other}★ template">Edit ${other}★</button>
+      <button class="tiny close" data-close title="Close">✕</button>
+    </div>
+    <div class="grid-ct"><span class="lbl">Target level</span>
+      <select data-tf="ord">${ORDS.map(o => `<option value="${o}"${o === t.ord ? ' selected' : ''}>${ORD_LABEL(o)}</option>`).join('')}</select>
+    </div>
+    <div class="ftree medit">` + [0,1,2,3,4].map(c => `<div class="fcol">` +
+      `<button type="button" class="node ${c === INH_COL ? 'inh' : 'major'}${st(m[1][c])}" data-tr="1" data-tc="${c}" title="${c === INH_COL ? 'Inherent Ⅱ' : 'Major stat node'} — click to toggle">${c === INH_COL ? 'Ⅱ' : ''}</button>` +
+      `<span class="link${st(m[1][c])}"></span>` +
+      `<button type="button" class="node ${c === INH_COL ? 'inh' : 'minor'}${st(m[0][c])}" data-tr="0" data-tc="${c}" title="${c === INH_COL ? 'Inherent Ⅰ' : 'Minor stat node'} — click to toggle">${c === INH_COL ? 'Ⅰ' : ''}</button>` +
+      `<div class="sklbl" title="${esc(GAME.skillNames[c])}">${SHORT[c]}</div>` +
+      `<select data-tf="s${c}">${[...Array(10).keys()].map(k => `<option value="${k+1}"${k+1 === t.skills[c] ? ' selected' : ''}>${k+1}</option>`).join('')}</select>` +
+    `</div>`).join('') + `</div>
+    <div class="ftree-legend">click a node to plan / skip it · upper nodes need their lower node</div>
+    <div style="display:flex; gap:8px; margin-top:16px">
+      <button class="tiny" data-tplreset title="Restore the built-in ${r}★ template">Reset to built-in</button>
+    </div>`;
+  const box = $('#modalBox');
+  box.style.setProperty('--acc', 'var(--cyan)');
+  box.innerHTML = html;
+  box.querySelector('[data-close]').addEventListener('click', closeEdit);
+  box.querySelector('[data-tplswitch]').addEventListener('click', e => { editTpl = +e.currentTarget.dataset.tplswitch; renderModal(); });
+  box.querySelector('[data-tplreset]').addEventListener('click', () => { state.defaults[r] = defaultGoalTgt(r); save(); render(); });
+  box.querySelectorAll('select[data-tf]').forEach(s3 => s3.addEventListener('change', e => {
+    const f = e.currentTarget.dataset.tf, v = Math.floor(+e.currentTarget.value) || 0;
+    if(f === 'ord') t.ord = clamp(v, 0, 13);
+    else t.skills[+f[1]] = clamp(v, 1, 10);
+    save(); render();
+  }));
+  box.querySelectorAll('.node').forEach(b => b.addEventListener('click', e => {
+    const r2 = +e.currentTarget.dataset.tr, c2 = +e.currentTarget.dataset.tc;
+    m[r2][c2] = m[r2][c2] ? 0 : 1;
+    if(r2 === 1 && m[1][c2]) m[0][c2] = 1;      // planning the top plans the bottom
+    if(r2 === 0 && !m[0][c2]) m[1][c2] = 0;     // skipping the bottom skips the top
+    t.minor = STAT_COLS.filter(c3 => m[0][c3]).length;
+    t.major = STAT_COLS.filter(c3 => m[1][c3]).length;
+    t.inh1 = m[0][INH_COL] ? 1 : 0;
+    t.inh2 = m[1][INH_COL] ? 1 : 0;
+    save(); render();
+  }));
+  wrap.hidden = false;
+}
+
 $('#modalWrap').addEventListener('click', e => { if(e.target === e.currentTarget) closeEdit(); });
-document.addEventListener('keydown', e => { if(e.key === 'Escape' && editIdx !== null) closeEdit(); });
+document.addEventListener('keydown', e => {
+  if((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')){ e.preventDefault(); openPal(); return; }
+  if(e.key === 'Escape'){
+    if(palIsOpen()) closePal();
+    else if(editIdx !== null || editTpl !== null) closeEdit();
+  }
+});
 
 /* ── toolbar: export / import / reset ── */
 $('#btnExport').addEventListener('click', () => {

@@ -97,16 +97,45 @@ ok('first up-button disabled', d.querySelector('button[data-act="up"][data-g="0"
 // ── remove + re-add ──
 fire(d.querySelector('button[data-act="del"][data-g="2"]'), 'click'); // remove Suisui
 ok('goal removed', d.querySelectorAll('.goal').length === 2);
+// ── add-goal palette: fuzzy search over the whole catalog ──
 fire(d.querySelector('#btnAdd'), 'click');
-const addBtn = d.querySelector('#addMenu button[data-c="suisui"]');
-ok('add menu offers every un-queued char (incl. Suisui)',
-   addBtn !== null && d.querySelectorAll('#addMenu button[data-c]').length ===
-     w.eval('Object.keys(GAME.characters).length') - 2);   // Jinhsi + Phoebe still queued
-ok('add menu offers every seeded weapon',
-   d.querySelectorAll('#addMenu button[data-w]').length === w.eval('Object.keys(GAME.weapons).length'));
-fire(addBtn, 'click');
-ok('goal re-added at end', texts('.gname')[2].startsWith('Suisui'));
-ok('add button stays enabled (weapons are repeatable)', d.querySelector('#btnAdd').disabled === false);
+ok('palette opens from the toolbar button', d.querySelector('#palWrap').hidden === false);
+ok('empty query lists the whole catalog (chars + weapons)',
+   d.querySelectorAll('#palList .pal-item').length ===
+   w.eval('Object.keys(GAME.characters).length + Object.keys(GAME.weapons).length'));
+const palIn = d.querySelector('#palIn');
+palIn.value = 'suisui'; fire(palIn, 'input');
+fire([...d.querySelectorAll('#palList .pal-item')].find(x => x.textContent.includes('Suisui')), 'click');
+ok('goal re-added at end via search',
+   texts('.gname')[2].startsWith('Suisui') && d.querySelector('#palWrap').hidden === true);
+
+// queued characters stay searchable and jump to their editor
+fire(d.querySelector('#btnAdd'), 'click');
+palIn.value = 'jinhsi'; fire(palIn, 'input');
+const jItem = [...d.querySelectorAll('#palList .pal-item')].find(x => x.textContent.includes('Jinhsi'));
+ok('queued char tagged in results', jItem !== undefined && jItem.textContent.includes('queued'));
+fire(jItem, 'click');
+ok('activating a queued char opens its editor instead of duplicating',
+   d.querySelectorAll('.goal').length === 3 &&
+   d.querySelector('#modalWrap').hidden === false && mbox().textContent.includes('Jinhsi'));
+d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
+
+// Ctrl+K opens; subsequence fuzzy ranks sensibly; Esc closes
+d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'k', ctrlKey:true, bubbles:true}));
+ok('Ctrl+K opens the palette', d.querySelector('#palWrap').hidden === false);
+palIn.value = 'aoh'; fire(palIn, 'input');
+ok('subsequence fuzzy: "aoh" → Ages of Harvest first',
+   d.querySelector('#palList .pal-item').textContent.includes('Ages of Harvest'));
+d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
+ok('Esc closes the palette', d.querySelector('#palWrap').hidden === true);
+
+// helper: open palette, type a query, Enter-add the top hit
+const palAdd = q => {
+  fire(d.querySelector('#btnAdd'), 'click');
+  const p = d.querySelector('#palIn');
+  p.value = q; fire(p, 'input');
+  p.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Enter', bubbles:true}));
+};
 
 // ── Remaining tab: inventory + synthesis ──
 fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Remaining'), 'click');
@@ -306,12 +335,9 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
 
 // ── weapon goals ──
 {
-  // add via the weapons section of the menu (queue is Pho,Sui,Jin at this point)
-  fire(d.querySelector('#btnAdd'), 'click');
-  ok('menu lists all seeded weapons', d.querySelectorAll('#addMenu button[data-w]').length ===
-     w.eval('Object.keys(GAME.weapons).length'));
-  fire(d.querySelector('#addMenu button[data-w="agesOfHarvest"]'), 'click');
-  ok('weapon goal appended', texts('.gname')[3] === 'Ages of Harvest');
+  // add via the palette (queue is Pho,Sui,Jin at this point)
+  palAdd('ages of harvest');
+  ok('weapon goal appended via Enter', texts('.gname')[3] === 'Ages of Harvest');
   const card = d.querySelector('.goal[data-g="3"]');
   ok('weapon card: read-only, no mini tree (level lives in the meta line)',
      card.querySelector('.mini') === null && card.querySelectorAll('select').length === 0);
@@ -336,8 +362,7 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
 
   // duplicates are allowed (multiple copies of the same weapon)
-  fire(d.querySelector('#btnAdd'), 'click');
-  fire(d.querySelector('#addMenu button[data-w="agesOfHarvest"]'), 'click');
+  palAdd('ages of harvest');
   ok('duplicate weapon goal allowed', texts('.gname').filter(t => t === 'Ages of Harvest').length === 2);
   // deleting the goal being edited closes the pop-up
   fire(d.querySelector('button[data-act="edit"][data-g="4"]'), 'click');
@@ -345,8 +370,7 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok('deleting the edited goal closes the pop-up', d.querySelector('#modalWrap').hidden === true);
 
   // beta badge rides on beta weapons
-  fire(d.querySelector('#btnAdd'), 'click');
-  fire(d.querySelector('#addMenu button[data-w="firstlightsHerald"]'), 'click');
+  palAdd('firstlight');
   ok('beta weapon carries the badge', d.querySelector('.goal[data-g="4"] .badge') !== null);
   fire(d.querySelector('button[data-act="del"][data-g="4"]'), 'click');
 
@@ -385,8 +409,7 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
 // ── per-rarity default goals + Max button ──
 {
   // 4★ default template: Lv80, forte 6, all 8 nodes + both passives planned
-  fire(d.querySelector('#btnAdd'), 'click');
-  fire(d.querySelector('#addMenu button[data-c="sanhua"]'), 'click');
+  palAdd('sanhua');
   const sCard = () => d.querySelector('.goal[data-g="4"]');
   ok('4★ default target: Lv 1 → Lv 80', sCard().textContent.includes('Lv 1 → Lv 80'));
   ok('4★ default: forte 6 on mini tree',
@@ -409,8 +432,7 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   fire(mbox().querySelector('[data-setdef]'), 'click');
   d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
   fire(d.querySelector('button[data-act="del"][data-g="4"]'), 'click');
-  fire(d.querySelector('#btnAdd'), 'click');
-  fire(d.querySelector('#addMenu button[data-c="yuanwu"]'), 'click');
+  palAdd('yuanwu');
   const yCard = d.querySelector('.goal[data-g="4"]');
   ok('saved default applies to new 4★ goals',
      yCard.textContent.includes('Lv 1 → Lv 90') && yCard.querySelector('.mini .sk').textContent === '1→8');
@@ -453,6 +475,32 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
     d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
     return none;
   })());
+}
+
+// ── template editor from the toolbar ──
+{
+  fire(d.querySelector('#btnTpl'), 'click');
+  ok('templates pop-up opens on 5★', mbox().textContent.includes('5★ default goal'));
+  fire(mbox().querySelector('[data-tplswitch]'), 'click');
+  ok('switch to the 4★ template', mbox().textContent.includes('4★ default goal'));
+  // an earlier test saved a custom 4★ default (ord 13, s0 8) — reset restores built-in
+  const d4 = () => JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).defaults['4'];
+  fire(mbox().querySelector('[data-tplreset]'), 'click');
+  ok('reset restores the built-in 4★ template', d4().ord === 11 && d4().skills.every(v => v === 6) && d4().major === 4);
+  // edit level, a skill, and toggle a node — all persist to the save
+  const ordSel = mbox().querySelector('select[data-tf="ord"]');
+  ordSel.value = '13'; fire(ordSel, 'change');
+  const s2sel = mbox().querySelector('select[data-tf="s2"]');
+  s2sel.value = '9'; fire(s2sel, 'change');
+  fire(mbox().querySelector('.node[data-tr="1"][data-tc="2"]'), 'click');   // skip Inherent Ⅱ
+  ok('template edits persist', d4().ord === 13 && d4().skills[2] === 9 && d4().inh2 === 0 && d4().inh1 === 1);
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
+  // new 4★ goals pick the edited template up
+  palAdd('taoqi');
+  const tCard = [...d.querySelectorAll('#goals .goal')].find(g2 => g2.textContent.includes('Taoqi'));
+  ok('new 4★ goal uses the edited template',
+     tCard.textContent.includes('Lv 1 → Lv 90') && tCard.querySelectorAll('.mini .sk')[2].textContent === '1→9');
+  fire(tCard.querySelector('button[data-act="del"]'), 'click');
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

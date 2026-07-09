@@ -73,6 +73,16 @@ it goes in block 2 with tests; presentation goes in block 3.
   forte 6 · all nodes; 4★ Lv80 · forte 6 · all nodes. The edit pop-up has
   "⤒ Max target" (Lv90/skills 10/every node ≥ planned) and "Save as N★
   default" (captures that goal's target; persisted). Weapons: Max only.
+  Templates are also editable from the toolbar ("Templates" → the same
+  pop-up in template mode via `editTpl`, with a 4★/5★ switch and a reset
+  button; template nodes toggle skip↔planned only — no "owned" there).
+- **Add-goal palette**: the toolbar search button and Ctrl/Cmd+K open a
+  floating fuzzy-search palette (`#palWrap`) over characters + weapons.
+  `fuzzyScore` (engine, pure, tested) is subsequence matching with gap/
+  offset/length penalties. Queued characters remain listed — activating one
+  jumps to its editor instead of duplicating; weapons always add. Arrows
+  navigate, Enter activates, Esc/backdrop close. The old inline add-menu
+  is gone.
 - **Save format** lives in localStorage key `wuwa-planner-v1`. `sanitize()`
   migrates all older generations (v1 counts → v2 `{minor,major,inh}` arrays →
   current matrix) and repairs illegal states. Never break old-save loading;

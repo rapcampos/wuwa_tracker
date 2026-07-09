@@ -60,6 +60,7 @@ button.primary:hover{border-color:var(--cyan)}
 button.ghost{background:transparent; border-color:var(--line)}
 button.tiny{padding:3px 8px; font-size:11.5px; border-radius:6px}
 button.danger:hover{border-color:var(--red); color:var(--red)}
+button.good{color:var(--green)} button.good:hover{border-color:var(--green); color:var(--green)}
 button:disabled{opacity:.35; cursor:default}
 button:disabled:hover{border-color:var(--line2)}
 select,input[type=number]{
@@ -669,7 +670,7 @@ const maxedWpnState = () => ({ord:13});
 /* built-in default TARGETS for new character goals, per rarity (user-tuned):
    5★ — Lv90, forte 6, both inherents, all 8 stat nodes
    4★ — Lv80 (unascended), forte 6, both inherents, all 8 stat nodes
-   The user can overwrite these from the edit pop-up ("Save as N★ default");
+   The user can overwrite these from the toolbar "Templates" pop-up;
    overrides live in the save file, these are the out-of-the-box values. */
 const defaultGoalTgt = r => r === 4
   ? {ord:11, skills:[6,6,6,6,6], inh1:1, inh2:1, minor:4, major:4}
@@ -980,13 +981,14 @@ const newWpnGoal = (weapon, open) => ({weapon, cur:freshWpnState(), tgt:maxedWpn
 
 const defaultState = () => ({
   goals: [newGoal('jinhsi', true), newGoal('phoebe', false), newGoal('suisui', false)],
-  inv:{}, synth:true, tab:'total',
+  done: [], inv:{}, synth:true, hideUn:false, tab:'total',
   defaults: {4: defaultGoalTgt(4), 5: defaultGoalTgt(5)},
 });
 
 function sanitize(raw){
-  const st = {goals:[], inv:{}, synth: raw ? !!raw.synth : true,
-              tab: ['total','left','next'].includes(raw && raw.tab) ? raw.tab : 'total'};
+  const st = {goals:[], done:[], inv:{}, synth: raw ? !!raw.synth : true,
+              hideUn: !!(raw && raw.hideUn),
+              tab: ['total','left','next','done'].includes(raw && raw.tab) ? raw.tab : 'total'};
   const fix = x => {
     const o = freshState();
     if(x && typeof x === 'object'){
@@ -1000,24 +1002,30 @@ function sanitize(raw){
     }
     return o;
   };
-  if(raw && Array.isArray(raw.goals))
-    for(const g of raw.goals){
+  // a character may exist once across queue + completed; queue wins the tie
+  const charTaken = id => st.goals.some(x => x.char === id) || st.done.some(x => x.char === id);
+  const intake = (rawList, into) => {
+    if(!Array.isArray(rawList)) return;
+    for(const g of rawList){
       if(g && g.weapon !== undefined){                           // weapon goal: level+ascension only
         if(!GAME.weapons[g.weapon]) continue;                    // duplicates allowed (multiple copies)
         const ord = x => clamp(Math.floor(+(x && x.ord)) || 0, 0, 13);
         const cur = {ord: ord(g.cur)}, tgt = {ord: Math.max(ord(g.tgt), ord(g.cur))};
-        st.goals.push({weapon:g.weapon, cur, tgt, open:!!g.open});
+        into.push({weapon:g.weapon, cur, tgt, open:!!g.open});
         continue;
       }
-      if(!GAME.characters[g.char] || st.goals.some(x => x.char === g.char)) continue;
+      if(!g || !GAME.characters[g.char] || charTaken(g.char)) continue;
       const cur = fix(g.cur), tgt = fix(g.tgt);
       tgt.ord = Math.max(tgt.ord, cur.ord);
       tgt.skills = tgt.skills.map((v,k) => Math.max(v, cur.skills[k]));
       const goal = {char:g.char, cur, tgt, open:!!g.open};
       goal.nodes = nodesFrom(g, cur, tgt);
       syncNodeCounts(goal);                                    // grid always wins
-      st.goals.push(goal);
+      into.push(goal);
     }
+  };
+  intake(raw && raw.goals, st.goals);
+  intake(raw && raw.done, st.done);
   if(raw && raw.inv && typeof raw.inv === 'object')
     for(const [k,v] of Object.entries(raw.inv))
       if(MATS[k] && Math.floor(+v) > 0) st.inv[k] = Math.floor(+v);
@@ -1165,7 +1173,10 @@ function deficitTiles(need, rem, order){
   }).join('') + `</div>`;
 }
 
-const goalCtrls = (i) =>
+/* fin = costForGoal is empty (current already meets target): offer ✓ to move
+   the goal to state.done — shown on the Completed summary tab, restorable */
+const goalCtrls = (i, fin) =>
+  (fin ? `<button class="tiny good" data-act="done" data-g="${i}" title="Mark completed — moves to the Completed tab">✓</button>` : '') +
   `<button class="tiny" data-act="edit" data-g="${i}" title="Edit levels &amp; forte">✎</button>` +
   `<button class="tiny" data-act="up" data-g="${i}" ${i === 0 ? 'disabled' : ''} title="Move up">▲</button>` +
   `<button class="tiny" data-act="down" data-g="${i}" ${i === state.goals.length - 1 ? 'disabled' : ''} title="Move down">▼</button>` +
@@ -1184,7 +1195,7 @@ function wpnCard(g, i, wk){
       <span class="avatar" style="background:var(--r${w.rarity})">${w.mono}${icoImg(w.name, 'weapon', 'avatar-img')}</span>
       <div><div class="gname">${esc(w.name)}${w.beta ? '<span class="badge">3.5 BETA</span>' : ''}</div>
         <div class="gmeta">${w.rarity}★ ${w.wtype} weapon · ${ORD_LABEL(g.cur.ord)} → ${ORD_LABEL(g.tgt.ord)}</div></div>
-      <div class="gctrl">${goalCtrls(i)}</div>
+      <div class="gctrl">${goalCtrls(i, !Object.keys(wk.need).length)}</div>
     </div>${goalMats(wk)}</div>`;
 }
 
@@ -1197,7 +1208,7 @@ function charCard(g, i, wk){
       <span class="avatar" style="background:${ch.elColor}">${ch.mono}${icoImg(ch.name, 'char', 'avatar-img')}</span>
       <div><div class="gname">${esc(ch.name)}${ch.beta ? '<span class="badge">3.5 BETA</span>' : ''}</div>
         <div class="gmeta">${ch.rarity}★ ${ch.element} · ${ch.wtype} · ${ORD_LABEL(g.cur.ord)} → ${ORD_LABEL(g.tgt.ord)}</div></div>
-      <div class="gctrl">${goalCtrls(i)}</div>
+      <div class="gctrl">${goalCtrls(i, !Object.keys(wk.need).length)}</div>
     </div>${miniTree(g)}${goalMats(wk)}</div>`;
 }
 
@@ -1282,8 +1293,9 @@ function onAct(e){
   if(act === 'up')   return moveGoal(i, i - 1);
   if(act === 'down') return moveGoal(i, i + 2);
   if(act === 'edit'){ editIdx = i; render(); return; }
-  if(act === 'del'){
-    state.goals.splice(i, 1);
+  if(act === 'del' || act === 'done'){
+    const [g] = state.goals.splice(i, 1);
+    if(act === 'done') state.done.push(g);
     if(editIdx !== null){                     // keep the pop-up pointed at the same goal
       if(editIdx === i) editIdx = null;
       else if(editIdx > i) editIdx--;
@@ -1301,16 +1313,17 @@ function onField(e){
 }
 
 /* ── add-goal palette: fuzzy search over characters + weapons (Ctrl+K) ──
-   Already-queued characters are hidden (no duplicates possible); weapons
-   always add (dupes legal). Results group as 5★ chars · 4★ chars · 5★
-   weapons · 4★ · 3★, fuzzy score ranking within each group; rows carry a
-   faint rarity tint. */
+   Already-queued AND completed characters are hidden (no duplicates; a
+   completed char returns via ↩ on the Completed tab, keeping its state);
+   weapons always add (dupes legal). Results group as 5★ chars · 4★ chars ·
+   5★ weapons · 4★ · 3★, fuzzy score ranking within each group; rows carry
+   a faint rarity tint. */
 let palSel = 0;
 const palIsOpen = () => !$('#palWrap').hidden;
 function paletteEntries(q){
   const out = [];
   for(const [id, ch] of Object.entries(GAME.characters)){
-    if(state.goals.some(g => g.char === id)) continue;
+    if(state.goals.some(g => g.char === id) || state.done.some(g => g.char === id)) continue;
     const s = fuzzyScore(q, ch.name);
     if(s >= 0) out.push({score:s, kind:'char', id, name:ch.name, rarity:ch.rarity});
   }
@@ -1359,27 +1372,84 @@ $('#palIn').addEventListener('keydown', e => {
 
 /* ── summary panel ── */
 let INVROWS = [];
-const TABS = [['total','Total'], ['left','Remaining'], ['next','Farm next']];
+const TABS = [['total','Total'], ['left','Inventory'], ['next','Farm next'], ['done','Completed']];
 
 function invRow(id, needTxt, left){
   const i = INVROWS.push(id) - 1;
   const leftCell = left === undefined ? '<td class="qty"></td>'
-    : `<td class="qty ${left ? 'short' : 'ok'}">${left ? fmt(left) : '✓'}</td>`;
+    : `<td class="qty ${left ? 'short' : 'ok'}" data-l="${i}">${left ? fmt(left) : '✓'}</td>`;
   return `<tr><td>${matIco(id)}${esc(MATS[id].name)}</td>` +
          `<td class="qty">${needTxt}</td>` +
          `<td class="inv"><input type="number" min="0" step="1" class="invIn" data-i="${i}" value="${state.inv[id] ?? ''}" placeholder="0"></td>` +
          leftCell + '</tr>';
 }
 
+/* Inventory edits patch the computed cells in place instead of rebuilding the
+   table — a full re-render would destroy the input the user is tabbing into
+   and dump focus back to the top of the page. Row structure only depends on
+   goals, never on inventory, so the patch set is fixed: Left cells (data-l,
+   keyed by INVROWS index or 'exp'/'wexp'), pooled-EXP Have cells (data-h),
+   and the potion/core plan rows (data-p). */
+function updateLeft(){
+  const res = remainingBag(totalBag(state.goals), state.inv, state.synth);
+  const leftOf = k => k === 'exp' ? (res.rem.exp || 0)
+                    : k === 'wexp' ? (res.rem.wexp || 0)
+                    : (res.rem[INVROWS[+k]] || 0);
+  const el = $('#summary');
+  el.querySelectorAll('td[data-l]').forEach(td => {
+    const left = leftOf(td.dataset.l);
+    td.className = `qty ${left ? 'short' : 'ok'}`;
+    td.textContent = left ? fmt(left) : '✓';
+  });
+  const have = {exp: fmt(res.invExp), wexp: fmt(res.invWexp)};
+  el.querySelectorAll('td[data-h]').forEach(td => td.textContent = have[td.dataset.h]);
+  const plans = {exp: potionText(res.potionPlan), wexp: coreText(res.corePlan)};
+  el.querySelectorAll('tr[data-p]').forEach(tr => {
+    const on = leftOf(tr.dataset.p) > 0;
+    tr.style.display = on ? '' : 'none';
+    tr.firstElementChild.textContent = on ? plans[tr.dataset.p] : '';
+  });
+}
+
 function renderSummary(){
   $('#tabs').innerHTML = TABS.map(([k,l]) =>
-    `<button class="${state.tab === k ? 'on' : ''}" data-t="${k}">${l}</button>`).join('');
+    `<button class="${state.tab === k ? 'on' : ''}" data-t="${k}">${
+      k === 'done' && state.done.length ? `${l} (${state.done.length})` : l}</button>`).join('');
   $('#tabs').querySelectorAll('button').forEach(b => b.addEventListener('click', e => {
     state.tab = e.currentTarget.dataset.t; save(); renderSummary();
   }));
 
   const el = $('#summary');
-  if(!state.goals.length){ el.innerHTML = '<div class="empty">Add a goal to see totals.</div>'; return; }
+
+  if(state.tab === 'done'){
+    el.innerHTML = state.done.length
+      ? `<div class="gmeta" style="margin-bottom:8px">Finished builds — out of the queue and totals. ↩ returns one to the end of the queue (raise its target to keep going); ✕ forgets it.</div>` +
+        state.done.map((g, i) => {
+          const isWpn = g.weapon !== undefined;
+          const it = isWpn ? GAME.weapons[g.weapon] : GAME.characters[g.char];
+          const bg = isWpn ? `var(--r${it.rarity})` : it.elColor;
+          return `<div class="goalstat" style="--acc:${isWpn ? 'var(--weapon)' : it.elColor}">` +
+            `<span class="avatar" style="background:${bg};width:24px;height:24px;font-size:10px;border-radius:6px">${it.mono}${icoImg(it.name, isWpn ? 'weapon' : 'char', 'avatar-img')}</span>` +
+            `<strong>${esc(it.name)}</strong><span class="gmeta">${it.rarity}★ · ${ORD_LABEL(g.tgt.ord)}</span>` +
+            `<span class="st ready">DONE</span>` +
+            `<button class="tiny" data-undone="${i}" title="Return to the end of the queue">↩</button>` +
+            `<button class="tiny danger" data-rmdone="${i}" title="Forget — the character becomes addable again">✕</button></div>`;
+        }).join('')
+      : '<div class="empty">Nothing completed yet — when a goal needs nothing, its card grows a ✓ button.</div>';
+    el.querySelectorAll('[data-undone]').forEach(b => b.addEventListener('click', e => {
+      state.goals.push(state.done.splice(+e.currentTarget.dataset.undone, 1)[0]);
+      save(); render();
+    }));
+    el.querySelectorAll('[data-rmdone]').forEach(b => b.addEventListener('click', e => {
+      state.done.splice(+e.currentTarget.dataset.rmdone, 1);
+      save(); render();
+    }));
+    bindIcons(el);
+    return;
+  }
+
+  // the Inventory tab is a full stock editor, so it renders even with no goals
+  if(!state.goals.length && state.tab !== 'left'){ el.innerHTML = '<div class="empty">Add a goal to see totals.</div>'; return; }
   const need = totalBag(state.goals);
 
   if(state.tab === 'total'){
@@ -1393,47 +1463,60 @@ function renderSummary(){
   if(state.tab === 'left'){
     const res = remainingBag(need, state.inv, state.synth);
     INVROWS = [];
-    let html = `<label class="chk" style="margin-bottom:8px"><input type="checkbox" id="synthChk"${state.synth ? ' checked' : ''}> Craft surplus 3→1 within material families</label>`;
-    html += `<table class="mats"><tr>
+    const head = `<label class="chk" style="margin-bottom:8px"><input type="checkbox" id="synthChk"${state.synth ? ' checked' : ''}> Craft surplus 3→1 within material families</label>` +
+      `<label class="chk" style="margin-bottom:8px;margin-left:14px"><input type="checkbox" id="hideChk"${state.hideUn ? ' checked' : ''}> Hide un-needed</label>`;
+    let html = `<table class="mats"><tr>
       <td style="color:var(--faint)">Material</td><td class="qty" style="color:var(--faint)">Need</td>
       <td class="inv" style="color:var(--faint)">Have</td><td class="qty" style="color:var(--faint)">Left</td></tr>`;
+    // every material is listed (not just needed ones) so stock can be logged
+    // ahead of goals; un-needed rows show '—' and no Left cell. "Hide
+    // un-needed" collapses the catalog to the needed set — row visibility
+    // still depends only on goals + the toggle, never on inventory, so
+    // updateLeft() can keep patching in place.
+    const poolRow = (dotColor, label, needQty, haveQty, left, key, plan) =>
+      `<tr><td><span class="dot" style="color:${dotColor}"></span>${label}</td>` +
+      `<td class="qty">${fmt(needQty)}</td><td class="inv" style="color:var(--faint);padding-right:8px" data-h="${key}">${fmt(haveQty)}</td>` +
+      `<td class="qty ${left ? 'short' : 'ok'}" data-l="${key}">${left ? fmt(left) : '✓'}</td></tr>` +
+      `<tr data-p="${key}"${left ? '' : ' style="display:none"'}><td colspan="4" style="color:var(--faint);font-size:12px;padding-left:16px">${left ? plan : ''}</td></tr>`;
+    const allIds = sortMatIds(Object.keys(MATS));
     for(const cat of CATEGORY_ORDER){
       if(cat === 'EXP'){
-        if(!need.exp && !need.wexp) continue;
+        const showPot = !state.hideUn || !!need.exp, showCore = !state.hideUn || !!need.wexp;
+        if(!showPot && !showCore) continue;
         html += catRow(cat, 4);
-        if(need.exp){
+        if(showPot){
           for(const it of [...GAME.expItems].reverse()) html += invRow(it.id, '—');
-          const left = res.rem.exp || 0;
-          html += `<tr><td><span class="dot" style="color:var(--cyan)"></span>Resonator EXP</td>` +
-            `<td class="qty">${fmt(need.exp)}</td><td class="inv" style="color:var(--faint);padding-right:8px">${fmt(res.invExp)}</td>` +
-            `<td class="qty ${left ? 'short' : 'ok'}">${left ? fmt(left) : '✓'}</td></tr>`;
-          if(left) html += `<tr><td colspan="4" style="color:var(--faint);font-size:12px;padding-left:16px">${potionText(res.potionPlan)}</td></tr>`;
+          if(need.exp) html += poolRow('var(--cyan)', 'Resonator EXP', need.exp, res.invExp,
+                                       res.rem.exp || 0, 'exp', potionText(res.potionPlan));
         }
-        if(need.wexp){
+        if(showCore){
           for(const it of [...GAME.wpnExpItems].reverse()) html += invRow(it.id, '—');
-          const left = res.rem.wexp || 0;
-          html += `<tr><td><span class="dot" style="color:var(--vio)"></span>Weapon EXP</td>` +
-            `<td class="qty">${fmt(need.wexp)}</td><td class="inv" style="color:var(--faint);padding-right:8px">${fmt(res.invWexp)}</td>` +
-            `<td class="qty ${left ? 'short' : 'ok'}">${left ? fmt(left) : '✓'}</td></tr>`;
-          if(left) html += `<tr><td colspan="4" style="color:var(--faint);font-size:12px;padding-left:16px">${coreText(res.corePlan)}</td></tr>`;
+          if(need.wexp) html += poolRow('var(--vio)', 'Weapon EXP', need.wexp, res.invWexp,
+                                        res.rem.wexp || 0, 'wexp', coreText(res.corePlan));
         }
         continue;
       }
-      const ids = sortMatIds(Object.keys(need)).filter(id => id !== 'exp' && MATS[id].cat === cat);
+      const ids = allIds.filter(id => MATS[id].cat === cat && (!state.hideUn || need[id]));
       if(!ids.length) continue;
       html += catRow(cat, 4);
-      for(const id of ids) html += invRow(id, fmt(need[id]), res.rem[id] || 0);
+      for(const id of ids)
+        html += need[id] ? invRow(id, fmt(need[id]), res.rem[id] || 0) : invRow(id, '—');
     }
     html += '</table>';
-    el.innerHTML = html;
+    el.innerHTML = head + (INVROWS.length ? html
+      : '<div class="empty">Nothing needed right now — untick “Hide un-needed” to log stock for later.</div>');
     el.querySelectorAll('.invIn').forEach(inp => inp.addEventListener('change', e => {
       const id = INVROWS[+e.currentTarget.dataset.i];
       const v = Math.max(0, Math.floor(+e.currentTarget.value || 0));
       if(v) state.inv[id] = v; else delete state.inv[id];
-      save(); renderSummary();
+      e.currentTarget.value = v || '';
+      save(); updateLeft();
     }));
     const chk = $('#synthChk');
-    if(chk) chk.addEventListener('change', e => { state.synth = e.currentTarget.checked; save(); renderSummary(); });
+    if(chk) chk.addEventListener('change', e => { state.synth = e.currentTarget.checked; save(); updateLeft(); });
+    // hiding changes row structure, so this one is a real re-render
+    const hid = $('#hideChk');
+    if(hid) hid.addEventListener('change', e => { state.hideUn = e.currentTarget.checked; save(); renderSummary(); });
     bindIcons(el);
     return;
   }
@@ -1517,7 +1600,8 @@ function renderModal(){
       `</div>`).join('') + gutter('+', '+1') + `</div>`;
   }
   html += `<div style="display:flex; gap:8px; margin-top:16px; flex-wrap:wrap">
-    <button class="tiny" data-max title="Target → Lv 90${isW ? '' : ', all skills 10, every node at least planned'}">⤒ Max target</button>
+    <button class="tiny" data-max title="Target → Lv 90${isW ? '' : ', all skills 10, every node &amp; passive planned'}">⤒ Max target</button>
+    <button class="tiny good" data-maxgoal title="Current → target${isW ? '' : ': levels, skills, and every planned node becomes owned'} — the card then offers ✓ Mark completed">✓ Max goal</button>
   </div>`;
   const box = $('#modalBox');
   box.style.setProperty('--acc', isW ? 'var(--weapon)' : it.elColor);
@@ -1540,11 +1624,25 @@ function renderModal(){
     }
     save(); render();
   }));
+  // Max target: everything into the target — Lv90, skills 10, every node
+  // (incl. both passives — col 2 of the matrix) at least planned
   box.querySelector('[data-max]').addEventListener('click', () => {
     g.tgt.ord = 13;
     if(!isW){
       g.tgt.skills = [10,10,10,10,10];
       for(let r2=0; r2<2; r2++) for(let c2=0; c2<5; c2++) g.nodes[r2][c2] = Math.max(g.nodes[r2][c2], 1);
+      syncNodeCounts(g);
+    }
+    save(); render();
+  });
+  // Max goal: current snaps to target (the backlog "set current = target"
+  // quick action) — planned nodes flip to owned, skipped ones stay skipped;
+  // the goal then costs nothing and its card offers ✓ Mark completed
+  box.querySelector('[data-maxgoal]').addEventListener('click', () => {
+    g.cur.ord = g.tgt.ord;
+    if(!isW){
+      g.cur.skills = [...g.tgt.skills];
+      g.nodes = g.nodes.map(row => row.map(v => v === 1 ? 2 : v));
       syncNodeCounts(g);
     }
     save(); render();

@@ -71,16 +71,19 @@ it goes in block 2 with tests; presentation goes in block 3.
   from them (`newGoal` takes the map as a parameter — it runs before `state`
   exists at boot). Built-ins in `defaultGoalTgt(r)` (engine): 5★ Lv90 ·
   forte 6 · all nodes; 4★ Lv80 · forte 6 · all nodes. The edit pop-up has
-  "⤒ Max target" (Lv90/skills 10/every node ≥ planned) and "Save as N★
-  default" (captures that goal's target; persisted). Weapons: Max only.
-  Templates are also editable from the toolbar ("Templates" → the same
+  "⤒ Max target" (Lv90 / skills 10 / every node & passive at least planned)
+  and "✓ Max goal" (current → target — planned nodes flip to owned, skipped
+  stay skipped; the goal then costs nothing and its card offers ✓ Mark
+  completed). Weapons: both buttons, level-only. Defaults are edited from
+  the toolbar ("Templates" → the same
   pop-up in template mode via `editTpl`, with a 4★/5★ switch and a reset
   button; template nodes toggle skip↔planned only — no "owned" there).
 - **Add-goal palette**: the toolbar search button and Ctrl/Cmd+K open a
   floating fuzzy-search palette (`#palWrap`) over characters + weapons.
   `fuzzyScore` (engine, pure, tested) is subsequence matching with gap/
-  offset/length penalties. Already-queued characters are HIDDEN from
-  results (user choice — no jump-to-editor); weapons always add. Results
+  offset/length penalties. Already-queued AND completed characters are
+  HIDDEN from results (user choice — no jump-to-editor; a completed char
+  comes back via ↩ on the Completed tab); weapons always add. Results
   group as 5★ chars · 4★ chars · 5★/4★/3★ weapons (fuzzy rank within a
   group) with faint rarity row tints (`.pal-item.rN`). Arrows navigate,
   Enter activates, Esc/backdrop close. The old inline add-menu is gone.
@@ -89,10 +92,18 @@ it goes in block 2 with tests; presentation goes in block 3.
   flanking the grid. The goal editor deliberately has no bottom legend and
   no save-as-default button — the toolbar "Templates" pop-up is the single
   place templates are edited.
+- **Completed goals**: a card whose cost is empty (current meets target)
+  grows a ✓ button that moves the goal from `state.goals` to `state.done`
+  (full goal objects, state intact). The **Completed summary tab** lists
+  them with ↩ (restore to queue end — raise the target to keep building)
+  and ✕ (forget; the char becomes addable again). A character exists at
+  most once across queue + done; `sanitize()` lets the queued copy win.
 - **Save format** lives in localStorage key `wuwa-planner-v1`. `sanitize()`
   migrates all older generations (v1 counts → v2 `{minor,major,inh}` arrays →
-  current matrix) and repairs illegal states. Never break old-save loading;
-  add migrations instead. Storage is normalized (rewritten) once at boot.
+  current matrix) and repairs illegal states. Later-added top-level fields:
+  `done` (completed goals) and `hideUn` (Inventory-tab filter) — both
+  default safely when absent. Never break old-save loading; add migrations
+  instead. Storage is normalized (rewritten) once at boot.
 
 ## Game data provenance (do not silently change numbers)
 
@@ -183,7 +194,13 @@ are no screenshot tests — be extra careful with CSS-only changes.
   (`.tile.r0–r5`, game convention green/blue/purple/gold), abbreviated qty
   on the tile (`fmtShort`, pure/engine: 3 sig figs, K/M from 10,000 up),
   name + exact amounts + potion/core plan in the hover `title`. The
-  **Remaining tab keeps its table** (Need/Have/Left + inventory inputs).
+  **Inventory tab keeps its table** (Need/Have/Left + inventory inputs) and
+  lists EVERY registry material — un-needed rows show '—' and no Left cell,
+  so stock can be logged ahead of goals; it renders even with an empty queue
+  (tab key in saves is still `left`). A "Hide un-needed" checkbox
+  (`state.hideUn`, persisted) collapses it to the needed set — row
+  visibility may depend on goals + that toggle but NEVER on inventory
+  (the `updateLeft` in-place patch relies on this).
 - **Tiles show the deficit after inventory** (`deficitTiles`): goal cards
   allocate the pool in queue order (renderGoals runs `farmNextWalk`, so the
   first card that needs a material eats the stock and later cards see the
@@ -200,16 +217,23 @@ are no screenshot tests — be extra careful with CSS-only changes.
   `render()` re-renders the open modal in place. `editIdx` is transient
   (never persisted); Esc/backdrop/✕ close; deleting the edited goal closes.
   `goal.open` still exists in saves but is legacy/unused.
-- Rendering is "state changes → full re-render" via `render()`; inventory
-  edits re-render only the summary. Event handlers bind after each render;
-  data attributes carry indices, never material ids (apostrophes in names).
+- Rendering is "state changes → full re-render" via `render()` — EXCEPT
+  inventory/synth edits, which patch the Inventory tab's computed cells in
+  place (`updateLeft`: Left cells via `data-l`, pooled-EXP Have via `data-h`,
+  potion/core plan rows via `data-p`). Rebuilding the table there would
+  destroy the input the user is tabbing into and dump focus to the top of
+  the page, so keep row structure dependent on goals only, never on
+  inventory. Event handlers bind after each render; data attributes carry
+  indices, never material ids (apostrophes in names).
 - Reordering: drag the ⠿ grip (HTML5 DnD, `dragIdx` module variable — not
   dataTransfer — carries state) **and** ▲▼ buttons, kept for touch screens.
   Both route through `moveGoal(from, to)` where `to` is the pre-removal
   insertion index.
-- Summary tabs: Total / Remaining (inline inventory + 3→1 synthesis toggle) /
-  Farm next (sequential allocation, deliberately no crafting — a craft spent
-  on goal 1 would silently eat goal 2's stock; this is documented in-app).
+- Summary tabs: Total / Inventory (inline inventory + 3→1 synthesis toggle
+  + hide-un-needed toggle) / Farm next (sequential allocation, deliberately
+  no crafting — a craft spent on goal 1 would silently eat goal 2's stock;
+  this is documented in-app) / Completed (finished goals; tab label carries
+  a count when non-empty).
 - localStorage is unavailable in the claude.ai artifact preview iframe —
   the app detects this and shows a "preview mode" note. Never assume storage
   works; everything must degrade to in-memory + Export/Import.
@@ -230,8 +254,7 @@ are no screenshot tests — be extra careful with CSS-only changes.
    Note: the Dimbreath/WutheringData datamine is abandoned at 3.1.0 — verify
    post-3.1 data via Game8/prydwen instead.
 2. Backlog (user-approved ideas, unscheduled): waveplate-cost estimates,
-   optional synthesis in Farm Next, "set current = target" quick action
-   (natural fit as a modal button), optional per-character stat labels on
+   optional synthesis in Farm Next, optional per-character stat labels on
    tree nodes (declined for now — cosmetic), Echo XP/tuners as a separate
    section. No farming-schedule/day-of-week features — WuWa domains are
    always open (user-confirmed).

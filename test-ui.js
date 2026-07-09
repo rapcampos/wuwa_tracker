@@ -147,10 +147,20 @@ const palAdd = q => {
   p.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Enter', bubbles:true}));
 };
 
-// ── Remaining tab: inventory + synthesis ──
-fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Remaining'), 'click');
-ok('remaining tab has inventory inputs', d.querySelectorAll('#summary .invIn').length > 10);
+// ── Inventory tab (renamed from Remaining): inventory + synthesis ──
+ok('tab is named Inventory, not Remaining',
+   [...d.querySelectorAll('#tabs button')].some(b => b.textContent === 'Inventory') &&
+   ![...d.querySelectorAll('#tabs button')].some(b => b.textContent === 'Remaining'));
+fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Inventory'), 'click');
+ok('inventory tab has inventory inputs', d.querySelectorAll('#summary .invIn').length > 10);
 ok('synth toggle present & on', d.querySelector('#synthChk').checked === true);
+
+// every material is listed, even ones no queued goal needs ('—' need, no Left cell)
+const rrfRow = [...d.querySelectorAll('#summary table.mats tr')].find(r => r.textContent.includes('Roaring Rock Fist'));
+ok('un-needed materials get inventory rows too',
+   rrfRow && rrfRow.querySelector('.invIn') !== null &&
+   rrfRow.textContent.includes('—') && rrfRow.querySelector('td[data-l]') === null);
+ok('full-catalog listing dwarfs the needed set', d.querySelectorAll('#summary .invIn').length > 60);
 
 // give 100 premium potions → EXP "have" reflects 2,000,000
 const rows = [...d.querySelectorAll('#summary table.mats tr')];
@@ -158,13 +168,18 @@ const premRow = rows.find(r => r.textContent.includes('Premium Resonance Potion'
 const premIn = premRow.querySelector('.invIn');
 premIn.value = '100'; fire(premIn, 'change');
 ok('potion pool counts toward EXP', d.querySelector('#summary').textContent.includes('2,000,000'));
+// edits patch computed cells in place — the table (and the input the user is
+// tabbing into) must survive, or focus falls back to the top of the page
+ok('inventory edit keeps the table DOM alive (Tab focus can move on)',
+   premIn.isConnected && d.querySelector('#summary .invIn') !== null);
 
 // boss mats fully covered show ✓
 const bossRow = [...d.querySelectorAll('#summary table.mats tr')].find(r => r.textContent.includes('Cleansing Conch'));
 const bossIn = bossRow.querySelector('.invIn');
 bossIn.value = '46'; fire(bossIn, 'change');
 const bossRow2 = [...d.querySelectorAll('#summary table.mats tr')].find(r => r.textContent.includes('Cleansing Conch'));
-ok('covered material shows ✓', bossRow2.textContent.includes('✓'));
+ok('covered material shows ✓ (row patched in place, not rebuilt)',
+   bossRow2.textContent.includes('✓') && bossRow2 === bossRow);
 
 // synthesis visibly changes a deficit: 100 spare LF Whisperin → crafts up
 const lfRow = [...d.querySelectorAll('#summary table.mats tr')].find(r => r.textContent.includes('LF Whisperin Core'));
@@ -175,6 +190,22 @@ const synthChk = d.querySelector('#synthChk');
 synthChk.checked = false; fire(synthChk, 'change');
 const mfLeftOff = [...d.querySelectorAll('#summary table.mats tr')].find(r => r.textContent.includes('MF Whisperin Core')).textContent;
 ok('synthesis toggle changes MF deficit', mfLeftOn.includes('✓') && !mfLeftOff.includes('✓'));
+
+// hide un-needed: collapses the catalog to the needed set (incl. energy cores — no weapon goals yet)
+const allCount = d.querySelectorAll('#summary .invIn').length;
+const hideChk = d.querySelector('#hideChk');
+hideChk.checked = true; fire(hideChk, 'change');
+ok('hide un-needed removes catalog-only rows',
+   d.querySelectorAll('#summary .invIn').length < allCount &&
+   ![...d.querySelectorAll('#summary table.mats tr')].some(r => r.textContent.includes('Roaring Rock Fist')) &&
+   !d.querySelector('#summary').textContent.includes('Energy Core'));
+ok('needed rows survive the hide toggle',
+   [...d.querySelectorAll('#summary table.mats tr')].some(r => r.textContent.includes('Cleansing Conch')) &&
+   [...d.querySelectorAll('#summary table.mats tr')].some(r => r.textContent.includes('Premium Resonance Potion')));
+ok('hide preference persisted', JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).hideUn === true);
+const hideChk2 = d.querySelector('#hideChk');   // re-render replaced the node
+hideChk2.checked = false; fire(hideChk2, 'change');
+ok('untick restores the full catalog', d.querySelectorAll('#summary .invIn').length === allCount);
 
 // ── Farm next tab ──
 fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Farm next'), 'click');
@@ -387,8 +418,8 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok('beta weapon carries the badge', d.querySelector('.goal[data-g="4"] .badge') !== null);
   fire(d.querySelector('button[data-act="del"][data-g="4"]'), 'click');
 
-  // Remaining tab: Weapon EXP pool with energy-core inputs, separate from potions
-  fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Remaining'), 'click');
+  // Inventory tab: Weapon EXP pool with energy-core inputs, separate from potions
+  fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Inventory'), 'click');
   const sumEl = () => d.querySelector('#summary');
   ok('weapon EXP row present', sumEl().textContent.includes('Weapon EXP') && sumEl().textContent.includes('2,692,400'));
   const coreRow = [...d.querySelectorAll('#summary table.mats tr')].find(r => r.textContent.includes('Premium Energy Core'));
@@ -419,6 +450,22 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
      JSON.parse(domW.window.localStorage.getItem('wuwa-planner-v1')).inv.wexp2 === 3);
 }
 
+// ── Inventory tab is a full stock editor even with an empty queue ──
+{
+  const domE = new JSDOM(html, {runScripts:'outside-only', url:'https://localhost/'});
+  domE.window.localStorage.setItem('wuwa-planner-v1', '{"goals":[],"inv":{"exp4":5},"tab":"left"}');
+  domE.window.eval([...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).join('\n;\n'));
+  const dE = domE.window.document;
+  ok('inventory tab lists every material with no goals queued',
+     dE.querySelectorAll('#summary .invIn').length > 60);
+  ok('stock loads into the inputs with no goals queued',
+     [...dE.querySelectorAll('#summary .invIn')].some(i => i.value === '5'));
+  const totBtn = [...dE.querySelectorAll('#tabs button')].find(b => b.textContent === 'Total');
+  totBtn.dispatchEvent(new domE.window.Event('click', {bubbles:true}));
+  ok('other tabs keep the empty-queue note',
+     dE.querySelector('#summary .empty') !== null);
+}
+
 // ── per-rarity default goals + Max button ──
 {
   // 4★ default template: Lv80, forte 6, all 8 nodes + both passives planned
@@ -430,23 +477,45 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok('4★ default: all nodes + passives planned',
      sCard().querySelectorAll('.mini .node.plan').length === 10);
 
-  // Max button: target → Lv90 / skills 10 / every node at least planned
+  // Max button: target → Lv90 / skills 10 / every node & passive planned
   fire(d.querySelector('button[data-act="edit"][data-g="4"]'), 'click');
+  fire(mbox().querySelector('.node[data-r="1"][data-c="2"]'), 'click');   // skip passive Ⅱ first
+  ok('passive Ⅱ skipped before max', sCard().querySelectorAll('.mini .node.plan').length === 9);
   fire(mbox().querySelector('[data-max]'), 'click');
   ok('max: level target 90', sCard().textContent.includes('Lv 1 → Lv 90'));
   ok('max: skills to 10', [...sCard().querySelectorAll('.mini .sk')].every(s => s.textContent === '1→10'));
+  ok('max: every node & passive back to planned',
+     sCard().querySelectorAll('.mini .node.plan').length === 10);
   ok('max: pop-up stays open, selects follow',
      d.querySelector('#modalWrap').hidden === false &&
      mbox().querySelector('select[data-side="tgt"][data-f="ord"]').value === '13');
+
+  // Max goal: current snaps to target, planned nodes become owned
+  fire(mbox().querySelector('[data-maxgoal]'), 'click');
+  ok('max goal: current level matches target', sCard().textContent.includes('Lv 90 → Lv 90'));
+  ok('max goal: current skills match target',
+     [...sCard().querySelectorAll('.mini .sk')].every(s => s.textContent === '10→10'));
+  ok('max goal: every planned node now owned',
+     sCard().querySelectorAll('.mini .node.own').length === 10 &&
+     sCard().querySelectorAll('.mini .node.plan').length === 0);
+  ok('max goal: card needs nothing and offers ✓',
+     sCard().textContent.includes('Nothing needed') &&
+     sCard().querySelector('button[data-act="done"]') !== null);
 
   // editor is lean now: no bottom legend, no save-as-default (Templates owns that)
   ok('goal editor: no bottom legend, no save-as-default',
      mbox().querySelector('.ftree-legend') === null && mbox().querySelector('[data-setdef]') === null);
   d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
   fire(d.querySelector('button[data-act="del"][data-g="4"]'), 'click');   // remove sanhua
-  // weapon pop-up keeps Max
+  // weapon pop-up keeps Max and gains Max goal
   fire(d.querySelector('button[data-act="edit"][data-g="3"]'), 'click');
   ok('weapon pop-up keeps Max', mbox().querySelector('[data-max]') !== null);
+  fire(mbox().querySelector('[data-maxgoal]'), 'click');
+  ok('weapon max goal: current level snaps to target',
+     mbox().querySelector('select[data-side="cur"][data-f="ord"]').value ===
+     mbox().querySelector('select[data-side="tgt"][data-f="ord"]').value);
+  const wCur = mbox().querySelector('select[data-side="cur"][data-f="ord"]');
+  wCur.value = '0'; fire(wCur, 'change');            // back to a full plan for later blocks
   d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
 }
 
@@ -543,6 +612,75 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   const conch = tileIn('#summary', 'Cleansing Conch');
   ok('fully covered material shows ✓ in Total', conch.textContent.includes('✓') && conch.classList.contains('done'));
   w.eval(`delete state.inv["wk:Sentinel's Dagger"]; save(); render();`);
+}
+
+// ── mark as completed: ✓ on finished cards, Completed summary tab ──
+{
+  ok('unfinished cards have no ✓ button', d.querySelector('#goals [data-act="done"]') === null);
+  // finish Phoebe: current = target, every planned node owned
+  w.eval(`{ const g = state.goals.find(x => x.char === 'phoebe');
+    g.cur = JSON.parse(JSON.stringify(g.tgt));
+    g.nodes = g.nodes.map(r => r.map(v => v ? 2 : 0));
+    syncNodeCounts(g); save(); render(); }`);
+  const phCard = [...d.querySelectorAll('#goals .goal')].find(c => c.textContent.includes('Phoebe'));
+  ok('finished card grows a ✓ button', phCard.querySelector('button[data-act="done"]') !== null);
+  const before = d.querySelectorAll('#goals .goal').length;
+  fire(phCard.querySelector('button[data-act="done"]'), 'click');
+  ok('✓ moves the goal off the queue',
+     d.querySelectorAll('#goals .goal').length === before - 1 && !texts('.gname').includes('Phoebe'));
+  ok('Completed tab shows its count',
+     [...d.querySelectorAll('#tabs button')].some(b => b.textContent === 'Completed (1)'));
+  fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent.startsWith('Completed')), 'click');
+  ok('completed row: name + DONE badge + restore/forget buttons',
+     d.querySelector('#summary .goalstat') !== null &&
+     d.querySelector('#summary').textContent.includes('Phoebe') &&
+     d.querySelector('#summary .st.ready') !== null &&
+     d.querySelector('#summary [data-undone]') !== null &&
+     d.querySelector('#summary [data-rmdone]') !== null);
+  ok('completed list persisted',
+     JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).done.some(g => g.char === 'phoebe'));
+  // completed characters are hidden from the add palette
+  fire(d.querySelector('#btnAdd'), 'click');
+  const pIn = d.querySelector('#palIn');
+  pIn.value = 'phoebe'; fire(pIn, 'input');
+  ok('completed char hidden from the palette', d.querySelector('#palList').textContent.includes('No matches'));
+  fire(d.querySelector('#palWrap'), 'click');                        // backdrop click closes
+  // ↩ restores to the end of the queue with its state intact
+  fire(d.querySelector('#summary [data-undone]'), 'click');
+  ok('↩ restores to the end of the queue',
+     texts('.gname').pop() === 'Phoebe' && d.querySelectorAll('#goals .goal').length === before);
+  ok('restored goal keeps its finished state (✓ offered again)',
+     [...d.querySelectorAll('#goals .goal')].find(c => c.textContent.includes('Phoebe'))
+       .querySelector('button[data-act="done"]') !== null);
+  // ✕ forgets the record and frees the character for re-adding
+  const phCard2 = [...d.querySelectorAll('#goals .goal')].find(c => c.textContent.includes('Phoebe'));
+  fire(phCard2.querySelector('button[data-act="done"]'), 'click');
+  fire(d.querySelector('#summary [data-rmdone]'), 'click');
+  ok('✕ forgets the completed goal',
+     JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).done.length === 0);
+  fire(d.querySelector('#btnAdd'), 'click');
+  const pIn2 = d.querySelector('#palIn');
+  pIn2.value = 'phoebe'; fire(pIn2, 'input');
+  ok('forgotten char is addable again', d.querySelector('#palList').textContent.includes('Phoebe'));
+  fire(d.querySelector('#palWrap'), 'click');
+}
+
+// ── sanitize: done list round-trips; a char can't be both queued and completed ──
+{
+  const domD = new JSDOM(html, {runScripts:'outside-only', url:'https://localhost/'});
+  domD.window.localStorage.setItem('wuwa-planner-v1', JSON.stringify({
+    goals:[{char:'jinhsi'}],
+    done:[{char:'jinhsi'}, {char:'camellya', cur:{ord:13}, tgt:{ord:13}},
+          {weapon:'stonard', cur:{ord:13}, tgt:{ord:13}}],
+    tab:'done'}));
+  domD.window.eval([...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).join('\n;\n'));
+  const dD = domD.window.document;
+  const savedD = JSON.parse(domD.window.localStorage.getItem('wuwa-planner-v1'));
+  ok('sanitize: queued char wins over its done copy',
+     savedD.done.length === 2 && !savedD.done.some(g => g.char === 'jinhsi'));
+  ok('done tab persists and renders its rows', dD.querySelectorAll('#summary .goalstat').length === 2);
+  ok('completed count shows on the tab',
+     [...dD.querySelectorAll('#tabs button')].some(b => b.textContent === 'Completed (2)'));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

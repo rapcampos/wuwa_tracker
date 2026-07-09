@@ -264,28 +264,31 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   const cell = (r, c) => mbox().querySelector(`.node[data-r="${r}"][data-c="${c}"]`);
   const saved = () => JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).goals[1];
 
-  // cascade down: owning a top node pulls its bottom node to owned
-  fire(cell(1, 0), 'click');                       // top col0: plan → own
+  // cascade down: owning a top node (right-click) pulls its bottom node to owned
+  fire(cell(1, 0), 'contextmenu');                 // top col0: plan → own
   let g1 = saved();
   ok('top→own cascades bottom→own', g1.nodes[1][0] === 2 && g1.nodes[0][0] === 2);
   ok('derived counts follow cascade', g1.cur.major === 1 && g1.cur.minor === 1);
 
-  // cascade up: skipping a bottom node clears its top node
-  fire(cell(0, 0), 'click');                       // bottom col0: own → skip
+  // left-click demotes owned → planned, then unplans; skipping the bottom clears the top
+  fire(cell(0, 0), 'click');                       // bottom col0: own → planned
+  g1 = saved();
+  ok('left on owned demotes to planned (top follows down)', g1.nodes[0][0] === 1 && g1.nodes[1][0] === 1);
+  fire(cell(0, 0), 'click');                       // bottom col0: planned → skip
   g1 = saved();
   ok('bottom→skip cascades top→skip', g1.nodes[0][0] === 0 && g1.nodes[1][0] === 0);
   ok('counts drop on both rows', g1.tgt.major === 3 && g1.tgt.minor === 3);
 
   // top can sit below bottom: bottom owned, top planned is legal
-  fire(cell(0, 1), 'click');                       // bottom col1: plan → own
+  fire(cell(0, 1), 'contextmenu');                 // bottom col1: plan → own
   g1 = saved();
   ok('bottom owned + top planned is legal', g1.nodes[0][1] === 2 && g1.nodes[1][1] === 1);
 
   // inherent ordering: Ⅱ owned pulls Ⅰ owned; skipping Ⅰ clears Ⅱ
-  fire(cell(1, 2), 'click');                       // Ⅱ: plan → own
+  fire(cell(1, 2), 'dblclick');                    // Ⅱ: plan → own (double-click owns too)
   g1 = saved();
   ok('Passive Ⅱ owned requires Ⅰ owned', g1.cur.inh2 === 1 && g1.cur.inh1 === 1 && g1.nodes[0][2] === 2);
-  fire(cell(0, 2), 'click');                       // Ⅰ: own → skip
+  fire(cell(0, 2), 'click'); fire(cell(0, 2), 'click');   // Ⅰ: own → planned → skip
   g1 = saved();
   ok('skipping Ⅰ clears Ⅱ', g1.nodes[0][2] === 0 && g1.nodes[1][2] === 0 && g1.tgt.inh2 === 0);
 

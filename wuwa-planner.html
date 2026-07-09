@@ -1108,7 +1108,7 @@ function nodeBtn(i, r, c, s, label){
   const dep = r === 1 ? ' · requires the node below' : '';
   const how = {none:'skipped', plan:'planned', own:'owned'}[st];
   return `<button type="button" class="node ${kind} ${st}" data-g="${i}" data-r="${r}" data-c="${c}"` +
-         ` title="${what} — ${how} (click to cycle)${dep}" aria-label="${what}: ${how}">${label || ''}</button>`;
+         ` title="${what} — ${how} (left-click: plan/skip · right- or double-click: owned)${dep}" aria-label="${what}: ${how}">${label || ''}</button>`;
 }
 
 /* read-only miniature of the forte tree, with each column's skill level
@@ -1178,11 +1178,18 @@ function renderGoals(){
   bindIcons(box);
 }
 
+/* left click: plan ↔ skip (an owned node demotes to planned first);
+   right click or double click: toggle owned */
 function onNode(e){
   const el = e.currentTarget;
   const g = state.goals[+el.dataset.g];
   const r = +el.dataset.r, c = +el.dataset.c, m = g.nodes;
-  m[r][c] = (m[r][c] + 1) % 3;
+  if(e.type === 'contextmenu' || e.type === 'dblclick'){
+    e.preventDefault();
+    m[r][c] = m[r][c] === 2 ? 1 : 2;
+  } else {
+    m[r][c] = m[r][c] === 2 ? 1 : m[r][c] ? 0 : 1;
+  }
   if(r === 1) m[0][c] = Math.max(m[0][c], m[1][c]);   // raising the top pulls the bottom up
   else        m[1][c] = Math.min(m[1][c], m[0][c]);   // lowering the bottom pulls the top down
   syncNodeCounts(g);
@@ -1461,7 +1468,7 @@ function renderModal(){
         `<span class="arrow-v">↓</span>` +
         sel(i, 'tgt', 's'+c, skOpts, g.tgt.skills[c]) +
       `</div>`).join('') + gutter('+', '+1') + `</div>
-      <div class="ftree-legend">click a node: <span class="lg"></span> skip → <span class="lg plan"></span> planned → <span class="lg own"></span> owned · upper nodes need their lower node · skill levels read current ↓ target · ∓1 gutters shift all five skills</div>`;
+      <div class="ftree-legend">left-click: <span class="lg"></span> skip ↔ <span class="lg plan"></span> planned · right/double-click: <span class="lg own"></span> owned · upper nodes need their lower node · skill levels read current ↓ target · ∓1 gutters shift all five skills</div>`;
   }
   html += `<div style="display:flex; gap:8px; margin-top:16px; flex-wrap:wrap">
     <button class="tiny" data-max title="Target → Lv 90${isW ? '' : ', all skills 10, every node at least planned'}">⤒ Max target</button>` +
@@ -1471,7 +1478,8 @@ function renderModal(){
   box.style.setProperty('--acc', isW ? 'var(--weapon)' : it.elColor);
   box.innerHTML = html;
   box.querySelectorAll('select[data-f]').forEach(s => s.addEventListener('change', onField));
-  box.querySelectorAll('.node').forEach(b => b.addEventListener('click', onNode));
+  box.querySelectorAll('.node').forEach(b => ['click','contextmenu','dblclick']
+    .forEach(t => b.addEventListener(t, onNode)));
   box.querySelector('[data-close]').addEventListener('click', closeEdit);
   box.querySelectorAll('[data-bulk]').forEach(b => b.addEventListener('click', e => {
     const which = e.currentTarget.dataset.bulk;              // cur-/cur+/tgt-/tgt+

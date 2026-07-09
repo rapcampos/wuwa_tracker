@@ -163,6 +163,12 @@ label.chk{display:inline-flex; gap:6px; align-items:center; cursor:pointer; colo
 .medit .arrow-v{color:var(--faint); font-size:10px; line-height:1.4}
 .medit .gut button{width:34px; height:27px; padding:0; font-size:11px}
 .medit .gut .arrow-v{visibility:hidden}
+.medit .gut .skspace{height:24px}
+.medit .skpm{display:flex; gap:3px; margin-top:4px}
+.medit .skpm button{width:28px; height:20px; padding:0; font-size:12px; border-radius:5px;
+  font-family:'Chakra Petch',sans-serif; color:var(--mut); background:var(--panel);
+  border:1px solid var(--line2); cursor:pointer}
+.medit .skpm button:hover{border-color:var(--acc,var(--cyan)); color:var(--ink)}
 
 /* ── add-goal palette (Ctrl+K) ─────────── */
 button.search{display:inline-flex; align-items:center; gap:8px; min-width:230px;
@@ -177,7 +183,10 @@ button.search kbd{margin-left:auto; font-family:inherit; font-size:10px; color:v
   background:var(--panel2); padding:12px 14px; font:inherit; font-size:14px; color:var(--ink); outline:none}
 #palList{max-height:320px; overflow:auto; overscroll-behavior:contain}
 .pal-item{display:flex; gap:10px; align-items:center; padding:7px 12px; cursor:pointer; font-size:13px}
-.pal-item.on{background:var(--panel2)}
+.pal-item.r5{background:rgba(229,181,102,.08)}
+.pal-item.r4{background:rgba(166,127,224,.09)}
+.pal-item.r3{background:rgba(92,168,222,.09)}
+.pal-item.on{background:var(--line)}
 .pal-item .ico-wrap{width:26px; height:26px; margin:0; flex:none}
 .pal-item .ico-wrap img{width:26px; height:26px}
 .pal-item .tag{margin-left:auto; font-size:10px; color:var(--faint); letter-spacing:.08em;
@@ -1266,22 +1275,25 @@ function onField(e){
 }
 
 /* ── add-goal palette: fuzzy search over characters + weapons (Ctrl+K) ──
-   Queued characters stay in the results — activating one jumps to its
-   editor instead of adding a duplicate. Weapons always add (dupes legal). */
+   Already-queued characters are hidden (no duplicates possible); weapons
+   always add (dupes legal). Results group as 5★ chars · 4★ chars · 5★
+   weapons · 4★ · 3★, fuzzy score ranking within each group; rows carry a
+   faint rarity tint. */
 let palSel = 0;
 const palIsOpen = () => !$('#palWrap').hidden;
 function paletteEntries(q){
   const out = [];
   for(const [id, ch] of Object.entries(GAME.characters)){
+    if(state.goals.some(g => g.char === id)) continue;
     const s = fuzzyScore(q, ch.name);
-    if(s >= 0) out.push({score:s, kind:'char', id, name:ch.name,
-      queuedAt: state.goals.findIndex(g => g.char === id)});
+    if(s >= 0) out.push({score:s, kind:'char', id, name:ch.name, rarity:ch.rarity});
   }
   for(const [id, wp] of Object.entries(GAME.weapons)){
     const s = fuzzyScore(q, wp.name);
-    if(s >= 0) out.push({score:s, kind:'wpn', id, name:wp.name, queuedAt:-1});
+    if(s >= 0) out.push({score:s, kind:'wpn', id, name:wp.name, rarity:wp.rarity});
   }
-  return out.sort((a,b) => a.score - b.score || (a.name < b.name ? -1 : 1));
+  const grp = it => (it.kind === 'char' ? 0 : 10) + (5 - it.rarity);
+  return out.sort((a,b) => grp(a) - grp(b) || a.score - b.score || (a.name < b.name ? -1 : 1));
 }
 function openPal(){ closeEdit(); $('#palWrap').hidden = false; palSel = 0; renderPal(); $('#palIn').focus(); }
 function closePal(){ $('#palWrap').hidden = true; $('#palIn').value = ''; }
@@ -1289,10 +1301,10 @@ function renderPal(){
   const list = paletteEntries($('#palIn').value.trim());
   palSel = clamp(palSel, 0, Math.max(0, list.length - 1));
   $('#palList').innerHTML = list.length ? list.map((it, i) =>
-    `<div class="pal-item${i === palSel ? ' on' : ''}" data-i="${i}">` +
+    `<div class="pal-item r${it.rarity}${i === palSel ? ' on' : ''}" data-i="${i}">` +
       `<span class="ico-wrap">${icoImg(it.name, it.kind === 'wpn' ? 'weapon' : 'char')}</span>` +
       `${esc(it.name)}` +
-      `<span class="tag${it.queuedAt >= 0 ? ' q' : ''}">${it.kind === 'wpn' ? 'weapon · add' : it.queuedAt >= 0 ? 'queued · edit' : 'add'}</span>` +
+      `<span class="tag">${it.rarity}★ ${it.kind === 'wpn' ? 'weapon' : 'char'}</span>` +
     `</div>`).join('') : '<div class="empty">No matches.</div>';
   $('#palList').querySelectorAll('.pal-item').forEach(el => {
     el.addEventListener('click', () => palActivate(list[+el.dataset.i]));
@@ -1305,7 +1317,6 @@ function renderPal(){
 function palActivate(it){
   if(!it) return;
   closePal();
-  if(it.kind === 'char' && it.queuedAt >= 0){ editIdx = it.queuedAt; render(); return; }
   state.goals.push(it.kind === 'wpn' ? newWpnGoal(it.id, true) : newGoal(it.id, true, state.defaults));
   save(); render();
 }
@@ -1452,12 +1463,19 @@ function renderModal(){
     // game-view forte layout: each skill column carries its two nodes above
     // its level selects (current above target); column c ↔ skill c
     const m = g.nodes, SHORT = ['Basic','Skill','Circuit','Lib','Intro'];
+    // per-skill ± pair rendered under each select (current and target rows)
+    const skpm = (c, side) => `<div class="skpm">` +
+      `<button data-skc="${c}" data-sks="${side}" data-skd="-1" title="${esc(GAME.skillNames[c])} ${side === 'cur' ? 'current' : 'target'} −1">−</button>` +
+      `<button data-skc="${c}" data-sks="${side}" data-skd="1" title="${esc(GAME.skillNames[c])} ${side === 'cur' ? 'current' : 'target'} +1">+</button>` +
+    `</div>`;
     // ±1 gutters flank the select rows: left = −1, right = +1; the upper
     // button works the current row, the lower one the target row
     const gutter = (key, label) => `<div class="fcol gut">` +
       `<button class="tiny" data-bulk="cur${key}" title="All current skill levels ${label}">${label}</button>` +
+      `<span class="skspace"></span>` +
       `<span class="arrow-v">&nbsp;</span>` +
       `<button class="tiny" data-bulk="tgt${key}" title="All target skill levels ${label}">${label}</button>` +
+      `<span class="skspace"></span>` +
     `</div>`;
     html += `<div class="ftree medit">` + gutter('-', '−1') + [0,1,2,3,4].map(c => `<div class="fcol">` +
         nodeBtn(i, 1, c, m[1][c], c === INH_COL ? 'Ⅱ' : '') +
@@ -1465,15 +1483,15 @@ function renderModal(){
         nodeBtn(i, 0, c, m[0][c], c === INH_COL ? 'Ⅰ' : '') +
         `<div class="sklbl" title="${esc(GAME.skillNames[c])}">${SHORT[c]}</div>` +
         sel(i, 'cur', 's'+c, skOpts, g.cur.skills[c]) +
+        skpm(c, 'cur') +
         `<span class="arrow-v">↓</span>` +
         sel(i, 'tgt', 's'+c, skOpts, g.tgt.skills[c]) +
-      `</div>`).join('') + gutter('+', '+1') + `</div>
-      <div class="ftree-legend">left-click: <span class="lg"></span> skip ↔ <span class="lg plan"></span> planned · right/double-click: <span class="lg own"></span> owned · upper nodes need their lower node · skill levels read current ↓ target · ∓1 gutters shift all five skills</div>`;
+        skpm(c, 'tgt') +
+      `</div>`).join('') + gutter('+', '+1') + `</div>`;
   }
   html += `<div style="display:flex; gap:8px; margin-top:16px; flex-wrap:wrap">
-    <button class="tiny" data-max title="Target → Lv 90${isW ? '' : ', all skills 10, every node at least planned'}">⤒ Max target</button>` +
-    (isW ? '' : `<button class="tiny" data-setdef title="New ${it.rarity}★ goals will start with this card's target">Save as ${it.rarity}★ default</button>`) +
-  `</div>`;
+    <button class="tiny" data-max title="Target → Lv 90${isW ? '' : ', all skills 10, every node at least planned'}">⤒ Max target</button>
+  </div>`;
   const box = $('#modalBox');
   box.style.setProperty('--acc', isW ? 'var(--weapon)' : it.elColor);
   box.innerHTML = html;
@@ -1504,13 +1522,17 @@ function renderModal(){
     }
     save(); render();
   });
-  const sd = box.querySelector('[data-setdef]');
-  if(sd) sd.addEventListener('click', () => {
-    state.defaults[it.rarity] = {ord:g.tgt.ord, skills:[...g.tgt.skills],
-      inh1:g.tgt.inh1, inh2:g.tgt.inh2, minor:g.tgt.minor, major:g.tgt.major};
-    save();
-    note(`Saved as the default goal for ${it.rarity}★ characters.`);
-  });
+  box.querySelectorAll('[data-skc]').forEach(b => b.addEventListener('click', e => {
+    const c2 = +e.currentTarget.dataset.skc, delta = +e.currentTarget.dataset.skd;
+    if(e.currentTarget.dataset.sks === 'cur'){                          // same rules as onField
+      g.cur.skills[c2] = clamp(g.cur.skills[c2] + delta, 1, 10);
+      g.tgt.skills[c2] = Math.max(g.tgt.skills[c2], g.cur.skills[c2]);
+    } else {
+      g.tgt.skills[c2] = clamp(g.tgt.skills[c2] + delta, 1, 10);
+      g.cur.skills[c2] = Math.min(g.cur.skills[c2], g.tgt.skills[c2]);
+    }
+    save(); render();
+  }));
   bindIcons(box);
   wrap.hidden = false;
 }

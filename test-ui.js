@@ -100,24 +100,34 @@ ok('goal removed', d.querySelectorAll('.goal').length === 2);
 // ── add-goal palette: fuzzy search over the whole catalog ──
 fire(d.querySelector('#btnAdd'), 'click');
 ok('palette opens from the toolbar button', d.querySelector('#palWrap').hidden === false);
-ok('empty query lists the whole catalog (chars + weapons)',
+ok('empty query lists all un-queued chars + all weapons',
    d.querySelectorAll('#palList .pal-item').length ===
-   w.eval('Object.keys(GAME.characters).length + Object.keys(GAME.weapons).length'));
+   w.eval('Object.keys(GAME.characters).length + Object.keys(GAME.weapons).length') - 2); // Pho + Jin queued
+
+// grouping: 5★ chars · 4★ chars · 5★ weapons · 4★ weapons, faint rarity tint per row
+{
+  const items = [...d.querySelectorAll('#palList .pal-item')];
+  const tags = items.map(x => x.querySelector('.tag').textContent);
+  const lastCharIdx = tags.map(t => t.includes('char')).lastIndexOf(true);
+  const firstWpnIdx = tags.findIndex(t => t.includes('weapon'));
+  const last5CharIdx = tags.map(t => t === '5★ char').lastIndexOf(true);
+  const first4CharIdx = tags.findIndex(t => t === '4★ char');
+  ok('groups: chars before weapons, 5★ chars before 4★',
+     firstWpnIdx > lastCharIdx && first4CharIdx > last5CharIdx && last5CharIdx > -1);
+  ok('rows carry faint rarity tints', items[0].classList.contains('r5') &&
+     items[first4CharIdx].classList.contains('r4'));
+}
 const palIn = d.querySelector('#palIn');
 palIn.value = 'suisui'; fire(palIn, 'input');
 fire([...d.querySelectorAll('#palList .pal-item')].find(x => x.textContent.includes('Suisui')), 'click');
 ok('goal re-added at end via search',
    texts('.gname')[2].startsWith('Suisui') && d.querySelector('#palWrap').hidden === true);
 
-// queued characters stay searchable and jump to their editor
+// already-queued characters are hidden from results
 fire(d.querySelector('#btnAdd'), 'click');
 palIn.value = 'jinhsi'; fire(palIn, 'input');
-const jItem = [...d.querySelectorAll('#palList .pal-item')].find(x => x.textContent.includes('Jinhsi'));
-ok('queued char tagged in results', jItem !== undefined && jItem.textContent.includes('queued'));
-fire(jItem, 'click');
-ok('activating a queued char opens its editor instead of duplicating',
-   d.querySelectorAll('.goal').length === 3 &&
-   d.querySelector('#modalWrap').hidden === false && mbox().textContent.includes('Jinhsi'));
+ok('queued chars hidden from results',
+   ![...d.querySelectorAll('#palList .pal-item')].some(x => x.textContent.includes('Jinhsi')));
 d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
 
 // Ctrl+K opens; subsequence fuzzy ranks sensibly; Esc closes
@@ -429,24 +439,15 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
      d.querySelector('#modalWrap').hidden === false &&
      mbox().querySelector('select[data-side="tgt"][data-f="ord"]').value === '13');
 
-  // Save as 4★ default → new 4★ goals start from the saved target
-  const s0t = mbox().querySelector('select[data-g="4"][data-side="tgt"][data-f="s0"]');
-  s0t.value = '8'; fire(s0t, 'change');
-  fire(mbox().querySelector('[data-setdef]'), 'click');
+  // editor is lean now: no bottom legend, no save-as-default (Templates owns that)
+  ok('goal editor: no bottom legend, no save-as-default',
+     mbox().querySelector('.ftree-legend') === null && mbox().querySelector('[data-setdef]') === null);
   d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
-  fire(d.querySelector('button[data-act="del"][data-g="4"]'), 'click');
-  palAdd('yuanwu');
-  const yCard = d.querySelector('.goal[data-g="4"]');
-  ok('saved default applies to new 4★ goals',
-     yCard.textContent.includes('Lv 1 → Lv 90') && yCard.querySelector('.mini .sk').textContent === '1→8');
-  ok('default persisted in the save',
-     JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).defaults['4'].skills[0] === 8);
-  // weapon pop-up gets Max but no default button
+  fire(d.querySelector('button[data-act="del"][data-g="4"]'), 'click');   // remove sanhua
+  // weapon pop-up keeps Max
   fire(d.querySelector('button[data-act="edit"][data-g="3"]'), 'click');
-  ok('weapon pop-up: Max yes, default no',
-     mbox().querySelector('[data-max]') !== null && mbox().querySelector('[data-setdef]') === null);
+  ok('weapon pop-up keeps Max', mbox().querySelector('[data-max]') !== null);
   d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
-  fire(d.querySelector('button[data-act="del"][data-g="4"]'), 'click');
 }
 
 // ── bulk skill ±1 buttons ──
@@ -471,6 +472,16 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   for(let i = 0; i < 10; i++) fire(mbox().querySelector('[data-bulk="cur+"]'), 'click');
   ok('bulk current +1 caps at 10 and drags target up',
      SK.every(f => val('cur', f) === '10') && SK.every(f => val('tgt', f) === '10'));
+
+  // per-skill ± pairs under both select rows
+  ok('per-skill ± pairs: 2 rows × 5 columns × 2 buttons', mbox().querySelectorAll('[data-skc]').length === 20);
+  fire(mbox().querySelector('[data-skc="0"][data-sks="tgt"][data-skd="-1"]'), 'click');
+  ok('skill target −1 drags current down, only that column',
+     val('tgt', 's0') === '9' && val('cur', 's0') === '9' && val('tgt', 's1') === '10');
+  fire(mbox().querySelector('[data-skc="0"][data-sks="cur"][data-skd="1"]'), 'click');
+  ok('skill current +1 drags target up', val('cur', 's0') === '10' && val('tgt', 's0') === '10');
+  fire(mbox().querySelector('[data-skc="3"][data-sks="cur"][data-skd="-1"]'), 'click');
+  ok('skill current −1 leaves target', val('cur', 's3') === '9' && val('tgt', 's3') === '10');
   d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
   ok('weapon pop-up has no bulk buttons', (() => {
     fire(d.querySelector('button[data-act="edit"][data-g="3"]'), 'click');
@@ -486,10 +497,7 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok('templates pop-up opens on 5★', mbox().textContent.includes('5★ default goal'));
   fire(mbox().querySelector('[data-tplswitch]'), 'click');
   ok('switch to the 4★ template', mbox().textContent.includes('4★ default goal'));
-  // an earlier test saved a custom 4★ default (ord 13, s0 8) — reset restores built-in
   const d4 = () => JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).defaults['4'];
-  fire(mbox().querySelector('[data-tplreset]'), 'click');
-  ok('reset restores the built-in 4★ template', d4().ord === 11 && d4().skills.every(v => v === 6) && d4().major === 4);
   // edit level, a skill, and toggle a node — all persist to the save
   const ordSel = mbox().querySelector('select[data-tf="ord"]');
   ordSel.value = '13'; fire(ordSel, 'change');
@@ -504,6 +512,13 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok('new 4★ goal uses the edited template',
      tCard.textContent.includes('Lv 1 → Lv 90') && tCard.querySelectorAll('.mini .sk')[2].textContent === '1→9');
   fire(tCard.querySelector('button[data-act="del"]'), 'click');
+  // reset restores the built-in
+  fire(d.querySelector('#btnTpl'), 'click');
+  fire(mbox().querySelector('[data-tplswitch]'), 'click');
+  fire(mbox().querySelector('[data-tplreset]'), 'click');
+  ok('reset restores the built-in 4★ template',
+     d4().ord === 11 && d4().skills.every(v => v === 6) && d4().major === 4 && d4().inh2 === 1);
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

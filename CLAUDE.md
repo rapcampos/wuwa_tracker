@@ -79,10 +79,16 @@ it goes in block 2 with tests; presentation goes in block 3.
 - **Add-goal palette**: the toolbar search button and Ctrl/Cmd+K open a
   floating fuzzy-search palette (`#palWrap`) over characters + weapons.
   `fuzzyScore` (engine, pure, tested) is subsequence matching with gap/
-  offset/length penalties. Queued characters remain listed — activating one
-  jumps to its editor instead of duplicating; weapons always add. Arrows
-  navigate, Enter activates, Esc/backdrop close. The old inline add-menu
-  is gone.
+  offset/length penalties. Already-queued characters are HIDDEN from
+  results (user choice — no jump-to-editor); weapons always add. Results
+  group as 5★ chars · 4★ chars · 5★/4★/3★ weapons (fuzzy rank within a
+  group) with faint rarity row tints (`.pal-item.rN`). Arrows navigate,
+  Enter activates, Esc/backdrop close. The old inline add-menu is gone.
+- **Editor skill controls**: each skill column has −/+ pairs under BOTH the
+  current and target selects (`data-skc/sks/skd`), plus the bulk ±1 gutters
+  flanking the grid. The goal editor deliberately has no bottom legend and
+  no save-as-default button — the toolbar "Templates" pop-up is the single
+  place templates are edited.
 - **Save format** lives in localStorage key `wuwa-planner-v1`. `sanitize()`
   migrates all older generations (v1 counts → v2 `{minor,major,inh}` arrays →
   current matrix) and repairs illegal states. Never break old-save loading;

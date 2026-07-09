@@ -161,6 +161,8 @@ label.chk{display:inline-flex; gap:6px; align-items:center; cursor:pointer; colo
 .medit .sklbl{font-size:10px; letter-spacing:.08em; text-transform:uppercase;
   color:var(--faint); margin:7px 0 3px; text-align:center}
 .medit .arrow-v{color:var(--faint); font-size:10px; line-height:1.4}
+.medit .gut button{width:34px; height:27px; padding:0; font-size:11px}
+.medit .gut .arrow-v{visibility:hidden}
 
 /* ── material tiles: icon on rarity-tinted ground, qty below, name on hover ── */
 .tiles{display:flex; flex-wrap:wrap; gap:6px; padding:2px 0}
@@ -1363,10 +1365,14 @@ function renderModal(){
     // game-view forte layout: each skill column carries its two nodes above
     // its level selects (current above target); column c ↔ skill c
     const m = g.nodes, SHORT = ['Basic','Skill','Circuit','Lib','Intro'];
-    html += `<div class="gmeta" style="display:flex; gap:6px; align-items:center; margin-top:14px">All skills:
-      <span>current</span><button class="tiny" data-bulk="cur-" title="All current skill levels −1">−1</button><button class="tiny" data-bulk="cur+" title="All current skill levels +1">+1</button>
-      <span style="margin-left:10px">target</span><button class="tiny" data-bulk="tgt-" title="All target skill levels −1">−1</button><button class="tiny" data-bulk="tgt+" title="All target skill levels +1">+1</button></div>`;
-    html += `<div class="ftree medit">` + [0,1,2,3,4].map(c => `<div class="fcol">` +
+    // ±1 gutters flank the select rows: left = −1, right = +1; the upper
+    // button works the current row, the lower one the target row
+    const gutter = (key, label) => `<div class="fcol gut">` +
+      `<button class="tiny" data-bulk="cur${key}" title="All current skill levels ${label}">${label}</button>` +
+      `<span class="arrow-v">&nbsp;</span>` +
+      `<button class="tiny" data-bulk="tgt${key}" title="All target skill levels ${label}">${label}</button>` +
+    `</div>`;
+    html += `<div class="ftree medit">` + gutter('-', '−1') + [0,1,2,3,4].map(c => `<div class="fcol">` +
         nodeBtn(i, 1, c, m[1][c], c === INH_COL ? 'Ⅱ' : '') +
         `<span class="link${m[1][c] === 2 ? ' own' : m[1][c] === 1 ? ' plan' : ''}"></span>` +
         nodeBtn(i, 0, c, m[0][c], c === INH_COL ? 'Ⅰ' : '') +
@@ -1374,8 +1380,8 @@ function renderModal(){
         sel(i, 'cur', 's'+c, skOpts, g.cur.skills[c]) +
         `<span class="arrow-v">↓</span>` +
         sel(i, 'tgt', 's'+c, skOpts, g.tgt.skills[c]) +
-      `</div>`).join('') + `</div>
-      <div class="ftree-legend">click a node: <span class="lg"></span> skip → <span class="lg plan"></span> planned → <span class="lg own"></span> owned · upper nodes need their lower node · skill levels read current ↓ target</div>`;
+      `</div>`).join('') + gutter('+', '+1') + `</div>
+      <div class="ftree-legend">click a node: <span class="lg"></span> skip → <span class="lg plan"></span> planned → <span class="lg own"></span> owned · upper nodes need their lower node · skill levels read current ↓ target · ∓1 gutters shift all five skills</div>`;
   }
   html += `<div style="display:flex; gap:8px; margin-top:16px; flex-wrap:wrap">
     <button class="tiny" data-max title="Target → Lv 90${isW ? '' : ', all skills 10, every node at least planned'}">⤒ Max target</button>` +

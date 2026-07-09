@@ -221,9 +221,9 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
 {
   fire(d.querySelector('button[data-act="edit"][data-g="1"]'), 'click');
   const tree = mbox().querySelector('.ftree');
-  ok('pop-up game view: 5 columns × (2 nodes + 2 skill selects)', tree &&
+  ok('pop-up game view: 5 skill columns (+2 gutters) × (2 nodes + 2 selects)', tree &&
      tree.querySelectorAll('.node').length === 10 &&
-     tree.querySelectorAll('.fcol').length === 5 &&
+     tree.querySelectorAll('.fcol:not(.gut)').length === 5 &&
      tree.querySelectorAll('.link').length === 5 &&
      tree.querySelectorAll('select').length === 10);
   ok('tree shape: 4 minors, 4 majors, 2 inherents',
@@ -429,6 +429,11 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   fire(d.querySelector('button[data-act="edit"][data-g="1"]'), 'click');   // Suisui: cur 1s, tgt 6s
   const val = (side, f) => mbox().querySelector(`select[data-side="${side}"][data-f="${f}"]`).value;
   const SK = ['s0','s1','s2','s3','s4'];
+  ok('±1 gutters flank the grid (first and last columns)', (() => {
+    const cols = [...mbox().querySelectorAll('.medit > .fcol')];
+    return cols.length === 7 && cols[0].classList.contains('gut') && cols[6].classList.contains('gut') &&
+           cols[0].querySelector('[data-bulk="cur-"]') !== null && cols[6].querySelector('[data-bulk="tgt+"]') !== null;
+  })());
   fire(mbox().querySelector('[data-bulk="tgt+"]'), 'click');
   ok('bulk target +1 raises all five', SK.every(f => val('tgt', f) === '7'));
   fire(mbox().querySelector('[data-bulk="cur+"]'), 'click');

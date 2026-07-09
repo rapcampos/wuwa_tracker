@@ -31,11 +31,11 @@ ok('storage detected (jsdom has localStorage)', /Autosaves/.test(d.querySelector
 
 // grand total sanity: 3 default-target builds (Lv90 · forte 6 · all nodes) →
 // credits 3 × 1,803,300 = 5,409,900; Sentinel's Dagger = 6+6 = 12
-const creditTile = d.querySelector('#summary .tile[title="Shell Credit — 5,409,900"]');
+const creditTile = d.querySelector('#summary .tile[title="Shell Credit — 5,409,900 needed"]');
 ok('total credits 3× default build (exact in title, 5.41M on tile)',
    creditTile !== null && creditTile.textContent.includes('5.41M') && !creditTile.textContent.includes('Shell Credit'));
 ok("shared weekly (Sentinel's Dagger) merged to 12",
-   d.querySelector(`#summary .tile[title="Sentinel's Dagger — 12"]`) !== null);
+   d.querySelector(`#summary .tile[title="Sentinel's Dagger — 12 needed"]`) !== null);
 const expTile = [...d.querySelectorAll('#summary .tile')].find(t => t.title.startsWith('Resonator EXP'));
 ok('total EXP 3× full build with potion plan in tooltip',
    expTile && expTile.title.includes('7,314,000') && expTile.title.includes('≈') && expTile.textContent.includes('7.31M'));
@@ -519,6 +519,30 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok('reset restores the built-in 4★ template',
      d4().ord === 11 && d4().skills.every(v => v === 6) && d4().major === 4 && d4().inh2 === 1);
   d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
+}
+
+// ── inventory deduction: cards allocate in priority order, Total nets ──
+{
+  // give exactly Phoebe's Sentinel's Dagger share (6); Jinhsi (P3) shares the weekly
+  w.eval(`state.inv["wk:Sentinel's Dagger"] = 6; save(); render();`);
+  const tileIn = (sel, name) => [...d.querySelectorAll(sel + ' .tile')]
+    .find(t => (t.getAttribute('title') || '').includes(name));
+  const pho = tileIn('.goal[data-g="0"]', "Sentinel's Dagger");
+  const jin = tileIn('.goal[data-g="2"]', "Sentinel's Dagger");
+  ok('P1 card: weekly covered — ✓, dimmed, tooltip says covered',
+     pho.textContent.includes('✓') && pho.classList.contains('done') &&
+     pho.getAttribute('title').includes('covered'));
+  ok('P3 card: pool already consumed by the first card that needed it',
+     jin.textContent.trim().endsWith('6') && !jin.classList.contains('done'));
+  // Total tab nets the aggregate: 12 needed − 6 held = 6
+  fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Total'), 'click');
+  const tot = tileIn('#summary', "Sentinel's Dagger");
+  ok('Total tab deducts inventory with both numbers in the tooltip',
+     tot.getAttribute('title') === "Sentinel's Dagger — 6 needed of 12 total");
+  // a fully covered material (Cleansing Conch 46 from earlier input) reads ✓ in Total
+  const conch = tileIn('#summary', 'Cleansing Conch');
+  ok('fully covered material shows ✓ in Total', conch.textContent.includes('✓') && conch.classList.contains('done'));
+  w.eval(`delete state.inv["wk:Sentinel's Dagger"]; save(); render();`);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

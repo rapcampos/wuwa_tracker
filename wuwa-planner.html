@@ -207,6 +207,8 @@ button.search kbd{margin-left:auto; font-family:inherit; font-size:10px; color:v
 .tile.r4{background:rgba(166,127,224,.18); border-color:rgba(166,127,224,.5)}
 .tile.r5{background:rgba(229,181,102,.18); border-color:rgba(229,181,102,.5)}
 .tile.r0{background:rgba(95,217,228,.08);  border-color:rgba(95,217,228,.3)}
+.tile.done{opacity:.5}
+.tile.done .qty{color:var(--green)}
 .mats-note{color:var(--faint); font-size:12px; padding:6px 0}
 
 /* ── material rows ──────────────────────── */
@@ -1137,8 +1139,31 @@ function miniTree(g){
   return `<div class="mini">${cols}</div>`;
 }
 
-const goalMats = g => `<div class="goal-mats">${matTiles(costForGoal(g)) ||
+/* card materials show the DEFICIT after inventory, allocated in queue order
+   (farmNextWalk semantics: the first goal that needs a material eats the
+   stock; later goals see what's left). Covered mats stay visible as ✓. */
+const goalMats = wk => `<div class="goal-mats">${deficitTiles(wk.need, wk.rem) ||
   '<div class="mats-note">Nothing needed — current already meets target.</div>'}</div>`;
+
+function deficitTip(id, needQty, left){
+  let tip = MATS[id].name + ' — ' + (left
+    ? fmt(left) + ' needed' + (left < needQty ? ' of ' + fmt(needQty) + ' total' : '')
+    : 'covered by inventory · needs ' + fmt(needQty));
+  if(id === 'exp' && left){ const p = potionText(expToPotions(left)); if(p) tip += ' · ' + p; }
+  if(id === 'wexp' && left){ const p = coreText(wexpToCores(left)); if(p) tip += ' · ' + p; }
+  return tip;
+}
+function deficitTiles(need, rem, order){
+  const ids = order ? order.filter(id => id in need) : sortMatIds(Object.keys(need));
+  if(!ids.length) return '';
+  return `<div class="tiles">` + ids.map(id => {
+    const left = rem[id] || 0;
+    return `<div class="tile r${MATS[id].r}${left ? '' : ' done'}" title="${esc(deficitTip(id, need[id], left))}">` +
+      matIco(id) +
+      `<span class="qty num">${left ? fmtShort(left) : '✓'}</span>` +
+    `</div>`;
+  }).join('') + `</div>`;
+}
 
 const goalCtrls = (i) =>
   `<button class="tiny" data-act="edit" data-g="${i}" title="Edit levels &amp; forte">✎</button>` +
@@ -1146,11 +1171,11 @@ const goalCtrls = (i) =>
   `<button class="tiny" data-act="down" data-g="${i}" ${i === state.goals.length - 1 ? 'disabled' : ''} title="Move down">▼</button>` +
   `<button class="tiny danger" data-act="del" data-g="${i}" title="Remove">✕</button>`;
 
-function goalCard(g, i){
-  return g.weapon !== undefined ? wpnCard(g, i) : charCard(g, i);
+function goalCard(g, i, wk){
+  return g.weapon !== undefined ? wpnCard(g, i, wk) : charCard(g, i, wk);
 }
 
-function wpnCard(g, i){
+function wpnCard(g, i, wk){
   const w = GAME.weapons[g.weapon];
   return `<div class="goal" data-g="${i}" style="--acc:var(--weapon)">
     <div class="goal-top">
@@ -1160,10 +1185,10 @@ function wpnCard(g, i){
       <div><div class="gname">${esc(w.name)}${w.beta ? '<span class="badge">3.5 BETA</span>' : ''}</div>
         <div class="gmeta">${w.rarity}★ ${w.wtype} weapon · ${ORD_LABEL(g.cur.ord)} → ${ORD_LABEL(g.tgt.ord)}</div></div>
       <div class="gctrl">${goalCtrls(i)}</div>
-    </div>${goalMats(g)}</div>`;
+    </div>${goalMats(wk)}</div>`;
 }
 
-function charCard(g, i){
+function charCard(g, i, wk){
   const ch = GAME.characters[g.char];
   return `<div class="goal" data-g="${i}" style="--acc:${ch.elColor}">
     <div class="goal-top">
@@ -1173,13 +1198,14 @@ function charCard(g, i){
       <div><div class="gname">${esc(ch.name)}${ch.beta ? '<span class="badge">3.5 BETA</span>' : ''}</div>
         <div class="gmeta">${ch.rarity}★ ${ch.element} · ${ch.wtype} · ${ORD_LABEL(g.cur.ord)} → ${ORD_LABEL(g.tgt.ord)}</div></div>
       <div class="gctrl">${goalCtrls(i)}</div>
-    </div>${miniTree(g)}${goalMats(g)}</div>`;
+    </div>${miniTree(g)}${goalMats(wk)}</div>`;
 }
 
 function renderGoals(){
   const box = $('#goals');
+  const walk = farmNextWalk(state.goals, state.inv);   // priority-ordered inventory allocation
   box.innerHTML = state.goals.length
-    ? state.goals.map(goalCard).join('')
+    ? state.goals.map((g, i) => goalCard(g, i, walk[i])).join('')
     : '<div class="empty">No goals yet — press Ctrl+K (or “⌕ Add goal…”) to queue a character or weapon.</div>';
   box.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', onAct));
   // cards are read-only status views — selects and node buttons live in the modal
@@ -1357,8 +1383,9 @@ function renderSummary(){
   const need = totalBag(state.goals);
 
   if(state.tab === 'total'){
-    el.innerHTML = `<div class="gmeta" style="margin-bottom:8px">Everything required for ${state.goals.length} goal${state.goals.length > 1 ? 's' : ''}, ignoring inventory — ordered by queue priority. Hover a tile for the name &amp; exact amount.</div>` +
-      (matTiles(need, priorityMatIds(state.goals)) || '<div class="empty">All targets already met.</div>');
+    const res = remainingBag(need, state.inv, state.synth);
+    el.innerHTML = `<div class="gmeta" style="margin-bottom:8px">Everything still needed for ${state.goals.length} goal${state.goals.length > 1 ? 's' : ''} after inventory — ordered by queue priority. Hover a tile for exact amounts.</div>` +
+      (deficitTiles(need, res.rem, priorityMatIds(state.goals)) || '<div class="empty">All targets already met.</div>');
     bindIcons(el);
     return;
   }

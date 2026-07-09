@@ -179,12 +179,18 @@ are no screenshot tests — be extra careful with CSS-only changes.
 - **Layout:** sticky summary panel on the LEFT (5fr), priority queue on the
   RIGHT (7fr) as a 2-per-row card grid (`#goals`, CSS auto-fill → 1 column
   when narrow; at ≤940px the page stacks with goals first via `order`).
-- **Materials render as icon tiles** (`matTiles`), not lists: rarity-tinted
-  ground (`.tile.r0–r5`, game convention green/blue/purple/gold), abbreviated
-  qty on the tile (`fmtShort`, pure/engine: 3 sig figs, K/M from 10,000 up),
-  name + exact amount + potion/core plan in the hover `title` (`tileTip`).
-  Used on goal cards, the Total tab, and Farm next; the **Remaining tab keeps
-  its table** (Need/Have/Left + inventory inputs don't fit tiles).
+- **Materials render as icon tiles**, not lists: rarity-tinted ground
+  (`.tile.r0–r5`, game convention green/blue/purple/gold), abbreviated qty
+  on the tile (`fmtShort`, pure/engine: 3 sig figs, K/M from 10,000 up),
+  name + exact amounts + potion/core plan in the hover `title`. The
+  **Remaining tab keeps its table** (Need/Have/Left + inventory inputs).
+- **Tiles show the deficit after inventory** (`deficitTiles`): goal cards
+  allocate the pool in queue order (renderGoals runs `farmNextWalk`, so the
+  first card that needs a material eats the stock and later cards see the
+  leftovers — no crafting, same rule as the Farm next tab); the Total tab
+  nets the aggregate via `remainingBag` (synthesis-aware). Covered mats stay
+  visible as a dimmed ✓ (`.tile.done`), with the full requirement in the
+  tooltip. Farm next's own missing-list still uses plain `matTiles`.
 - **Cards are read-only status views**: header + mini forte tree (`miniTree`,
   span-based, no handlers) with per-column skill levels cur→tgt + an
   always-visible materials tile grid (`goalMats`). All editing happens in the ✎

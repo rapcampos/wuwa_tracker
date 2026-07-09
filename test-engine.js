@@ -24,7 +24,9 @@ const eq = (label, got, want) => {
 // Known totals (wiki + Game8 + datamine cross-check):
 //   boss 46 · specialty 60 · weekly 26 · forge 25/28/55/67 · commons 29/40/52/61
 //   credits 3,053,300 (170k asc + 2,030k forte + 853.3k leveling) · EXP 2,438,000
-for(const cid of ['jinhsi','phoebe','suisui']){
+// sanhua (4★) and augusta (2.x tidal/waveworn) prove the template is shared
+// across rarities and eras — datamine-verified, all resonators cost the same
+for(const cid of ['jinhsi','phoebe','suisui','sanhua','augusta','lucilla']){
   const ch = GAME.characters[cid];
   const bag = costForGoal({char:cid, cur:freshState(), tgt:maxedState()});
   eq(`${cid} full: boss`,    bag['boss:'+ch.boss], 46);
@@ -81,6 +83,22 @@ for(const cid of ['jinhsi','phoebe','suisui']){
   eq('nodes: weekly', bag["wk:Sentinel's Dagger"], 1+1+4);
   // (an "Inherent Ⅱ without Ⅰ" state is invalid in-game; the UI grid enforces
   //  the ordering, so the engine never receives it)
+}
+
+// ═══ 5b. ROVER EXCEPTIONS: Mysterious Code ×5, Aero's split common family ═══
+{
+  const bag = costForGoal({char:'roverAero', cur:freshState(), tgt:maxedState()});
+  eq('rover: Mysterious Code ×1 at ranks 2-6', bag['boss:Mysterious Code'], 5);
+  eq('rover aero: ascension commons (whisperin 4/12/12/4)',
+     [0,1,2,3].map(t=>bag['whisperin'+t]), [4,12,12,4]);
+  eq('rover aero: forte commons (tidal 25/28/40/57)',
+     [0,1,2,3].map(t=>bag['tidal'+t]), [25,28,40,57]);
+  eq('rover: spec/weekly/credits follow the template',
+     [bag['spec:Pecok Flower'], bag['wk:When Irises Bloom'], bag.credits], [60, 26, 3053300]);
+  // non-Aero Rovers keep one family for both ascension and forte
+  const rs = costForGoal({char:'roverSpectro', cur:freshState(), tgt:maxedState()});
+  eq('rover spectro: unified commons (29/40/52/61)',
+     [0,1,2,3].map(t=>rs['whisperin'+t]), [29,40,52,61]);
 }
 
 // ═══ 6. EXP → POTIONS: exact greedy with minimal overflow ═══

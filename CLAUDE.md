@@ -47,10 +47,15 @@ it goes in block 2 with tests; presentation goes in block 3.
   (`asc5w`/`asc4w`, `wpnExpCum5`/`wpnExpCum4`). Unlike characters, duplicate
   weapon goals are allowed (players level multiple copies) — sanitize and
   the add-menu deliberately don't dedupe them.
-- **Cost templates are shared per rarity.** Every 5★ character costs the same
-  amounts; a character entry only names *which* materials it uses (boss,
-  specialty, weekly, common family, forge family). Adding a new character is
-  one small entry in `GAME.characters` — never duplicate cost tables.
+- **Cost templates are shared by ALL characters** — 4★ and 5★ cost identical
+  amounts (datamine-verified across the full roster); a character entry only
+  names *which* materials it uses (boss, specialty, weekly, common family,
+  forge family). Adding a new character is one small entry in
+  `GAME.characters` — never duplicate cost tables. The only exceptions are
+  Rover forms, handled by two optional entry fields: `bossCounts` (per-rank
+  boss qty — Mysterious Code ×1 at ranks 2-6 instead of the 46-total curve)
+  and `ascCommon` (Rover: Aero ascends with whisperin but fortes with tidal).
+  The full roster through 3.5 is seeded (~50 entries incl. 3 Rover forms).
 - **Forte node tree:** `goal.nodes` is a 2×5 tri-state matrix,
   `nodes[row][col]`, row 0 = lower tier, row 1 = upper, column 2 = Inherent
   Ⅰ/Ⅱ, stat columns are 0,1,3,4. Values: 0 skip, 1 planned, 2 owned.
@@ -182,11 +187,15 @@ are no screenshot tests — be extra careful with CSS-only changes.
 
 ## Roadmap / open items
 
-1. **3.5 launch checkpoint (2026-07-10):** confirm Suisui materials/names
-   (kernel tiers) and her signature weapon's English name ("Firstlight's
-   Herald" vs launch rename), drop both beta badges, add the missing icons
-   (suisui, firstlights_herald, solidaritys_loneflame, flowborne_dream,
-   skyward_glazed_heart, kernel I–IV).
+1. **3.5 launch checkpoint (2026-07-10):** confirm Suisui AND Xuanling
+   materials/names (esp. the "LF/MF/HF/FF Autopuppet Kernel" tier pattern,
+   Cloudperch Seed, Skyward Glazed Heart, Solidarity's Loneflame) and the
+   signature weapon's English name ("Firstlight's Herald" vs launch rename);
+   drop the beta badges. Also spot-check Rebecca's weekly (We Who Question)
+   and forge (Combustor) — single-source cells from the roster sweep.
+   Missing image checklist: `images/missing_icons.md` (48 files).
+   Note: the Dimbreath/WutheringData datamine is abandoned at 3.1.0 — verify
+   post-3.1 data via Game8/prydwen instead.
 2. Backlog (user-approved ideas, unscheduled): waveplate-cost estimates,
    optional synthesis in Farm Next, "set current = target" quick action
    (natural fit as a modal button), optional per-character stat labels on

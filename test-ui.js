@@ -51,6 +51,14 @@ ok('tiles carry rarity grounds', d.querySelector('#summary .tile.r5') !== null &
      at('Elegy Tacet Core') < at('Cleansing Conch') && at('Cleansing Conch') < at("Solidarity's Loneflame"));
 }
 
+// pooled EXP tiles use the max-tier item icon of their type (override map)
+{
+  const src = t => t && t.querySelector('img.__ico').getAttribute('src');
+  const tiles = [...d.querySelectorAll('#summary .tile')];
+  ok('Resonator EXP tile shows Premium Resonance Potion icon',
+     src(tiles.find(t => t.title.startsWith('Resonator EXP'))) === 'images/materials/premium_resonance_potion_icon.png');
+}
+
 // element accent: cards expose --acc (element for chars, steel for weapons)
 ok('char cards carry their element accent',
    (d.querySelector('.goal[data-g="0"]').getAttribute('style') || '').includes('--acc:var(--spectro)') &&
@@ -91,8 +99,9 @@ fire(d.querySelector('button[data-act="del"][data-g="2"]'), 'click'); // remove 
 ok('goal removed', d.querySelectorAll('.goal').length === 2);
 fire(d.querySelector('#btnAdd'), 'click');
 const addBtn = d.querySelector('#addMenu button[data-c="suisui"]');
-ok('add menu offers Suisui as the only remaining char',
-   addBtn !== null && d.querySelectorAll('#addMenu button[data-c]').length === 1);
+ok('add menu offers every un-queued char (incl. Suisui)',
+   addBtn !== null && d.querySelectorAll('#addMenu button[data-c]').length ===
+     w.eval('Object.keys(GAME.characters).length') - 2);   // Jinhsi + Phoebe still queued
 ok('add menu offers every seeded weapon',
    d.querySelectorAll('#addMenu button[data-w]').length === w.eval('Object.keys(GAME.weapons).length'));
 fire(addBtn, 'click');
@@ -299,7 +308,8 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
 {
   // add via the weapons section of the menu (queue is Pho,Sui,Jin at this point)
   fire(d.querySelector('#btnAdd'), 'click');
-  ok('menu lists all 8 seeded weapons', d.querySelectorAll('#addMenu button[data-w]').length === 8);
+  ok('menu lists all seeded weapons', d.querySelectorAll('#addMenu button[data-w]').length ===
+     w.eval('Object.keys(GAME.weapons).length'));
   fire(d.querySelector('#addMenu button[data-w="agesOfHarvest"]'), 'click');
   ok('weapon goal appended', texts('.gname')[3] === 'Ages of Harvest');
   const card = d.querySelector('.goal[data-g="3"]');

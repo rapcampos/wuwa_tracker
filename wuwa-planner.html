@@ -16,6 +16,9 @@
   --aero:#5BE0AE; --havoc:#E86BA8; --weapon:#9DB4D0;
 }
 *{box-sizing:border-box; margin:0; padding:0}
+/* author display rules (e.g. .dot{display:inline-block}) would otherwise beat
+   the UA's [hidden] rule — this keeps hidden fallback dots actually hidden */
+[hidden]{display:none !important}
 html{scrollbar-color:var(--line2) var(--bg)}
 body{
   background:var(--bg); color:var(--ink);
@@ -285,17 +288,27 @@ const GAME = {
 
   // material families (tiers low → high, rarity 2..5)
   families: {
+    // enemy drops
     howler:    ['LF Howler Core','MF Howler Core','HF Howler Core','FF Howler Core'],
     whisperin: ['LF Whisperin Core','MF Whisperin Core','HF Whisperin Core','FF Whisperin Core'],
     exoswarm:  ['LF Exoswarm Core','MF Exoswarm Core','HF Exoswarm Core','FF Exoswarm Core'],
+    polygon:   ['LF Polygon Core','MF Polygon Core','HF Polygon Core','FF Polygon Core'],
+    tidal:     ['LF Tidal Residuum','MF Tidal Residuum','HF Tidal Residuum','FF Tidal Residuum'],
+    mech:      ['LF Mech Core','MF Mech Core','HF Mech Core','FF Mech Core'],
     rings:     ['Crude Ring','Basic Ring','Improved Ring','Tailored Ring'],
+    pendant:   ['Fractured Exoswarm Pendant','Worn Exoswarm Pendant','Chipped Exoswarm Pendant','Intact Exoswarm Pendant'],
+    kernel:    ['LF Autopuppet Kernel','MF Autopuppet Kernel','HF Autopuppet Kernel','FF Autopuppet Kernel'], // 3.5 beta tier names TBC
+    // forgery
+    waveworn:  ['Waveworn Residue 210','Waveworn Residue 226','Waveworn Residue 235','Waveworn Residue 239'],
+    helix:     ['Lento Helix','Adagio Helix','Andante Helix','Presto Helix'],
     drip:      ['Inert Metallic Drip','Reactive Metallic Drip','Polarized Metallic Drip','Heterized Metallic Drip'],
     phlogiston:['Impure Phlogiston','Extracted Phlogiston','Refined Phlogiston','Flawless Phlogiston'],
     cadence:   ['Cadence Seed','Cadence Bud','Cadence Leaf','Cadence Blossom'],
-    kernel:    ['Autopuppet Kernel I','Autopuppet Kernel II','Autopuppet Kernel III','Autopuppet Kernel IV'], // 3.5 beta tier names TBC
-    waveworn:  ['Waveworn Residue 210','Waveworn Residue 226','Waveworn Residue 235','Waveworn Residue 239'],
-    helix:     ['Lento Helix','Adagio Helix','Andante Helix','Presto Helix'],
     strings:   ['Spliced String','Broken String','Solidified String','Melodic String'],
+    carved:    ['LF Carved Crystal','MF Carved Crystal','HF Carved Crystal','FF Carved Crystal'],
+    polarizer: ['Broken Wing Polarizer','Monowing Polarizer','Polywing Polarizer','Layered Wing Polarizer'],
+    combustor: ['Incomplete Combustor','Aftertune Combustor','Remnant Combustor','Reverb Combustor'],
+    wshard:    ['LF Waveworn Shard','MF Waveworn Shard','HF Waveworn Shard','FF Waveworn Shard'],
   },
 
   /* ── Local icon pack ──
@@ -313,18 +326,194 @@ const GAME = {
      follow the pattern, map the display name to a base filename (no ext):
        overrides: { "Shell Credit": "credits" }   →  images/materials/credits.png   */
   icons: { dir:'images/', kinds:{char:'characters/', mat:'materials/', weapon:'weapons/'},
-           exts:['png','webp','jpg'], overrides:{} },
+           exts:['png','webp','jpg'],
+           overrides:{
+             // pooled EXP pseudo-materials render as the max-tier item of their type
+             'Resonator EXP':'premium_resonance_potion_icon',
+             'Weapon EXP':'premium_energy_core_icon',
+             // all Rover forms share one portrait
+             'Rover: Spectro':'rover_icon', 'Rover: Havoc':'rover_icon', 'Rover: Aero':'rover_icon',
+           } },
 
+  /* Full roster through 3.5. 4★ and 5★ characters share the exact same cost
+     template (verified in RoleBreach/SkillLevel datamine — boss 46, spec 60,
+     weekly 26, credits 3,053,300, EXP 2,438,000 for every resonator).
+     Optional per-entry overrides for the Rover exceptions:
+       bossCounts: per-rank boss qty [r1..r6]  (Rover: Mysterious Code ×1, ranks 2-6)
+       ascCommon:  enemy family used in ASCENSION when it differs from forte
+                   (Rover: Aero ascends with whisperin but fortes with tidal) */
   characters: {
+    // ── 1.x ──
     jinhsi: {name:'Jinhsi', mono:'JH', rarity:5, element:'Spectro', elColor:'var(--spectro)',
       wtype:'Broadblade', common:'howler', forge:'waveworn',
       boss:'Elegy Tacet Core', spec:"Loong's Pearl", weekly:"Sentinel's Dagger", beta:false},
+    jiyan: {name:'Jiyan', mono:'JY', rarity:5, element:'Aero', elColor:'var(--aero)',
+      wtype:'Broadblade', common:'howler', forge:'waveworn',
+      boss:'Roaring Rock Fist', spec:'Pecok Flower', weekly:'Monument Bell', beta:false},
+    yinlin: {name:'Yinlin', mono:'YL', rarity:5, element:'Electro', elColor:'var(--electro)',
+      wtype:'Rectifier', common:'whisperin', forge:'helix',
+      boss:'Group Abomination Tacet Core', spec:'Coriolus', weekly:'Dreamless Feather', beta:false},
+    jianxin: {name:'Jianxin', mono:'JX', rarity:5, element:'Aero', elColor:'var(--aero)',
+      wtype:'Gauntlets', common:'whisperin', forge:'cadence',
+      boss:'Roaring Rock Fist', spec:'Lanternberry', weekly:'Unending Destruction', beta:false},
+    calcharo: {name:'Calcharo', mono:'CA', rarity:5, element:'Electro', elColor:'var(--electro)',
+      wtype:'Broadblade', common:'rings', forge:'waveworn',
+      boss:'Thundering Tacet Core', spec:'Iris', weekly:'Monument Bell', beta:false},
+    encore: {name:'Encore', mono:'EN', rarity:5, element:'Fusion', elColor:'var(--fusion)',
+      wtype:'Rectifier', common:'whisperin', forge:'helix',
+      boss:'Rage Tacet Core', spec:'Pecok Flower', weekly:'Unending Destruction', beta:false},
+    verina: {name:'Verina', mono:'VE', rarity:5, element:'Spectro', elColor:'var(--spectro)',
+      wtype:'Rectifier', common:'howler', forge:'helix',
+      boss:'Elegy Tacet Core', spec:'Belle Poppy', weekly:'Monument Bell', beta:false},
+    lingyang: {name:'Lingyang', mono:'LY', rarity:5, element:'Glacio', elColor:'var(--glacio)',
+      wtype:'Gauntlets', common:'whisperin', forge:'cadence',
+      boss:'Sound-Keeping Tacet Core', spec:'Coriolus', weekly:'Unending Destruction', beta:false},
+    changli: {name:'Changli', mono:'CG', rarity:5, element:'Fusion', elColor:'var(--fusion)',
+      wtype:'Sword', common:'rings', forge:'drip',
+      boss:'Rage Tacet Core', spec:'Pavo Plum', weekly:"Sentinel's Dagger", beta:false},
+    zhezhi: {name:'Zhezhi', mono:'ZZ', rarity:5, element:'Glacio', elColor:'var(--glacio)',
+      wtype:'Rectifier', common:'howler', forge:'helix',
+      boss:'Sound-Keeping Tacet Core', spec:'Lanternberry', weekly:'Monument Bell', beta:false},
+    xiangliYao: {name:'Xiangli Yao', mono:'XY', rarity:5, element:'Electro', elColor:'var(--electro)',
+      wtype:'Gauntlets', common:'whisperin', forge:'cadence',
+      boss:'Hidden Thunder Tacet Core', spec:'Violet Coral', weekly:'Unending Destruction', beta:false},
+    shorekeeper: {name:'Shorekeeper', mono:'SK', rarity:5, element:'Spectro', elColor:'var(--spectro)',
+      wtype:'Rectifier', common:'whisperin', forge:'helix',
+      boss:'Topological Confinement', spec:'Nova', weekly:"Sentinel's Dagger", beta:false},
+    camellya: {name:'Camellya', mono:'CM', rarity:5, element:'Havoc', elColor:'var(--havoc)',
+      wtype:'Sword', common:'whisperin', forge:'drip',
+      boss:'Topological Confinement', spec:'Nova', weekly:'Dreamless Feather', beta:false},
+    // ── 2.x (Rinascita) ──
+    carlotta: {name:'Carlotta', mono:'CL', rarity:5, element:'Glacio', elColor:'var(--glacio)',
+      wtype:'Pistols', common:'polygon', forge:'phlogiston',
+      boss:'Platinum Core', spec:'Sword Acorus', weekly:"The Netherworld's Stare", beta:false},
+    roccia: {name:'Roccia', mono:'RC', rarity:5, element:'Havoc', elColor:'var(--havoc)',
+      wtype:'Gauntlets', common:'tidal', forge:'cadence',
+      boss:'Cleansing Conch', spec:'Firecracker Jewelweed', weekly:"The Netherworld's Stare", beta:false},
     phoebe: {name:'Phoebe', mono:'PH', rarity:5, element:'Spectro', elColor:'var(--spectro)',
       wtype:'Rectifier', common:'whisperin', forge:'helix',
       boss:'Cleansing Conch', spec:'Firecracker Jewelweed', weekly:"Sentinel's Dagger", beta:false},
+    brant: {name:'Brant', mono:'BR', rarity:5, element:'Fusion', elColor:'var(--fusion)',
+      wtype:'Sword', common:'tidal', forge:'drip',
+      boss:'Blazing Bone', spec:'Golden Fleece', weekly:"The Netherworld's Stare", beta:false},
+    cantarella: {name:'Cantarella', mono:'CT', rarity:5, element:'Havoc', elColor:'var(--havoc)',
+      wtype:'Rectifier', common:'polygon', forge:'helix',
+      boss:'Cleansing Conch', spec:'Seaside Cendrelis', weekly:'When Irises Bloom', beta:false},
+    zani: {name:'Zani', mono:'ZN', rarity:5, element:'Spectro', elColor:'var(--spectro)',
+      wtype:'Gauntlets', common:'polygon', forge:'cadence',
+      boss:'Platinum Core', spec:'Sword Acorus', weekly:"The Netherworld's Stare", beta:false},
+    ciaccona: {name:'Ciaccona', mono:'CC', rarity:5, element:'Aero', elColor:'var(--aero)',
+      wtype:'Pistols', common:'tidal', forge:'phlogiston',
+      boss:'Blazing Bone', spec:'Golden Fleece', weekly:'When Irises Bloom', beta:false},
+    cartethyia: {name:'Cartethyia', mono:'CY', rarity:5, element:'Aero', elColor:'var(--aero)',
+      wtype:'Sword', common:'tidal', forge:'drip',
+      boss:'Unfading Glory', spec:'Bamboo Iris', weekly:'When Irises Bloom', beta:false},
+    lupa: {name:'Lupa', mono:'LU', rarity:5, element:'Fusion', elColor:'var(--fusion)',
+      wtype:'Broadblade', common:'howler', forge:'waveworn',
+      boss:'Unfading Glory', spec:'Bloodleaf Viburnum', weekly:"The Netherworld's Stare", beta:false},
+    phrolova: {name:'Phrolova', mono:'PV', rarity:5, element:'Havoc', elColor:'var(--havoc)',
+      wtype:'Rectifier', common:'polygon', forge:'helix',
+      boss:'Truth in Lies', spec:'"Afterlife"', weekly:"The Netherworld's Stare", beta:false},
+    augusta: {name:'Augusta', mono:'AG', rarity:5, element:'Electro', elColor:'var(--electro)',
+      wtype:'Broadblade', common:'tidal', forge:'waveworn',
+      boss:'Blighted Crown of Puppet King', spec:'Luminous Calendula', weekly:'When Irises Bloom', beta:false},
+    iuno: {name:'Iuno', mono:'IU', rarity:5, element:'Aero', elColor:'var(--aero)',
+      wtype:'Gauntlets', common:'polygon', forge:'cadence',
+      boss:'Abyssal Husk', spec:'Sliverglow Bloom', weekly:"The Netherworld's Stare", beta:false},
+    galbrena: {name:'Galbrena', mono:'GB', rarity:5, element:'Fusion', elColor:'var(--fusion)',
+      wtype:'Pistols', common:'tidal', forge:'phlogiston',
+      boss:'Blighted Crown of Puppet King', spec:'Stone Rose', weekly:'Curse of the Abyss', beta:false},
+    // ── 3.x (Lahai-Roi) ──
+    chisa: {name:'Chisa', mono:'CH', rarity:5, element:'Havoc', elColor:'var(--havoc)',
+      wtype:'Broadblade', common:'polygon', forge:'waveworn',
+      boss:'Abyssal Husk', spec:'Summer Flower', weekly:'When Irises Bloom', beta:false},
+    qiuyuan: {name:'Qiuyuan', mono:'QY', rarity:5, element:'Aero', elColor:'var(--aero)',
+      wtype:'Sword', common:'whisperin', forge:'drip',
+      boss:'Truth in Lies', spec:'Wintry Bell', weekly:'Curse of the Abyss', beta:false},
+    mornye: {name:'Mornye', mono:'MO', rarity:5, element:'Fusion', elColor:'var(--fusion)',
+      wtype:'Broadblade', common:'mech', forge:'carved',
+      boss:'Burning Judgment', spec:'Gemini Spore', weekly:"The Netherworld's Stare", beta:false},
+    aemeath: {name:'Aemeath', mono:'AE', rarity:5, element:'Fusion', elColor:'var(--fusion)',
+      wtype:'Sword', common:'exoswarm', forge:'polarizer',
+      boss:'Our Choice', spec:'Moss Amber', weekly:'Gold in Memory', beta:false},
+    lynae: {name:'Lynae', mono:'LN', rarity:5, element:'Spectro', elColor:'var(--spectro)',
+      wtype:'Pistols', common:'exoswarm', forge:'combustor',
+      boss:"Suncoveter's Reach", spec:'Rimewisp', weekly:'Dreamless Feather', beta:false},
+    luukHerssen: {name:'Luuk Herssen', mono:'LK', rarity:5, element:'Spectro', elColor:'var(--spectro)',
+      wtype:'Gauntlets', common:'pendant', forge:'wshard',
+      boss:"Suncoveter's Reach", spec:'Edelschnee', weekly:'Gold in Memory', beta:false},
+    sigrika: {name:'Sigrika', mono:'SG', rarity:5, element:'Aero', elColor:'var(--aero)',
+      wtype:'Gauntlets', common:'pendant', forge:'wshard',
+      boss:'Our Choice', spec:'Arithmetic Shell', weekly:'Gold in Memory', beta:false},
+    hiyuki: {name:'Hiyuki', mono:'HY', rarity:5, element:'Glacio', elColor:'var(--glacio)',
+      wtype:'Sword', common:'exoswarm', forge:'polarizer',
+      boss:'Our Choice', spec:'Redbell', weekly:'We Who Question', beta:false},
+    denia: {name:'Denia', mono:'DN', rarity:5, element:'Fusion', elColor:'var(--fusion)',
+      wtype:'Rectifier', common:'mech', forge:'strings',
+      boss:'Burning Judgment', spec:'Dream of Stars', weekly:'We Who Question', beta:false},
+    lucy: {name:'Lucy', mono:'LC', rarity:5, element:'Spectro', elColor:'var(--spectro)',
+      wtype:'Pistols', common:'exoswarm', forge:'combustor',
+      boss:'Nightmare Flashdrive', spec:'Past Reveries', weekly:'Gold in Memory', beta:false},
+    rebecca: {name:'Rebecca', mono:'RB', rarity:5, element:'Electro', elColor:'var(--electro)',
+      wtype:'Pistols', common:'mech', forge:'combustor',
+      boss:'Nightmare Flashdrive', spec:'Past Reveries', weekly:'We Who Question', beta:false},
+    lucilla: {name:'Lucilla', mono:'LL', rarity:5, element:'Glacio', elColor:'var(--glacio)',
+      wtype:'Rectifier', common:'mech', forge:'strings',
+      boss:"Suncoveter's Reach", spec:'Forget-Me-Not', weekly:'We Who Question', beta:false},
+    // ── 3.5 (beta — verify at launch) ──
+    xuanling: {name:'Xuanling', mono:'XL', rarity:5, element:'Havoc', elColor:'var(--havoc)',
+      wtype:'Sword', common:'kernel', forge:'polarizer',
+      boss:"Solidarity's Loneflame", spec:'Cloudperch Seed', weekly:'Skyward Glazed Heart', beta:true},
     suisui: {name:'Suisui', mono:'SS', rarity:5, element:'Glacio', elColor:'var(--glacio)',
       wtype:'Rectifier', common:'kernel', forge:'strings',
       boss:"Solidarity's Loneflame", spec:'Flowborne Dream', weekly:'Skyward Glazed Heart', beta:true},
+    // ── Rover forms (shared portrait via icon override; Mysterious Code ×1 at ranks 2-6) ──
+    roverSpectro: {name:'Rover: Spectro', mono:'RS', rarity:5, element:'Spectro', elColor:'var(--spectro)',
+      wtype:'Sword', common:'whisperin', forge:'drip', bossCounts:[0,1,1,1,1,1],
+      boss:'Mysterious Code', spec:'Pecok Flower', weekly:'Unending Destruction', beta:false},
+    roverHavoc: {name:'Rover: Havoc', mono:'RH', rarity:5, element:'Havoc', elColor:'var(--havoc)',
+      wtype:'Sword', common:'whisperin', forge:'drip', bossCounts:[0,1,1,1,1,1],
+      boss:'Mysterious Code', spec:'Pecok Flower', weekly:'Dreamless Feather', beta:false},
+    roverAero: {name:'Rover: Aero', mono:'RA', rarity:5, element:'Aero', elColor:'var(--aero)',
+      wtype:'Sword', common:'tidal', ascCommon:'whisperin', forge:'drip', bossCounts:[0,1,1,1,1,1],
+      boss:'Mysterious Code', spec:'Pecok Flower', weekly:'When Irises Bloom', beta:false},
+    // ── 4★ (same template as 5★ — verified in datamine) ──
+    yangyang: {name:'Yangyang', mono:'YY', rarity:4, element:'Aero', elColor:'var(--aero)',
+      wtype:'Sword', common:'rings', forge:'drip',
+      boss:'Roaring Rock Fist', spec:'Wintry Bell', weekly:'Unending Destruction', beta:false},
+    chixia: {name:'Chixia', mono:'CX', rarity:4, element:'Fusion', elColor:'var(--fusion)',
+      wtype:'Pistols', common:'whisperin', forge:'phlogiston',
+      boss:'Rage Tacet Core', spec:'Belle Poppy', weekly:'Monument Bell', beta:false},
+    baizhi: {name:'Baizhi', mono:'BZ', rarity:4, element:'Glacio', elColor:'var(--glacio)',
+      wtype:'Rectifier', common:'howler', forge:'helix',
+      boss:'Sound-Keeping Tacet Core', spec:'Lanternberry', weekly:'Monument Bell', beta:false},
+    sanhua: {name:'Sanhua', mono:'SA', rarity:4, element:'Glacio', elColor:'var(--glacio)',
+      wtype:'Sword', common:'whisperin', forge:'drip',
+      boss:'Sound-Keeping Tacet Core', spec:'Wintry Bell', weekly:'Unending Destruction', beta:false},
+    danjin: {name:'Danjin', mono:'DJ', rarity:4, element:'Havoc', elColor:'var(--havoc)',
+      wtype:'Sword', common:'rings', forge:'drip',
+      boss:'Strife Tacet Core', spec:'Belle Poppy', weekly:'Dreamless Feather', beta:false},
+    aalto: {name:'Aalto', mono:'AL', rarity:4, element:'Aero', elColor:'var(--aero)',
+      wtype:'Pistols', common:'howler', forge:'phlogiston',
+      boss:'Roaring Rock Fist', spec:'Wintry Bell', weekly:'Monument Bell', beta:false},
+    mortefi: {name:'Mortefi', mono:'MT', rarity:4, element:'Fusion', elColor:'var(--fusion)',
+      wtype:'Pistols', common:'whisperin', forge:'phlogiston',
+      boss:'Rage Tacet Core', spec:'Coriolus', weekly:'Monument Bell', beta:false},
+    taoqi: {name:'Taoqi', mono:'TQ', rarity:4, element:'Havoc', elColor:'var(--havoc)',
+      wtype:'Broadblade', common:'howler', forge:'waveworn',
+      boss:'Gold-Dissolving Feather', spec:'Iris', weekly:'Dreamless Feather', beta:false},
+    yuanwu: {name:'Yuanwu', mono:'YW', rarity:4, element:'Electro', elColor:'var(--electro)',
+      wtype:'Gauntlets', common:'rings', forge:'cadence',
+      boss:'Hidden Thunder Tacet Core', spec:'Terraspawn Fungus', weekly:'Unending Destruction', beta:false},
+    youhu: {name:'Youhu', mono:'YH', rarity:4, element:'Glacio', elColor:'var(--glacio)',
+      wtype:'Gauntlets', common:'rings', forge:'cadence',
+      boss:'Topological Confinement', spec:'Violet Coral', weekly:'Monument Bell', beta:false},
+    lumi: {name:'Lumi', mono:'LM', rarity:4, element:'Electro', elColor:'var(--electro)',
+      wtype:'Broadblade', common:'howler', forge:'waveworn',
+      boss:'Thundering Tacet Core', spec:'Terraspawn Fungus', weekly:"Sentinel's Dagger", beta:false},
+    buling: {name:'Buling', mono:'BU', rarity:4, element:'Electro', elColor:'var(--electro)',
+      wtype:'Rectifier', common:'whisperin', forge:'helix',
+      boss:'Blighted Crown of Puppet King', spec:'Pecok Flower', weekly:'Curse of the Abyss', beta:false},
   },
 
   /* Weapon templates — level+ascension only, no forte tree.
@@ -473,12 +662,16 @@ function costForCharGoal(goal){
   const ch = GAME.characters[goal.char];
   const bag = {};
   const {cur, tgt} = goal;
-  const addRow = (row) => {                 // row: {c, f?, cm?, w?, boss?, spec?}
+  // rank is set for ascension rows only; it activates the per-entry Rover
+  // overrides (bossCounts: fixed boss qty per rank; ascCommon: ascension
+  // enemy family when it differs from the forte one — Rover: Aero)
+  const addRow = (row, rank) => {           // row: {c, f?, cm?, w?, boss?, spec?}
     bagAdd(bag, 'credits', row.c || 0);
-    if(row.boss) bagAdd(bag, 'boss:'+ch.boss, row.boss);
+    const bossN = rank && ch.bossCounts ? ch.bossCounts[rank-1] : row.boss;
+    if(bossN)    bagAdd(bag, 'boss:'+ch.boss, bossN);
     if(row.spec) bagAdd(bag, 'spec:'+ch.spec, row.spec);
     if(row.w)    bagAdd(bag, 'wk:'+ch.weekly, row.w);
-    if(row.cm)   bagAdd(bag, ch.common + row.cm[0], row.cm[1]);
+    if(row.cm)   bagAdd(bag, (rank && ch.ascCommon || ch.common) + row.cm[0], row.cm[1]);
     if(row.f)    bagAdd(bag, ch.forge  + row.f[0],  row.f[1]);
   };
 
@@ -491,7 +684,7 @@ function costForCharGoal(goal){
 
   // 2. ascension ranks crossed: rank r sits at ordinal 2r
   for(let r=1; r<=6; r++)
-    if(cur.ord < 2*r && tgt.ord >= 2*r) addRow(GAME.asc5[r-1]);
+    if(cur.ord < 2*r && tgt.ord >= 2*r) addRow(GAME.asc5[r-1], r);
 
   // 3. forte main nodes
   for(let s=0; s<5; s++)

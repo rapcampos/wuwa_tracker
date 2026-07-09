@@ -8,7 +8,7 @@ const blocks = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]
 eval(blocks.join('\n;\n') + `
 ;Object.assign(globalThis, {GAME, MATS, MILES, ORD_LEVEL, ORD_LABEL, CATEGORY_ORDER,
   costForGoal, totalBag, freshState, maxedState, expToPotions, remainingBag, farmNextWalk, sortMatIds,
-  freshWpnState, maxedWpnState, wexpToCores, fmtShort, priorityMatIds});`);
+  freshWpnState, maxedWpnState, wexpToCores, fmtShort, priorityMatIds, defaultGoalTgt});`);
 
 let pass = 0, fail = 0;
 const canon = v => (v && typeof v === 'object' && !Array.isArray(v))
@@ -247,6 +247,19 @@ eq('weapon-only enemy family categorized (exoswarm)', MATS.exoswarm3.cat, 'Enemy
      priorityMatIds([gP, gS]), ['credits','exp','whisperin0','wexp','howler0']);
   eq('priority order flips with the queue',
      priorityMatIds([gS, gP]), ['credits','wexp','howler0','exp','whisperin0']);
+}
+
+// ═══ 17c. DEFAULT GOAL TARGETS (per rarity, user-tuned) ═══
+eq('default target 5★: Lv90 · forte 6 · all nodes', defaultGoalTgt(5),
+   {ord:13, skills:[6,6,6,6,6], inh1:1, inh2:1, minor:4, major:4});
+eq('default target 4★: Lv80 · forte 6 · all nodes + passives', defaultGoalTgt(4),
+   {ord:11, skills:[6,6,6,6,6], inh1:1, inh2:1, minor:4, major:4});
+// cost of one 5★ default goal: 853,300 lvl + 170,000 asc + 150,000 skills(→6)
+// + 630,000 nodes = 1,803,300 credits · weekly 6 (inh Ⅰ+Ⅱ + 4 majors)
+{
+  const bag = costForGoal({char:'jinhsi', cur:freshState(), tgt:defaultGoalTgt(5)});
+  eq('5★ default goal: credits', bag.credits, 1803300);
+  eq('5★ default goal: weekly', bag["wk:Sentinel's Dagger"], 6);
 }
 
 // ═══ 18. COMPACT QUANTITIES (material tiles): 3 significant digits ═══

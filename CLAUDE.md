@@ -66,6 +66,13 @@ it goes in block 2 with tests; presentation goes in block 3.
   down). The matrix is the source of truth; count fields on `cur`/`tgt`
   (`minor`, `major`, `inh1`, `inh2`) are *derived* via `syncNodeCounts()` for
   the engine, which only ever consumes counts.
+- **Default goal targets** are per-rarity templates in `state.defaults[4|5]`
+  (a tgt-shaped state: ord/skills/inh/minor/major). New character goals start
+  from them (`newGoal` takes the map as a parameter — it runs before `state`
+  exists at boot). Built-ins in `defaultGoalTgt(r)` (engine): 5★ Lv90 ·
+  forte 6 · all nodes; 4★ Lv80 · forte 6 · all nodes. The edit pop-up has
+  "⤒ Max target" (Lv90/skills 10/every node ≥ planned) and "Save as N★
+  default" (captures that goal's target; persisted). Weapons: Max only.
 - **Save format** lives in localStorage key `wuwa-planner-v1`. `sanitize()`
   migrates all older generations (v1 counts → v2 `{minor,major,inh}` arrays →
   current matrix) and repairs illegal states. Never break old-save loading;

@@ -20,22 +20,22 @@ ok('summary aside precedes goals section', d.querySelector('.cols > aside:first-
 ok('cards are read-only (no selects, no node buttons)',
    d.querySelectorAll('#goals select, #goals button.node').length === 0);
 ok('every card always shows its materials as tiles', d.querySelectorAll('#goals .goal .goal-mats .tiles').length === 3);
-ok('mini trees with skill levels on all char cards',
+ok('mini trees with skill levels on all char cards (default target: forte 6)',
    d.querySelectorAll('#goals .mini').length === 3 &&
    d.querySelectorAll('#goals .mini .node').length === 30 &&
-   [...d.querySelectorAll('#goals .mini .sk')].every(s => s.textContent === '1→10'));
+   [...d.querySelectorAll('#goals .mini .sk')].every(s => s.textContent === '1→6'));
 ok('breakdown accordion gone', d.querySelector('details.brk') === null);
 ok('summary shows totals as tile grid', d.querySelectorAll('#summary .tiles .tile').length > 10 &&
    d.querySelector('#summary table.mats') === null);
 ok('storage detected (jsdom has localStorage)', /Autosaves/.test(d.querySelector('#storageNote').textContent));
 
-// grand total sanity: 3 full builds → credits 9,159,900 (exact in hover title,
-// abbreviated on the tile); Sentinel's Dagger merged = 52; names only in titles
-const creditTile = d.querySelector('#summary .tile[title="Shell Credit — 9,159,900"]');
-ok('total credits 3× full build (exact in title, 9.16M on tile)',
-   creditTile !== null && creditTile.textContent.includes('9.16M') && !creditTile.textContent.includes('Shell Credit'));
-ok("shared weekly (Sentinel's Dagger) merged to 52",
-   d.querySelector(`#summary .tile[title="Sentinel's Dagger — 52"]`) !== null);
+// grand total sanity: 3 default-target builds (Lv90 · forte 6 · all nodes) →
+// credits 3 × 1,803,300 = 5,409,900; Sentinel's Dagger = 6+6 = 12
+const creditTile = d.querySelector('#summary .tile[title="Shell Credit — 5,409,900"]');
+ok('total credits 3× default build (exact in title, 5.41M on tile)',
+   creditTile !== null && creditTile.textContent.includes('5.41M') && !creditTile.textContent.includes('Shell Credit'));
+ok("shared weekly (Sentinel's Dagger) merged to 12",
+   d.querySelector(`#summary .tile[title="Sentinel's Dagger — 12"]`) !== null);
 const expTile = [...d.querySelectorAll('#summary .tile')].find(t => t.title.startsWith('Resonator EXP'));
 ok('total EXP 3× full build with potion plan in tooltip',
    expTile && expTile.title.includes('7,314,000') && expTile.title.includes('≈') && expTile.textContent.includes('7.31M'));
@@ -76,7 +76,7 @@ lvlSel.value = '6'; fire(lvlSel, 'change');
 ok('live apply: card meta updates while pop-up stays open',
    modal().hidden === false && d.querySelector('#goals .gmeta').textContent.includes('Lv 50 ✦ → Lv 90'));
 ok('live apply: card materials re-render', d.querySelector('.goal[data-g="0"] .goal-mats').textContent !== matsBefore);
-ok('totals shrink after raising current', d.querySelector('#summary .tile[title*="9,159,900"]') === null);
+ok('totals shrink after raising current', d.querySelector('#summary .tile[title*="5,409,900"]') === null);
 
 // cur > tgt clamping: set current skill above target, target must follow
 const s0cur = mbox().querySelector('select[data-g="0"][data-side="cur"][data-f="s0"]');
@@ -380,6 +380,48 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
      dW.querySelector('#goals .gmeta').textContent.includes('Lv 90 → Lv 90'));
   ok('corrupt save: core inventory floored',
      JSON.parse(domW.window.localStorage.getItem('wuwa-planner-v1')).inv.wexp2 === 3);
+}
+
+// ── per-rarity default goals + Max button ──
+{
+  // 4★ default template: Lv80, forte 6, all 8 nodes + both passives planned
+  fire(d.querySelector('#btnAdd'), 'click');
+  fire(d.querySelector('#addMenu button[data-c="sanhua"]'), 'click');
+  const sCard = () => d.querySelector('.goal[data-g="4"]');
+  ok('4★ default target: Lv 1 → Lv 80', sCard().textContent.includes('Lv 1 → Lv 80'));
+  ok('4★ default: forte 6 on mini tree',
+     [...sCard().querySelectorAll('.mini .sk')].every(s => s.textContent === '1→6'));
+  ok('4★ default: all nodes + passives planned',
+     sCard().querySelectorAll('.mini .node.plan').length === 10);
+
+  // Max button: target → Lv90 / skills 10 / every node at least planned
+  fire(d.querySelector('button[data-act="edit"][data-g="4"]'), 'click');
+  fire(mbox().querySelector('[data-max]'), 'click');
+  ok('max: level target 90', sCard().textContent.includes('Lv 1 → Lv 90'));
+  ok('max: skills to 10', [...sCard().querySelectorAll('.mini .sk')].every(s => s.textContent === '1→10'));
+  ok('max: pop-up stays open, selects follow',
+     d.querySelector('#modalWrap').hidden === false &&
+     mbox().querySelector('select[data-side="tgt"][data-f="ord"]').value === '13');
+
+  // Save as 4★ default → new 4★ goals start from the saved target
+  const s0t = mbox().querySelector('select[data-g="4"][data-side="tgt"][data-f="s0"]');
+  s0t.value = '8'; fire(s0t, 'change');
+  fire(mbox().querySelector('[data-setdef]'), 'click');
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
+  fire(d.querySelector('button[data-act="del"][data-g="4"]'), 'click');
+  fire(d.querySelector('#btnAdd'), 'click');
+  fire(d.querySelector('#addMenu button[data-c="yuanwu"]'), 'click');
+  const yCard = d.querySelector('.goal[data-g="4"]');
+  ok('saved default applies to new 4★ goals',
+     yCard.textContent.includes('Lv 1 → Lv 90') && yCard.querySelector('.mini .sk').textContent === '1→8');
+  ok('default persisted in the save',
+     JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).defaults['4'].skills[0] === 8);
+  // weapon pop-up gets Max but no default button
+  fire(d.querySelector('button[data-act="edit"][data-g="3"]'), 'click');
+  ok('weapon pop-up: Max yes, default no',
+     mbox().querySelector('[data-max]') !== null && mbox().querySelector('[data-setdef]') === null);
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
+  fire(d.querySelector('button[data-act="del"][data-g="4"]'), 'click');
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

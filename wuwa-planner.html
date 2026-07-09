@@ -624,6 +624,14 @@ const freshState = () => ({ord:0, skills:[1,1,1,1,1], inh1:0, inh2:0, minor:0, m
 const maxedState = () => ({ord:13, skills:[10,10,10,10,10], inh1:1, inh2:1, minor:4, major:4});
 const freshWpnState = () => ({ord:0});
 const maxedWpnState = () => ({ord:13});
+/* built-in default TARGETS for new character goals, per rarity (user-tuned):
+   5★ — Lv90, forte 6, both inherents, all 8 stat nodes
+   4★ — Lv80 (unascended), forte 6, both inherents, all 8 stat nodes
+   The user can overwrite these from the edit pop-up ("Save as N★ default");
+   overrides live in the save file, these are the out-of-the-box values. */
+const defaultGoalTgt = r => r === 4
+  ? {ord:11, skills:[6,6,6,6,6], inh1:1, inh2:1, minor:4, major:4}
+  : {ord:13, skills:[6,6,6,6,6], inh1:1, inh2:1, minor:4, major:4};
 
 /* ── core: materials to move one goal from `cur` to `tgt` ──
    Character goal = {char, cur, tgt}; state = {ord, skills[5], inh1/2, minor, major}.
@@ -896,9 +904,14 @@ function syncNodeCounts(goal){
   goal.cur.inh1 = m[0][INH_COL] === 2 ? 1 : 0;  goal.tgt.inh1 = m[0][INH_COL] >= 1 ? 1 : 0;
   goal.cur.inh2 = m[1][INH_COL] === 2 ? 1 : 0;  goal.tgt.inh2 = m[1][INH_COL] >= 1 ? 1 : 0;
 }
-function newGoal(char, open){
-  const g = {char, cur:freshState(), tgt:maxedState(), open:!!open};
+/* dflts is the per-rarity default-target map (state.defaults); passed as a
+   parameter because defaultState() runs before `state` exists */
+function newGoal(char, open, dflts){
+  const ch = GAME.characters[char];
+  const src = (dflts && dflts[ch.rarity]) || defaultGoalTgt(ch.rarity);
+  const g = {char, cur:freshState(), tgt:{...src, skills:[...src.skills]}, open:!!open};
   g.nodes = nodesFrom(null, g.cur, g.tgt);
+  syncNodeCounts(g);
   return g;
 }
 const newWpnGoal = (weapon, open) => ({weapon, cur:freshWpnState(), tgt:maxedWpnState(), open:!!open});
@@ -906,6 +919,7 @@ const newWpnGoal = (weapon, open) => ({weapon, cur:freshWpnState(), tgt:maxedWpn
 const defaultState = () => ({
   goals: [newGoal('jinhsi', true), newGoal('phoebe', false), newGoal('suisui', false)],
   inv:{}, synth:true, tab:'total',
+  defaults: {4: defaultGoalTgt(4), 5: defaultGoalTgt(5)},
 });
 
 function sanitize(raw){
@@ -945,6 +959,16 @@ function sanitize(raw){
   if(raw && raw.inv && typeof raw.inv === 'object')
     for(const [k,v] of Object.entries(raw.inv))
       if(MATS[k] && Math.floor(+v) > 0) st.inv[k] = Math.floor(+v);
+  // per-rarity default targets (added later than v1 — absent in old saves)
+  const defTgt = (d, r) => {
+    if(!d || typeof d !== 'object') return defaultGoalTgt(r);
+    const o = fix(d);
+    if(o.inh2) o.inh1 = 1;                    // Ⅱ requires Ⅰ
+    o.minor = Math.max(o.minor, o.major);     // upper nodes require lower
+    return o;
+  };
+  const rawDef = (raw && raw.defaults) || {};
+  st.defaults = {4: defTgt(rawDef[4], 4), 5: defTgt(rawDef[5], 5)};
   return st;
 }
 
@@ -1203,7 +1227,7 @@ $('#btnAdd').addEventListener('click', () => {
   bindIcons(div);
   div.querySelectorAll('button').forEach(b => b.addEventListener('click', e => {
     const d = e.currentTarget.dataset;
-    state.goals.push(d.w ? newWpnGoal(d.w, true) : newGoal(d.c, true));
+    state.goals.push(d.w ? newWpnGoal(d.w, true) : newGoal(d.c, true, state.defaults));
     save(); render();
   }));
 });
@@ -1349,12 +1373,32 @@ function renderModal(){
       `</div>`).join('') + `</div>
       <div class="ftree-legend">click a node: <span class="lg"></span> skip → <span class="lg plan"></span> planned → <span class="lg own"></span> owned · upper nodes need their lower node · skill levels read current ↓ target</div>`;
   }
+  html += `<div style="display:flex; gap:8px; margin-top:16px; flex-wrap:wrap">
+    <button class="tiny" data-max title="Target → Lv 90${isW ? '' : ', all skills 10, every node at least planned'}">⤒ Max target</button>` +
+    (isW ? '' : `<button class="tiny" data-setdef title="New ${it.rarity}★ goals will start with this card's target">Save as ${it.rarity}★ default</button>`) +
+  `</div>`;
   const box = $('#modalBox');
   box.style.setProperty('--acc', isW ? 'var(--weapon)' : it.elColor);
   box.innerHTML = html;
   box.querySelectorAll('select[data-f]').forEach(s => s.addEventListener('change', onField));
   box.querySelectorAll('.node').forEach(b => b.addEventListener('click', onNode));
   box.querySelector('[data-close]').addEventListener('click', closeEdit);
+  box.querySelector('[data-max]').addEventListener('click', () => {
+    g.tgt.ord = 13;
+    if(!isW){
+      g.tgt.skills = [10,10,10,10,10];
+      for(let r2=0; r2<2; r2++) for(let c2=0; c2<5; c2++) g.nodes[r2][c2] = Math.max(g.nodes[r2][c2], 1);
+      syncNodeCounts(g);
+    }
+    save(); render();
+  });
+  const sd = box.querySelector('[data-setdef]');
+  if(sd) sd.addEventListener('click', () => {
+    state.defaults[it.rarity] = {ord:g.tgt.ord, skills:[...g.tgt.skills],
+      inh1:g.tgt.inh1, inh2:g.tgt.inh2, minor:g.tgt.minor, major:g.tgt.major};
+    save();
+    note(`Saved as the default goal for ${it.rarity}★ characters.`);
+  });
   bindIcons(box);
   wrap.hidden = false;
 }

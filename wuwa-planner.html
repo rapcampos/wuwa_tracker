@@ -226,6 +226,25 @@ button.search kbd{margin-left:auto; font-family:inherit; font-size:10px; color:v
   text-transform:uppercase; white-space:nowrap}
 .ord-item .obtns{display:flex; gap:4px; flex:none}
 
+/* ── inventory pop-up (Ctrl+I): game-style stock grid ── */
+#invWrap{position:fixed; inset:0; z-index:50; background:rgba(6,9,16,.55);
+  display:flex; justify-content:center; align-items:flex-start; padding:8vh 16px 16px}
+.inv-pop{width:min(780px,96vw)}
+.inv-pop .ord-h .chk{font-size:11.5px; color:var(--mut); white-space:nowrap}
+#invGrid{max-height:min(560px,72vh); overflow:auto; overscroll-behavior:contain; padding:10px 14px 14px}
+#invGrid .cat{display:block; padding:12px 0 6px; font-size:10.5px; text-transform:uppercase;
+  letter-spacing:.16em; color:var(--faint)}
+.igrid{display:flex; flex-wrap:wrap; gap:6px}
+.itile{width:52px; border:1px solid var(--line2); border-radius:8px; overflow:hidden;
+  display:flex; flex-direction:column; align-items:center}
+.itile .ico-wrap{width:32px; height:32px; margin:5px 0 3px}
+.itile .ico-wrap img{width:30px; height:30px; border-radius:4px}
+.itile input{width:100%; border:none; border-top:1px solid var(--line2); border-radius:0;
+  background:rgba(6,9,16,.55); color:var(--ink); font:inherit; font-size:11px; text-align:center;
+  padding:2px 1px; -moz-appearance:textfield}
+.itile input::-webkit-outer-spin-button, .itile input::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
+.itile.done{opacity:.55}
+
 /* ── undo toast (single-level, Ctrl+Z) ── */
 #undoBar{position:fixed; left:50%; bottom:18px; transform:translateX(-50%); z-index:70;
   display:flex; align-items:center; gap:12px; background:var(--panel); border:1px solid var(--line2);
@@ -239,12 +258,12 @@ button.search kbd{margin-left:auto; font-family:inherit; font-size:10px; color:v
 .tile .ico-wrap img{width:30px; height:30px; border-radius:4px}
 .tile .qty{display:block; width:100%; text-align:center; font-size:10.5px; font-weight:600;
   padding:1px 2px 2px; background:rgba(6,9,16,.5); color:var(--ink); white-space:nowrap}
-.tile.r1{background:rgba(155,166,188,.10); border-color:rgba(155,166,188,.35)}
-.tile.r2{background:rgba(105,184,118,.16); border-color:rgba(105,184,118,.45)}
-.tile.r3{background:rgba(92,168,222,.16);  border-color:rgba(92,168,222,.45)}
-.tile.r4{background:rgba(166,127,224,.18); border-color:rgba(166,127,224,.5)}
-.tile.r5{background:rgba(229,181,102,.18); border-color:rgba(229,181,102,.5)}
-.tile.r0{background:rgba(95,217,228,.08);  border-color:rgba(95,217,228,.3)}
+.tile.r1, .itile.r1{background:rgba(155,166,188,.10); border-color:rgba(155,166,188,.35)}
+.tile.r2, .itile.r2{background:rgba(105,184,118,.16); border-color:rgba(105,184,118,.45)}
+.tile.r3, .itile.r3{background:rgba(92,168,222,.16);  border-color:rgba(92,168,222,.45)}
+.tile.r4, .itile.r4{background:rgba(166,127,224,.18); border-color:rgba(166,127,224,.5)}
+.tile.r5, .itile.r5{background:rgba(229,181,102,.18); border-color:rgba(229,181,102,.5)}
+.tile.r0, .itile.r0{background:rgba(95,217,228,.08);  border-color:rgba(95,217,228,.3)}
 .tile.done{opacity:.5}
 .tile.done .qty{color:var(--green)}
 .mats-note{color:var(--faint); font-size:12px; padding:6px 0}
@@ -316,6 +335,7 @@ td.inv{width:96px; text-align:right}
     <button class="search" id="btnAdd" title="Fuzzy-search characters and weapons (Ctrl+K)">⌕ Add goal…<kbd>Ctrl K</kbd></button>
     <button class="ghost" id="btnTpl" title="Edit the default goal templates for new 4★/5★ characters">Templates</button>
     <button class="ghost" id="btnOrder" title="Reorder the priority queue in a compact drag list (Ctrl+P)">⇅ Reorder</button>
+    <button class="ghost" id="btnInv" title="Quick stock entry — every material as a grid of icon + quantity (Ctrl+I)">☷ Stock</button>
     <span class="spacer"></span>
     <button class="ghost" id="btnExport">Export JSON</button>
     <button class="ghost" id="btnImport">Import JSON</button>
@@ -368,6 +388,17 @@ td.inv{width:96px; text-align:right}
 <div id="undoBar" hidden role="status">
   <span id="undoMsg"></span>
   <button class="tiny" id="btnUndo" title="Restore the state from before (Ctrl+Z)">Undo</button>
+</div>
+
+<div id="invWrap" hidden>
+  <div class="palette inv-pop" role="dialog" aria-modal="true" aria-label="Inventory">
+    <div class="ord-h">Stock
+      <label class="chk"><input type="checkbox" id="isynthChk"> Craft 3→1</label>
+      <label class="chk"><input type="checkbox" id="ihideChk"> Hide un-needed</label>
+      <span class="sub">hover a tile for its name · closing applies everywhere</span>
+      <button class="tiny close" id="invClose" title="Close (Esc)">✕</button></div>
+    <div id="invGrid"></div>
+  </div>
 </div>
 </div>
 <script>
@@ -1813,7 +1844,7 @@ function paletteEntries(q){
   return out.sort((a,b) => grp(a) - grp(b) || a.score - b.score || (a.name < b.name ? -1 : 1));
 }
 function openPal(pick){
-  closeEdit(); closeOrd();
+  closeEdit(); closeOrd(); closeInv();
   palPick = pick || null;
   $('#palIn').placeholder = pick ? `Pick a member — Team ${pick.t + 1}` : 'Add a character or weapon…';
   $('#palWrap').hidden = false; palSel = 0; renderPal(); $('#palIn').focus();
@@ -1861,7 +1892,7 @@ $('#palIn').addEventListener('keydown', e => {
    the overlay. render() re-renders the open list in place. */
 let ordDrag = null;
 const ordIsOpen = () => !$('#ordWrap').hidden;
-function openOrd(){ closeEdit(); closePal(); $('#ordWrap').hidden = false; renderOrder(); }
+function openOrd(){ closeEdit(); closePal(); closeInv(); $('#ordWrap').hidden = false; renderOrder(); }
 function closeOrd(){ $('#ordWrap').hidden = true; }
 function renderOrder(){
   if(!ordIsOpen()) return;
@@ -1985,6 +2016,82 @@ function renderTeams(){
   }));
   bindIcons(box);
 }
+
+/* ── inventory pop-up: game-style stock grid (Ctrl+I) ──
+   Every registry item as a rarity tile (icon + quantity input, full name
+   and need/left in the hover title) — the fast bulk-entry surface; the
+   Inventory tab stays the Need/Have/Left report. The grid is built once
+   per open (rebuilding on input would steal focus mid-typing); CLOSING it
+   (Esc / backdrop / ✕) runs the full render, so cards, totals, and Farm
+   next pick up the new stock at once. IGRID carries ids by index — data
+   attributes must never hold material ids (apostrophes). */
+let IGRID = [];
+const invIsOpen = () => !$('#invWrap').hidden;
+function openInv(){
+  closeEdit(); closePal(); closeOrd();
+  $('#invWrap').hidden = false;
+  renderInvGrid();
+}
+function closeInv(){
+  if($('#invWrap').hidden) return;
+  $('#invWrap').hidden = true;
+  render();
+}
+function renderInvGrid(){
+  const box = $('#invGrid');
+  const need = totalBag(state.goals);
+  const res = remainingBag(need, state.inv, state.synth);
+  $('#isynthChk').checked = state.synth;
+  $('#ihideChk').checked = state.hideUn;
+  // potions/cores have no direct need — they count as needed while their pool is
+  const isNeeded = id => id.startsWith('exp') ? !!need.exp
+                       : id.startsWith('wexp') ? !!need.wexp
+                       : !!need[id];
+  const tip = id => {
+    const m = MATS[id];
+    if(id.startsWith('exp'))  return `${m.name} — feeds the Resonator EXP pool (${fmt(GAME.expItems.find(x => x.id === id).exp)} EXP each)`;
+    if(id.startsWith('wexp')) return `${m.name} — feeds the Weapon EXP pool (${fmt(GAME.wpnExpItems.find(x => x.id === id).exp)} EXP each)`;
+    if(!need[id]) return `${m.name} — not needed by the current queue`;
+    return `${m.name} — ${res.rem[id] ? fmt(res.rem[id]) + ' still missing of ' + fmt(need[id]) + ' needed'
+                                      : 'covered · needs ' + fmt(need[id])}`;
+  };
+  IGRID = [];
+  const ids = Object.keys(MATS).filter(id => id !== 'exp' && id !== 'wexp');
+  // game-style order inside each section: rarity high → low (gold first),
+  // then family, then name — mirrors the in-game inventory sort
+  const gameSort = list => list.sort((a, b) => {
+    const A = MATS[a], B = MATS[b];
+    if(A.r !== B.r) return B.r - A.r;
+    if((A.family || '') !== (B.family || '')) return (A.family || '') < (B.family || '') ? -1 : 1;
+    return A.name < B.name ? -1 : 1;
+  });
+  let html = '';
+  for(const cat of CATEGORY_ORDER){
+    const catIds = gameSort(ids.filter(id => MATS[id].cat === cat && (!state.hideUn || isNeeded(id))));
+    if(!catIds.length) continue;
+    html += `<span class="cat">${cat}</span><div class="igrid">` + catIds.map(id => {
+      const i = IGRID.push(id) - 1;
+      return `<div class="itile r${MATS[id].r}${need[id] && !res.rem[id] ? ' done' : ''}" title="${esc(tip(id))}">` +
+        matIco(id) +
+        `<input type="number" min="0" step="1" class="iqty" data-i="${i}" value="${state.inv[id] ?? ''}" placeholder="0">` +
+      `</div>`;
+    }).join('') + `</div>`;
+  }
+  box.innerHTML = html || '<div class="empty">Nothing needed right now — untick “Hide un-needed” to log stock for later.</div>';
+  box.querySelectorAll('.iqty').forEach(inp => inp.addEventListener('change', e => {
+    const id = IGRID[+e.currentTarget.dataset.i];
+    const v = Math.max(0, Math.floor(+e.currentTarget.value || 0));
+    if(v) state.inv[id] = v; else delete state.inv[id];
+    e.currentTarget.value = v || '';
+    save();                                    // tints/tooltips refresh on close or next open
+  }));
+  bindIcons(box);
+}
+$('#btnInv').addEventListener('click', openInv);
+$('#invClose').addEventListener('click', closeInv);
+$('#invWrap').addEventListener('click', e => { if(e.target === e.currentTarget) closeInv(); });
+$('#isynthChk').addEventListener('change', e => { state.synth = e.currentTarget.checked; save(); renderInvGrid(); });
+$('#ihideChk').addEventListener('change', e => { state.hideUn = e.currentTarget.checked; save(); renderInvGrid(); });
 
 /* ── summary panel ── */
 let INVROWS = [];
@@ -2393,6 +2500,7 @@ $('#modalWrap').addEventListener('click', e => { if(e.target === e.currentTarget
 document.addEventListener('keydown', e => {
   if((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')){ e.preventDefault(); openPal(); return; }
   if((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')){ e.preventDefault(); openOrd(); return; }
+  if((e.ctrlKey || e.metaKey) && (e.key === 'i' || e.key === 'I')){ e.preventDefault(); openInv(); return; }
   if((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'z' || e.key === 'Z')){
     const tag = (e.target && e.target.tagName) || '';
     if(!/^(INPUT|TEXTAREA|SELECT)$/.test(tag)){ e.preventDefault(); doUndo(); }   // inputs keep native undo
@@ -2401,6 +2509,7 @@ document.addEventListener('keydown', e => {
   if(e.key === 'Escape'){
     if(palIsOpen()) closePal();
     else if(ordIsOpen()) closeOrd();
+    else if(invIsOpen()) closeInv();
     else if(editIdx !== null || editTpl !== null) closeEdit();
   }
 });

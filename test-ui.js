@@ -916,6 +916,73 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
      w.location.hash !== '#teams');
 }
 
+// ── inventory pop-up (Ctrl+I): stock grid of icon + quantity tiles ──
+{
+  const wrapI = () => d.querySelector('#invWrap');
+  ok('stock pop-up hidden until opened', wrapI().hidden === true);
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'i', ctrlKey:true, bubbles:true}));
+  ok('Ctrl+I opens the stock grid', wrapI().hidden === false);
+  ok('the wrapper is a real fixed overlay (CSS present, not just unhidden)',
+     w.getComputedStyle(wrapI()).position === 'fixed');
+  ok('every pop-up wrapper carries the fixed-overlay CSS',
+     ['#modalWrap', '#palWrap', '#ordWrap', '#invWrap', '#undoBar'].every(s =>
+       w.getComputedStyle(d.querySelector(s)).position === 'fixed'));
+  ok('full catalog as tiles, one input each',
+     d.querySelectorAll('#invGrid .itile').length > 100 &&
+     d.querySelectorAll('#invGrid .iqty').length === d.querySelectorAll('#invGrid .itile').length);
+  const tileOf = name => [...d.querySelectorAll('#invGrid .itile')]
+    .find(t => (t.getAttribute('title') || '').startsWith(name));
+  ok('tiles carry name + need in the hover title',
+     tileOf('Elegy Tacet Core') !== undefined && tileOf('Premium Resonance Potion') !== undefined &&
+     tileOf('Premium Resonance Potion').getAttribute('title').includes('EXP pool'));
+  // game-style sort: rarity descends within each section (gold first)
+  {
+    const section = label => [...d.querySelectorAll('#invGrid .cat')]
+      .find(c => c.textContent === label).nextElementSibling;
+    const exp = [...section('EXP').querySelectorAll('.itile')];
+    ok('EXP section leads with the premium (gold) items',
+       exp[0].classList.contains('r5') && exp[exp.length - 1].classList.contains('r2'));
+    const forge = [...section('Forgery').querySelectorAll('.itile')];
+    ok('Forgery section descends by rarity like the game inventory',
+       forge[0].classList.contains('r5') && forge[forge.length - 1].classList.contains('r2') &&
+       forge.every((t, i) => i === 0 || +forge[i - 1].className.match(/r(\d)/)[1] >= +t.className.match(/r(\d)/)[1]));
+  }
+  const q = tileOf('Elegy Tacet Core').querySelector('.iqty');
+  q.value = '7'; fire(q, 'change');
+  ok('typing a quantity saves it immediately',
+     JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).inv['boss:Elegy Tacet Core'] === 7);
+  ok('editing does not rebuild the grid (focus safety)', q.isConnected);
+  // hide un-needed filters the grid (same persisted state.hideUn as the tab)
+  const nAll = d.querySelectorAll('#invGrid .itile').length;
+  const hid = d.querySelector('#ihideChk');
+  hid.checked = true; fire(hid, 'change');
+  ok('hide un-needed shrinks the grid and persists',
+     d.querySelectorAll('#invGrid .itile').length < nAll &&
+     JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).hideUn === true);
+  const hid2 = d.querySelector('#ihideChk');
+  hid2.checked = false; fire(hid2, 'change');
+  ok('untick restores the catalog', d.querySelectorAll('#invGrid .itile').length === nAll);
+  // closing applies everywhere: give credits (every unfinished goal wants them)
+  const cq = tileOf('Shell Credit').querySelector('.iqty');
+  cq.value = '999999'; fire(cq, 'change');
+  const goalsBefore = d.querySelector('#goals').innerHTML;
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
+  ok('Esc closes the grid', wrapI().hidden === true);
+  ok('closing re-renders the goal cards with the new stock',
+     d.querySelector('#goals').innerHTML !== goalsBefore);
+  // Ctrl+K hands over to the palette
+  fire(d.querySelector('#btnInv'), 'click');
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'k', ctrlKey:true, bubbles:true}));
+  ok('Ctrl+K closes the stock grid and opens the palette',
+     wrapI().hidden === true && d.querySelector('#palWrap').hidden === false);
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
+  // backdrop closes too
+  fire(d.querySelector('#btnInv'), 'click');
+  fire(wrapI(), 'click');
+  ok('backdrop click closes it', wrapI().hidden === true);
+  w.eval(`delete state.inv['boss:Elegy Tacet Core']; delete state.inv.credits; save(); render();`);
+}
+
 // ── single-level undo: toast + Ctrl+Z restore the last destructive action ──
 {
   const bar = () => d.querySelector('#undoBar');

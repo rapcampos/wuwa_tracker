@@ -297,6 +297,18 @@ are no screenshot tests — be extra careful with CSS-only changes.
   rebuilt, focus lives in the summary table; multiple edits to one field
   coalesce into one refresh). Event handlers bind after each render; data
   attributes carry indices, never material ids (apostrophes in names).
+- **Inventory pop-up** (`#invWrap`, toolbar "☷ Stock" or Ctrl/Cmd+I): the
+  fast bulk-entry surface — every registry item as a rarity tile (icon +
+  quantity input; name and need/left in the hover title; potions/cores are
+  plain items here, no pooled rows) in category sections, with the same
+  persisted synth/hide-un-needed toggles as the tab. Within each section
+  tiles sort **rarity high → low** (then family, then name) to mirror the
+  in-game inventory — deliberately NOT `sortMatIds`, which stays
+  low→high for the planning views. `IGRID` carries ids by index. The grid builds once per open and is NOT re-rendered on input
+  (focus safety); CLOSING it (Esc/backdrop/✕, priority palette → reorder →
+  stock → editor; Ctrl+K/P close it too) runs the full `render()`, which
+  is the "apply everywhere when done" step. The Inventory tab stays as the
+  Need/Have/Left report.
 - Reordering: drag the ⠿ grip (HTML5 DnD, `dragIdx` module variable — not
   dataTransfer — carries state) **and** ▲▼ buttons, kept for touch screens.
   Both route through `moveGoal(from, to)` where `to` is the pre-removal

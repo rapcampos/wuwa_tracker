@@ -777,5 +777,101 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
      [...dD.querySelectorAll('#tabs button')].some(b => b.textContent === 'Completed (2)'));
 }
 
+// ── Teams page: matrix team builder behind the header nav ──
+{
+  const nav = p => [...d.querySelectorAll('.pagenav button')].find(b => b.dataset.page === p);
+  ok('pagenav present, Ledger page on by default',
+     nav('ledger') !== null && nav('ledger').classList.contains('on') &&
+     d.querySelector('#pageLedger').hidden === false && d.querySelector('#pageTeams').hidden === true);
+  fire(nav('teams'), 'click');
+  ok('Teams nav switches pages and sets the hash',
+     d.querySelector('#pageTeams').hidden === false && d.querySelector('#pageLedger').hidden === true &&
+     nav('teams').classList.contains('on') && w.location.hash === '#teams');
+
+  const nChars = w.eval('state.goals.concat(state.done).filter(g => g.char !== undefined).length');
+  ok('roster chips: one per character (weapons excluded), none spent',
+     nChars >= 2 && d.querySelectorAll('#teams .rchip').length === nChars &&
+     d.querySelectorAll('#teams .rchip.spent').length === 0);
+
+  fire(d.querySelector('#btnTeam'), 'click');
+  ok('add team: one team, auto-named, 3 empty slots',
+     d.querySelectorAll('#teams .team').length === 1 &&
+     d.querySelectorAll('#teams .slot.empty').length === 3 &&
+     d.querySelector('#teams .team-h').textContent.includes('Team 1'));
+
+  // empty slot → palette in pick mode: roster characters only, no weapons
+  fire(d.querySelector('#teams .slot.empty'), 'click');
+  ok('slot click opens the palette in pick mode (roster only, no weapons)',
+     d.querySelector('#palWrap').hidden === false &&
+     d.querySelectorAll('#palList .pal-item').length === nChars &&
+     ![...d.querySelectorAll('#palList .tag')].some(t2 => t2.textContent.includes('weapon')) &&
+     d.querySelector('#palIn').placeholder.includes('Team 1'));
+  fire(d.querySelector('#palList .pal-item'), 'click');
+  const teamSave = () => JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).teams;
+  ok('picking fills the slot and persists',
+     d.querySelectorAll('#teams .slot.empty').length === 2 &&
+     teamSave()[0].chars.filter(Boolean).length === 1);
+  ok('used chip dims (energy 1 spent)', d.querySelectorAll('#teams .rchip.spent').length === 1);
+
+  // the next slot's picker no longer offers the spent character
+  fire(d.querySelector('#teams .slot.empty'), 'click');
+  ok('spent character hidden from the picker',
+     d.querySelectorAll('#palList .pal-item').length === nChars - 1);
+  fire(d.querySelector('#palWrap'), 'click');               // backdrop closes, pick cancelled
+  ok('cancelled pick leaves the slot empty', d.querySelectorAll('#teams .slot.empty').length === 2);
+  // Ctrl+K after a cancelled pick is a plain add-goal palette again (weapons back)
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'k', ctrlKey:true, bubbles:true}));
+  ok('Ctrl+K reopens the palette in add mode',
+     [...d.querySelectorAll('#palList .tag')].some(t2 => t2.textContent.includes('weapon')));
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
+
+  // clicking the filled slot clears it and refunds the energy
+  fire(d.querySelector('#teams .slot:not(.empty)'), 'click');
+  ok('clicking a filled slot clears it',
+     d.querySelectorAll('#teams .slot.empty').length === 3 &&
+     d.querySelectorAll('#teams .rchip.spent').length === 0);
+
+  // deleting the goal strips the character from any team
+  fire(d.querySelector('#teams .slot.empty'), 'click');
+  fire(d.querySelector('#palList .pal-item'), 'click');
+  const memberId = teamSave()[0].chars.find(Boolean);
+  const gi = w.eval(`state.goals.findIndex(g => g.char === '${memberId}')`);
+  fire(d.querySelector(`button[data-act="del"][data-g="${gi}"]`), 'click');
+  ok('deleting the goal strips the character from teams',
+     teamSave()[0].chars.every(c => c === null) &&
+     d.querySelectorAll('#teams .slot.empty').length === 3);
+
+  fire(d.querySelector('[data-rmteam="0"]'), 'click');
+  ok('✕ deletes the team', d.querySelectorAll('#teams .team').length === 0 && teamSave().length === 0);
+
+  fire(nav('ledger'), 'click');
+  ok('Ledger nav returns and clears the hash',
+     d.querySelector('#pageLedger').hidden === false && d.querySelector('#pageTeams').hidden === true &&
+     w.location.hash !== '#teams');
+}
+
+// ── Teams: #teams hash boot + save repair (dupes, budget, unknown ids) ──
+{
+  const domT = new JSDOM(html, {runScripts:'outside-only', url:'https://localhost/#teams'});
+  domT.window.localStorage.setItem('wuwa-planner-v1', JSON.stringify({
+    goals:[{char:'jinhsi'}, {char:'phoebe'}],
+    teams:[{chars:['jinhsi', 'jinhsi', 'phoebe']},           // dup within one team
+           {chars:['phoebe', 'notachar', 'verina']},         // over budget + unknown + non-roster
+           'garbage'],
+  }));
+  domT.window.eval([...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).join('\n;\n'));
+  const dT = domT.window.document;
+  ok('#teams hash boots straight to the Teams page',
+     dT.querySelector('#pageTeams').hidden === false && dT.querySelector('#pageLedger').hidden === true);
+  const savedT = JSON.parse(domT.window.localStorage.getItem('wuwa-planner-v1'));
+  ok('sanitize repairs teams: within-team dupe, energy budget, unknown ids, garbage rows',
+     JSON.stringify(savedT.teams.map(t => t.chars)) === '[["jinhsi",null,"phoebe"],[null,null,null]]');
+  ok('repaired teams render (2 teams, 2 filled slots, both chips spent)',
+     dT.querySelectorAll('#teams .team').length === 2 &&
+     dT.querySelectorAll('#teams .slot:not(.empty)').length === 2 &&
+     dT.querySelectorAll('#teams .rchip.spent').length === 2);
+  ok('old saves without teams default to none (jsdom main dom booted clean)', Array.isArray(savedT.teams));
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

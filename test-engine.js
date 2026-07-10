@@ -9,7 +9,7 @@ eval(blocks.join('\n;\n') + `
 ;Object.assign(globalThis, {GAME, MATS, MILES, ORD_LEVEL, ORD_LABEL, CATEGORY_ORDER,
   costForGoal, totalBag, freshState, maxedState, expToPotions, remainingBag, farmNextWalk, sortMatIds,
   freshWpnState, maxedWpnState, wexpToCores, fmtShort, priorityMatIds, defaultGoalTgt, fuzzyScore,
-  nodeShortfall});`);
+  nodeShortfall, charEnergy, teamUsage, energyLeft, sanitizeTeams});`);
 
 let pass = 0, fail = 0;
 const canon = v => (v && typeof v === 'object' && !Array.isArray(v))
@@ -315,6 +315,43 @@ eq('fuzzy: shorter name wins the tie', fuzzyScore('car', 'Carlotta') < fuzzyScor
 eq('fuzzy: start-of-name beats mid-name', fuzzyScore('ta', 'Taoqi') < fuzzyScore('ta', 'Cantarella'), true);
 eq('fuzzy: empty query matches everything at 0', fuzzyScore('', 'Jinhsi'), 0);
 eq('fuzzy: case-insensitive', fuzzyScore('JINHSI', 'Jinhsi') >= 0, true);
+
+// ═══ 20. TEAMS (matrix team builder) ═══
+{
+  const ROSTER = ['jinhsi', 'phoebe', 'suisui', 'sanhua'];
+  eq('energy defaults to 1 (no entry field seeded yet)', charEnergy('jinhsi'), 1);
+  eq('usage counts placements across teams', teamUsage([
+    {chars:['jinhsi', 'phoebe', null]}, {chars:['jinhsi', null, null]}]),
+    {jinhsi:2, phoebe:1});
+  eq('energyLeft: unplaced char has its full budget',
+     energyLeft([{chars:['jinhsi', null, null]}], 'phoebe'), 1);
+  eq('energyLeft: placed char is spent at energy 1',
+     energyLeft([{chars:['jinhsi', null, null]}], 'jinhsi'), 0);
+  eq('energyLeft honors a bigger budget via energyOf',
+     energyLeft([{chars:['jinhsi', null, null]}], 'jinhsi', () => 2), 1);
+
+  eq('sanitizeTeams: non-array → no teams', sanitizeTeams(undefined, ROSTER), []);
+  eq('sanitizeTeams: garbage rows drop, slots pad to 3',
+     sanitizeTeams(['nope', null, {chars:['jinhsi']}], ROSTER),
+     [{chars:['jinhsi', null, null]}]);
+  eq('sanitizeTeams: unknown + non-roster ids drop to empty slots',
+     sanitizeTeams([{chars:['jinhsi', 'notachar', 'verina']}], ROSTER),
+     [{chars:['jinhsi', null, null]}]);
+  eq('sanitizeTeams: a char appears once per team, extra slots clamp',
+     sanitizeTeams([{chars:['jinhsi', 'jinhsi', 'phoebe', 'sanhua']}], ROSTER),
+     [{chars:['jinhsi', null, 'phoebe']}]);
+  eq('sanitizeTeams: energy 1 = one team total; earlier teams win',
+     sanitizeTeams([{chars:['jinhsi', 'phoebe', null]}, {chars:['jinhsi', 'suisui', null]}], ROSTER),
+     [{chars:['jinhsi', 'phoebe', null]}, {chars:[null, 'suisui', null]}]);
+  eq('sanitizeTeams: energy 2 lets the same char join two teams (not twice in one)',
+     sanitizeTeams([{chars:['jinhsi', 'jinhsi', null]}, {chars:['jinhsi', null, null]},
+                    {chars:['jinhsi', null, null]}], ROSTER, () => 2),
+     [{chars:['jinhsi', null, null]}, {chars:['jinhsi', null, null]}, {chars:[null, null, null]}]);
+  eq('sanitizeTeams: a real name survives, junk names drop',
+     sanitizeTeams([{name:'  Tower A ', chars:[]}, {name:42, chars:[]}, {name:'   ', chars:[]}], ROSTER),
+     [{name:'Tower A', chars:[null, null, null]}, {chars:[null, null, null]},
+      {chars:[null, null, null]}]);
+}
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

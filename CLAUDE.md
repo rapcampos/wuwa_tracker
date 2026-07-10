@@ -106,12 +106,30 @@ it goes in block 2 with tests; presentation goes in block 3.
   end — raise the target to keep building) and ✕ (forget; the char becomes
   addable again). A character exists at most once across queue + done;
   `sanitize()` lets the queued copy win.
+- **Teams (matrix team builder)**: a second page (`#pageTeams`, header nav
+  "Ledger | Teams", `location.hash === '#teams'` routing — nav clicks call
+  `showPage` directly so jsdom needs no hashchange event; boot calls
+  `showPage(curPage())`). `state.teams` = `[{name?, chars:[charId|null ×3]}]`;
+  roster = queued + completed characters (`rosterGoals()`, weapons excluded).
+  Each character has an **energy budget** — optional `energy` field on the
+  GAME entry, default 1 = one team total (user will set 2 on some supports
+  later) — capping total placements across teams. Engine (pure, tested):
+  `charEnergy`, `teamUsage`, `energyLeft`, `sanitizeTeams` (drops non-roster
+  ids, dedupes within a team, enforces the budget with earlier teams
+  winning, clamps/pads slots to 3; `name` survives only as a non-empty
+  string — the UI shows positional "Team N" when absent). Empty slots open
+  the add palette in **pick mode** (`palPick = {t,s}`; roster-only entries,
+  cleared by `closePal`); clicking a filled slot empties it. Deleting a
+  queued goal or forgetting a completed one calls `pruneTeams()` (marking
+  done does NOT — still rostered). Teams are planning-only: no effect on
+  costs, totals, or the queue.
 - **Save format** lives in localStorage key `wuwa-planner-v1`. `sanitize()`
   migrates all older generations (v1 counts → v2 `{minor,major,inh}` arrays →
   current matrix) and repairs illegal states. Later-added top-level fields:
-  `done` (completed goals) and `hideUn` (Inventory-tab filter) — both
-  default safely when absent. Never break old-save loading; add migrations
-  instead. Storage is normalized (rewritten) once at boot.
+  `done` (completed goals), `hideUn` (Inventory-tab filter), and `teams`
+  (Teams page) — all default safely when absent. Never break old-save
+  loading; add migrations instead. Storage is normalized (rewritten) once
+  at boot.
 
 ## Game data provenance (do not silently change numbers)
 

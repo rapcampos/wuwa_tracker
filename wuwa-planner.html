@@ -357,7 +357,8 @@ td.inv{width:96px; text-align:right}
    GAME DATA — edit this block to add characters after a new patch.
    Cost templates are identical for every character of a given rarity;
    a character entry only names WHICH materials it uses.
-   Verified against game config (v3.4) + wiki totals, Jul 2026.
+   Verified against game config (v3.4) + wiki totals; 3.5 material names
+   launch-checked against Game8 + the fandom wiki, 2026-07-10.
    ═══════════════════════════════════════════════════════════════════ */
 const GAME = {
   // cumulative Resonator EXP required to reach each milestone level from Lv.1
@@ -412,7 +413,7 @@ const GAME = {
     mech:      ['LF Mech Core','MF Mech Core','HF Mech Core','FF Mech Core'],
     rings:     ['Crude Ring','Basic Ring','Improved Ring','Tailored Ring'],
     pendant:   ['Fractured Exoswarm Pendant','Worn Exoswarm Pendant','Chipped Exoswarm Pendant','Intact Exoswarm Pendant'],
-    kernel:    ['LF Autopuppet Kernel','MF Autopuppet Kernel','HF Autopuppet Kernel','FF Autopuppet Kernel'], // 3.5 beta tier names TBC
+    kernel:    ['Autopuppet Kernel (LF)','Autopuppet Kernel (MF)','Autopuppet Kernel (HF)','Autopuppet Kernel (FF)'], // 3.5 launch-confirmed (Game8/wiki, Jul 2026)
     // forgery
     waveworn:  ['Waveworn Residue 210','Waveworn Residue 226','Waveworn Residue 235','Waveworn Residue 239'],
     helix:     ['Lento Helix','Adagio Helix','Andante Helix','Presto Helix'],
@@ -577,13 +578,13 @@ const GAME = {
     lucilla: {name:'Lucilla', mono:'LL', rarity:5, element:'Glacio', elColor:'var(--glacio)',
       wtype:'Rectifier', common:'mech', forge:'strings',
       boss:"Suncoveter's Reach", spec:'Forget-Me-Not', weekly:'We Who Question', beta:false},
-    // ── 3.5 (beta — verify at launch) ──
-    xuanling: {name:'Xuanling', mono:'XL', rarity:5, element:'Havoc', elColor:'var(--havoc)',
-      wtype:'Sword', common:'kernel', forge:'polarizer',
-      boss:"Solidarity's Loneflame", spec:'Cloudperch Seed', weekly:'Skyward Glazed Heart', beta:true},
+    // ── 3.5 (launch-verified 2026-07-10: Game8 + fandom wiki) ──
+    xuanling: {name:'Yangyang: Xuanling', mono:'XL', rarity:5, element:'Havoc', elColor:'var(--havoc)',
+      wtype:'Sword', common:'kernel', forge:'polarizer',                    // official EN name at launch
+      boss:"Solidarity's Loneflame", spec:'Cloudperch Seed', weekly:'Skyward Glazed Heart', beta:false},
     suisui: {name:'Suisui', mono:'SS', rarity:5, element:'Glacio', elColor:'var(--glacio)',
-      wtype:'Rectifier', common:'kernel', forge:'strings',
-      boss:"Solidarity's Loneflame", spec:'Flowborne Dream', weekly:'Skyward Glazed Heart', beta:true},
+      wtype:'Rectifier', common:'kernel', forge:'strings',                  // releases 2026-07-30 (act 2)
+      boss:"Solidarity's Loneflame", spec:'Flowborne Dream', weekly:'Skyward Glazed Heart', beta:false},
     // ── Rover forms (shared portrait via icon override; Mysterious Code ×1 at ranks 2-6) ──
     roverSpectro: {name:'Rover: Spectro', mono:'RS', rarity:5, element:'Spectro', elColor:'var(--spectro)',
       wtype:'Sword', common:'whisperin', forge:'drip', bossCounts:[0,1,1,1,1,1],
@@ -760,9 +761,9 @@ const GAME = {
     freezeFrame: {name:'Freeze Frame', mono:'FF', rarity:5, wtype:'Rectifier',
       common:'exoswarm', forge:'strings', beta:false},   // Lucilla signature, 3.4
     azureOath: {name:'Azure Oath', mono:'AO', rarity:5, wtype:'Sword',
-      common:'mech', forge:'polarizer', beta:true},   // Xuanling signature, 3.5 — verify at launch
+      common:'mech', forge:'polarizer', beta:false},   // Yangyang: Xuanling signature — launch-verified (Game8)
     firstlightsHerald: {name:"Firstlight's Herald", mono:'FH', rarity:5, wtype:'Rectifier',
-      common:'exoswarm', forge:'strings', beta:true},   // Suisui signature, 3.5 — name may shift at launch
+      common:'exoswarm', forge:'strings', beta:true},   // Suisui signature — name confirmed; enemy family unverified until 2026-07-30
     // ── 5★ collab (3.4 Cyberpunk, Starforge Tide currency) ──
     skullThrasher: {name:'Skull Thrasher', mono:'ST', rarity:5, wtype:'Pistols',
       common:'pendant', forge:'combustor', beta:false},   // Rebecca signature
@@ -2228,12 +2229,12 @@ $('#btnReset').addEventListener('click', () => {
 /* ── footer & boot ── */
 function renderFooter(){
   $('#footer').innerHTML =
-    '<span class="pill">cost tables · v3.4 game config</span>' +
-    '<span class="pill">Suisui · 3.5 beta data</span>' +
+    '<span class="pill">cost tables · verified through 3.5</span>' +
+    '<span class="pill">Suisui · releases 2026-07-30</span>' +
     `<span class="pill">${storageOK ? 'autosaves · this browser' : 'preview · no autosave'}</span><br>` +
     'To add a new patch character or weapon, edit the <b>GAME.characters</b> / <b>GAME.weapons</b> blocks near ' +
-    'the top of this file — one small entry each; the shared cost templates do the rest. Suisui’s material names follow ' +
-    '3.5 beta info and may shift at launch. Weekly-boss materials can’t be crafted, so plan those runs first. ' +
+    'the top of this file — one small entry each; the shared cost templates do the rest. ' +
+    'Weekly-boss materials can’t be crafted, so plan those runs first. ' +
     '<b>Icons:</b> place an “images” folder (with characters/, materials/, weapons/ subfolders) next to this ' +
     'file, files named like <b>lf_howler_core_icon.png</b> — see the GAME.icons comment for the full convention; anything missing ' +
     'falls back to the colored markers. Click ✎ on a card to edit levels, skills, and forte nodes in a pop-up; ' +

@@ -173,21 +173,25 @@ the MediaWiki API — page HTML is Cloudflare-blocked, the API is not), with
 wuthering.gg/Game8 filling the gaps (3.0 standard pool, 3.4 collab, Fusion
 Accretion) and spot-checks on single-source rows. 1★–3★ weapons are
 deliberately omitted. All families mapped onto the already-seeded
-`GAME.families` — the material registry did not grow. Azure Oath (Xuanling
-signature) is 3.5 beta data like Firstlight's Herald: quantities are
-template-locked, family (polarizer/mech, matching every other 3.x sword)
-from beta guides — both carry `beta:true`; confirm at launch. Engine test
-"11c" locks the catalog shape (89/46/43, well-formed entries, unique names)
-plus a 3.x-generation cost anchor (Everbright Polestar).
+`GAME.families` — the material registry did not grow. Azure Oath
+(Yangyang: Xuanling's signature) was launch-verified 2026-07-10 via Game8
+(polarizer forge, mech enemy family — beta dropped). Firstlight's Herald
+(Suisui signature) keeps `beta:true`: the NAME is confirmed (wiki page
+exists) but its exoswarm enemy family is still single-sourced from beta —
+re-verify at her release (2026-07-30). Engine test "11c" locks the catalog
+shape (89/46/43, well-formed entries, unique names) plus a 3.x-generation
+cost anchor (Everbright Polestar).
 
-**Suisui is 3.5 beta data** (release 2026-07-10): quantities are
-template-locked, but the "Autopuppet Kernel I–IV" tier names are
-placeholders — verify at launch and update `GAME.families.kernel` and her
-entry. Her strings forge family and the exoswarm enemy family are live-game
-canon already (Lahai-Roi, 3.x) — only kernel remains unverified. Her
-signature weapon "Firstlight's Herald" is also beta-named (an older leak
-translation called it "Dew Imbiber") — confirm the English name at launch.
-Both carry BETA badges in the UI; remove them when confirmed.
+**3.5 data was launch-checked 2026-07-10** against Game8 + the fandom wiki
+(quantities matched the shared templates exactly — a good sanity anchor).
+Confirmed: kernel tier names are **"Autopuppet Kernel (LF/MF/HF/FF)"**
+(parenthesized suffix, NOT the beta "LF Autopuppet Kernel" prefix);
+Xuanling's official EN name is **"Yangyang: Xuanling"** (a 5★ Yangyang
+variant — entry key stays `xuanling`); Solidarity's Loneflame, Cloudperch
+Seed, Flowborne Dream, and Skyward Glazed Heart all shipped under their
+beta names; Rebecca's weekly/forge spot-check passed. Suisui herself
+releases **2026-07-30** (3.5 act 2) — her materials are confirmed, so her
+beta badge is gone; only Firstlight's Herald still carries one.
 
 ## Icons
 
@@ -288,21 +292,18 @@ are no screenshot tests — be extra careful with CSS-only changes.
 
 ## Roadmap / open items
 
-1. **3.5 launch checkpoint (2026-07-10):** confirm Suisui AND Xuanling
-   materials/names (esp. the "LF/MF/HF/FF Autopuppet Kernel" tier pattern,
-   Cloudperch Seed, Skyward Glazed Heart, Solidarity's Loneflame) and the
-   signature weapon's English name ("Firstlight's Herald" vs launch rename);
-   drop the beta badges. Same for Azure Oath (Xuanling's sword, `beta:true`):
-   confirm the name and its polarizer/mech families at launch.
-   Also spot-check Rebecca's weekly (We Who Question)
-   and forge (Combustor) — single-source cells from the roster sweep.
-   Missing image checklist: `images/missing_icons.md` (10 beta files) — run
-   `node fetch-icons.js` after launch to pull them from the fandom wiki
-   (icon source of record: files named `Item/Resonator/Weapon <Name>.png`,
-   resolved via the MediaWiki API; page fetches are Cloudflare-blocked but
-   the API and static.wikia CDN are not; payloads are WebP saved as .png).
-   Note: the Dimbreath/WutheringData datamine is abandoned at 3.1.0 — verify
-   post-3.1 data via Game8/prydwen instead.
+1. **3.5 act-2 checkpoint (2026-07-30, Suisui's release):** re-verify
+   Firstlight's Herald's exoswarm enemy family (drop its `beta:true`), and
+   swap the ten stopgap icons for proper wiki files if uploaded by then —
+   `images/missing_icons.md` has the list (8 materials currently from
+   Game8's framed 120×120 icons, 2 weapons from wiki Full-art renders):
+   delete the local files and re-run `node fetch-icons.js`. (Icon source
+   of record: fandom wiki files `Item/Resonator/Weapon <Name>.png` via the
+   MediaWiki API — page fetches are Cloudflare-blocked but the API and
+   static.wikia CDN are not; payloads are WebP saved as .png; '#' and ':'
+   are dropped from file names.) The 2026-07-10 launch checkpoint is done —
+   see the provenance section. Note: the Dimbreath/WutheringData datamine
+   is abandoned at 3.1.0 — verify post-3.1 data via Game8/prydwen instead.
 2. Backlog (user-approved ideas, unscheduled): waveplate-cost estimates,
    optional synthesis in Farm Next, optional per-character stat labels on
    tree nodes (declined for now — cosmetic), Echo XP/tuners as a separate

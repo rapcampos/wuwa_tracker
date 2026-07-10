@@ -1,23 +1,23 @@
 # Missing icons checklist
 
-Updated 2026-07-10 after the full weapon-catalog sweep: the pack already
-covered every released 4★/5★ weapon, and the 5 crafting-series icons
-(Broadblade#41 etc.) fetched once '#' was stripped from the wiki titles
-(fetch-icons.js handles that now). Originally fetched 38/48 from the fandom
-wiki (wutheringwaves.fandom.com — files named 'Item/Resonator/Weapon
-<Name>.png', fetched via the MediaWiki API; the CDN serves WebP payloads,
-saved as .png like the rest of the pack). Everything left is 3.5 beta
-content — the wiki should have these pages shortly after launch
-(2026-07-10). Re-run the fetch then, or drop the files in manually:
+Updated 2026-07-10 (3.5 launch day, second pass): **nothing is missing** —
+every character, weapon, and material in the registry now has a local file.
 
-- char: Xuanling  →  needs file: xuanling_icon
-- weapon: Firstlight's Herald  →  needs file: firstlights_herald_icon
-- weapon: Azure Oath  →  needs file: azure_oath_icon
-- mat: boss:Solidarity's Loneflame Solidarity's Loneflame  →  needs file: solidaritys_loneflame_icon
-- mat: spec:Cloudperch Seed Cloudperch Seed  →  needs file: cloudperch_seed_icon
-- mat: wk:Skyward Glazed Heart Skyward Glazed Heart  →  needs file: skyward_glazed_heart_icon
-- mat: spec:Flowborne Dream Flowborne Dream  →  needs file: flowborne_dream_icon
-- mat: kernel0 LF Autopuppet Kernel  →  needs file: lf_autopuppet_kernel_icon
-- mat: kernel1 MF Autopuppet Kernel  →  needs file: mf_autopuppet_kernel_icon
-- mat: kernel2 HF Autopuppet Kernel  →  needs file: hf_autopuppet_kernel_icon
-- mat: kernel3 FF Autopuppet Kernel  →  needs file: ff_autopuppet_kernel_icon
+Three groups are stopgaps from non-wiki sources, worth swapping when the
+fandom wiki (the icon source of record — transparent backgrounds, matches
+the rest of the pack) uploads its files. To swap: delete the local file(s)
+and re-run `node fetch-icons.js`.
+
+- **8 material icons from Game8** (img.game8.co, 120×120, framed style —
+  visibly boxier than the wiki icons): autopuppet_kernel_{lf,mf,hf,ff},
+  solidaritys_loneflame, cloudperch_seed, skyward_glazed_heart,
+  flowborne_dream. The wiki had zero Item files for 3.5 materials on
+  launch day (its own pages show red file links).
+- **2 weapon icons from the wiki's Full-art renders** ("Weapon <Name>
+  Full.png" — the square inventory versions weren't uploaded yet):
+  azure_oath, firstlights_herald.
+- Fetched normally: yangyang_xuanling (wiki file drops the ':' —
+  fetch-icons.js strips '#' and ':' from titles now).
+
+Suisui's banner (2026-07-30) is a good moment to re-check the wiki for
+proper versions of all ten.

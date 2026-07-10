@@ -15,7 +15,7 @@ const texts = sel => [...d.querySelectorAll(sel)].map(e => e.textContent);
 // ── initial render: summary left, read-only status cards right ──
 ok('3 goal cards rendered', d.querySelectorAll('.goal').length === 3);
 ok('priority order J/P/S', texts('.gname').join(',').startsWith('Jinhsi,Phoebe,Suisui'));
-ok('Suisui has beta badge', d.querySelectorAll('.badge').length === 1);
+ok('no beta badges on the default queue (3.5 data launch-verified)', d.querySelectorAll('.badge').length === 0);
 ok('summary aside precedes goals section', d.querySelector('.cols > aside:first-child + section') !== null);
 ok('cards are read-only (no selects, no node buttons)',
    d.querySelectorAll('#goals select, #goals button.node').length === 0);

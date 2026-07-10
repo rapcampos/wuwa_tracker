@@ -15,11 +15,13 @@ const exists = (kind, name) => GAME.icons.exts.some(ext =>
 
 // collect missing (skip overrides that point at existing files, e.g. exp/wexp/rover)
 const want = [];
+// '#' and ':' are dropped from wiki file names — "Weapon Broadblade41.png",
+// "Resonator Yangyang Xuanling.png" (for the page "Yangyang: Xuanling")
+const wikiName = n => n.replace(/[#:]/g, '');
 for (const ch of Object.values(GAME.characters))
-  if (!exists('char', ch.name)) want.push({kind:'char', name:ch.name, title:`File:Resonator ${ch.name}.png`});
+  if (!exists('char', ch.name)) want.push({kind:'char', name:ch.name, title:`File:Resonator ${wikiName(ch.name)}.png`});
 for (const w of Object.values(GAME.weapons))
-  // '#' is illegal in MediaWiki titles — the wiki names them "Weapon Broadblade41.png"
-  if (!exists('weapon', w.name)) want.push({kind:'weapon', name:w.name, title:`File:Weapon ${w.name.replace(/#/g, '')}.png`});
+  if (!exists('weapon', w.name)) want.push({kind:'weapon', name:w.name, title:`File:Weapon ${wikiName(w.name)}.png`});
 for (const id of Object.keys(MATS))
   if (id !== 'exp' && id !== 'wexp' && !exists('mat', MATS[id].name))
     want.push({kind:'mat', name:MATS[id].name, title:`File:Item ${MATS[id].name}.png`});

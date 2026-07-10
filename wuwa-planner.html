@@ -1532,11 +1532,24 @@ function catRow(cat, span){ return `<tr><td class="cat" colspan="${span}">${cat}
 
 /* icon-tile grid: rarity-tinted ground, abbreviated qty; the name (and the
    exact number, plus the potion/core plan for EXP) lives in the hover title */
+/* who needs a material: queue-order goal names per mat id, appended to every
+   material tooltip ("needed by …"). Rebuilt once per render pass (and on
+   opening the stock grid) — goals can't change between rebuilds. */
+let NEEDERS = {};
+function buildNeeders(){
+  NEEDERS = {};
+  for(const g of state.goals){
+    const nm = g.weapon !== undefined ? GAME.weapons[g.weapon].name : GAME.characters[g.char].name;
+    for(const id of Object.keys(costForGoal(g))) (NEEDERS[id] = NEEDERS[id] || []).push(nm);
+  }
+}
+const neededBy = id => NEEDERS[id] && NEEDERS[id].length ? ' · needed by ' + NEEDERS[id].join(', ') : '';
+
 function tileTip(id, qty){
   let tip = MATS[id].name + ' — ' + fmt(qty);
   if(id === 'exp'){ const p = potionText(expToPotions(qty)); if(p) tip += ' · ' + p; }
   if(id === 'wexp'){ const p = coreText(wexpToCores(qty)); if(p) tip += ' · ' + p; }
-  return tip;
+  return tip + neededBy(id);
 }
 /* exp/wexp tiles carry the top-tier item's icon, so their qty is that item
    count (expTopTier), not raw EXP — "×12" premium potions, not "240K" */
@@ -1613,7 +1626,7 @@ function deficitTip(id, needQty, left){
     : 'covered by inventory · needs ' + fmt(needQty));
   if(id === 'exp' && left){ const p = potionText(expToPotions(left)); if(p) tip += ' · ' + p; }
   if(id === 'wexp' && left){ const p = coreText(wexpToCores(left)); if(p) tip += ' · ' + p; }
-  return tip;
+  return tip + neededBy(id);
 }
 function deficitTiles(need, rem, order){
   const ids = order ? order.filter(id => id in need) : sortMatIds(Object.keys(need));
@@ -2038,6 +2051,7 @@ function closeInv(){
   render();
 }
 function renderInvGrid(){
+  buildNeeders();
   const box = $('#invGrid');
   const need = totalBag(state.goals);
   const res = remainingBag(need, state.inv, state.synth);
@@ -2049,11 +2063,11 @@ function renderInvGrid(){
                        : !!need[id];
   const tip = id => {
     const m = MATS[id];
-    if(id.startsWith('exp'))  return `${m.name} — feeds the Resonator EXP pool (${fmt(GAME.expItems.find(x => x.id === id).exp)} EXP each)`;
-    if(id.startsWith('wexp')) return `${m.name} — feeds the Weapon EXP pool (${fmt(GAME.wpnExpItems.find(x => x.id === id).exp)} EXP each)`;
+    if(id.startsWith('exp'))  return `${m.name} — feeds the Resonator EXP pool (${fmt(GAME.expItems.find(x => x.id === id).exp)} EXP each)${neededBy('exp')}`;
+    if(id.startsWith('wexp')) return `${m.name} — feeds the Weapon EXP pool (${fmt(GAME.wpnExpItems.find(x => x.id === id).exp)} EXP each)${neededBy('wexp')}`;
     if(!need[id]) return `${m.name} — not needed by the current queue`;
     return `${m.name} — ${res.rem[id] ? fmt(res.rem[id]) + ' still missing of ' + fmt(need[id]) + ' needed'
-                                      : 'covered · needs ' + fmt(need[id])}`;
+                                      : 'covered · needs ' + fmt(need[id])}${neededBy(id)}`;
   };
   IGRID = [];
   const ids = Object.keys(MATS).filter(id => id !== 'exp' && id !== 'wexp');
@@ -2101,7 +2115,7 @@ function invRow(id, needTxt, left){
   const i = INVROWS.push(id) - 1;
   const leftCell = left === undefined ? '<td class="qty"></td>'
     : `<td class="qty ${left ? 'short' : 'ok'}" data-l="${i}">${left ? fmt(left) : '✓'}</td>`;
-  return `<tr><td>${matIco(id)}${esc(MATS[id].name)}</td>` +
+  return `<tr><td title="${esc(MATS[id].name + neededBy(id))}">${matIco(id)}${esc(MATS[id].name)}</td>` +
          `<td class="qty">${needTxt}</td>` +
          `<td class="inv"><input type="number" min="0" step="1" class="invIn" data-i="${i}" value="${state.inv[id] ?? ''}" placeholder="0"></td>` +
          leftCell + '</tr>';
@@ -2646,7 +2660,7 @@ function renderFooter(){
     'energy budget capping how many teams they can join: 1 by default, 2 for the seeded supports ' +
     '(Verina, Shorekeeper, Suisui, Chisa, Mornye, Buling) — tweak the <b>energy</b> field on a GAME entry to adjust.';
 }
-function render(){ renderGoals(); renderSummary(); renderFooter(); renderModal(); renderOrder(); renderTeams(); }
+function render(){ buildNeeders(); renderGoals(); renderSummary(); renderFooter(); renderModal(); renderOrder(); renderTeams(); }
 render();
 showPage(curPage());
 if(storageOK){

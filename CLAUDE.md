@@ -256,7 +256,11 @@ are no screenshot tests — be extra careful with CSS-only changes.
 - **Materials render as icon tiles**, not lists: rarity-tinted ground
   (`.tile.r0–r5`, game convention green/blue/purple/gold), abbreviated qty
   on the tile (`fmtShort`, pure/engine: 3 sig figs, K/M from 10,000 up),
-  name + exact amounts + potion/core plan in the hover `title`.
+  name + exact amounts + potion/core plan in the hover `title`, and every
+  material tooltip (tiles, Inventory rows, stock grid) ends with
+  "· needed by <goal names>" — the `NEEDERS` map, rebuilt once per render
+  pass by `buildNeeders()` (tests must match tile titles by prefix, not
+  equality).
   **exp/wexp tiles show a top-tier item count, not raw EXP** (`expTopTier`/
   `wexpTopTier`, pure/engine: ceil ÷ 20k — "366", not "7.31M"; `tileQty`
   routes it), and the registry marks exp/wexp `r:5` so the ground matches

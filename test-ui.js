@@ -31,11 +31,11 @@ ok('storage detected (jsdom has localStorage)', /Autosaves/.test(d.querySelector
 
 // grand total sanity: 3 default-target builds (Lv90 · forte 6 · all nodes) →
 // credits 3 × 1,803,300 = 5,409,900; Sentinel's Dagger = 6+6 = 12
-const creditTile = d.querySelector('#summary .tile[title="Shell Credit — 5,409,900 needed"]');
+const creditTile = d.querySelector('#summary .tile[title^="Shell Credit — 5,409,900 needed"]');
 ok('total credits 3× default build (exact in title, 5.41M on tile)',
    creditTile !== null && creditTile.textContent.includes('5.41M') && !creditTile.textContent.includes('Shell Credit'));
 ok("shared weekly (Sentinel's Dagger) merged to 12",
-   d.querySelector(`#summary .tile[title="Sentinel's Dagger — 12 needed"]`) !== null);
+   d.querySelector(`#summary .tile[title^="Sentinel's Dagger — 12 needed"]`) !== null);
 const expTile = [...d.querySelectorAll('#summary .tile')].find(t => t.title.startsWith('Resonator EXP'));
 ok('total EXP tile counts top-tier potions (7,314,000 ÷ 20k → 366), exact EXP + plan in tooltip',
    expTile && expTile.title.includes('7,314,000') && expTile.title.includes('≈') &&
@@ -70,6 +70,8 @@ ok('tiles carry rarity grounds', d.querySelector('#summary .tile.r5') !== null &
   const row = [...d.querySelectorAll('#summary table.mats tr')].find(r => r.textContent.includes('Elegy Tacet Core'));
   const inp = row.querySelector('.invIn');
   const fill = () => d.querySelector('.goal[data-g="0"] .ready-fill').getAttribute('style');
+  ok('inventory rows name their needers on hover',
+     (row.querySelector('td').getAttribute('title') || '').includes('needed by'));
   inp.value = '21'; fire(inp, 'change');
   ok('a committed change alone leaves the goals grid untouched', fill().includes('width:0%'));
   fire(inp, 'blur');
@@ -106,6 +108,17 @@ ok('tiles carry rarity grounds', d.querySelector('#summary .tile.r5') !== null &
   ce().checked = false; fire(ce(), 'change');
   ok('unticking restores the credit tile',
      titles().some(t => t.startsWith('Shell Credit')));
+}
+
+// ── material tooltips name who needs each item ──
+{
+  const tileBy = pre => [...d.querySelectorAll('#summary .tile')]
+    .find(t => (t.getAttribute('title') || '').startsWith(pre));
+  ok('shared weekly names both users in queue order',
+     tileBy("Sentinel's Dagger").getAttribute('title').includes('needed by Jinhsi, Phoebe'));
+  ok('single-user material names only its goal',
+     tileBy('Elegy Tacet Core').getAttribute('title').includes('needed by Jinhsi') &&
+     !tileBy('Elegy Tacet Core').getAttribute('title').includes('Phoebe'));
 }
 
 // totals are ordered by queue priority: P1 Jinhsi's boss mat precedes P2 Phoebe's precedes P3 Suisui's
@@ -683,7 +696,7 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Total'), 'click');
   const tot = tileIn('#summary', "Sentinel's Dagger");
   ok('Total tab deducts inventory with both numbers in the tooltip',
-     tot.getAttribute('title') === "Sentinel's Dagger — 6 needed of 12 total");
+     tot.getAttribute('title').startsWith("Sentinel's Dagger — 6 needed of 12 total"));
   // a fully covered material (Cleansing Conch 46 from earlier input) reads ✓ in Total
   const conch = tileIn('#summary', 'Cleansing Conch');
   ok('fully covered material shows ✓ in Total', conch.textContent.includes('✓') && conch.classList.contains('done'));
@@ -947,6 +960,8 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
        forge[0].classList.contains('r5') && forge[forge.length - 1].classList.contains('r2') &&
        forge.every((t, i) => i === 0 || +forge[i - 1].className.match(/r(\d)/)[1] >= +t.className.match(/r(\d)/)[1]));
   }
+  ok('grid tooltips name the goals that need an item',
+     [...d.querySelectorAll('#invGrid .itile')].some(t => (t.getAttribute('title') || '').includes('needed by')));
   const q = tileOf('Elegy Tacet Core').querySelector('.iqty');
   q.value = '7'; fire(q, 'change');
   ok('typing a quantity saves it immediately',

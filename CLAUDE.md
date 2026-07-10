@@ -250,9 +250,15 @@ are no screenshot tests — be extra careful with CSS-only changes.
 - Aesthetic: dark "resonance" theme; CSS custom props in `:root`; fonts
   Chakra Petch (display) + IBM Plex Sans (body); rarity colors r2–r5;
   tabular numerals for quantities. Keep the waveform header motif.
-- **Layout:** sticky summary panel on the LEFT (5fr), priority queue on the
-  RIGHT (7fr) as a 2-per-row card grid (`#goals`, CSS auto-fill → 1 column
-  when narrow; at ≤940px the page stacks with goals first via `order`).
+- **Layout:** sticky summary panel on the LEFT, priority queue on the RIGHT
+  as a card grid. The summary column is **bounded, not proportional**
+  (`minmax(320px,400px) minmax(0,1fr)`): the old `5fr/7fr` split pinned the
+  goals column near 750px — exactly two cards — however wide the window was.
+  With `.wrap` at `max-width:1800px` and a 320px card track, `#goals`
+  auto-fills 2 → 3 → 4 cards per row as the window grows (1 when narrow; at
+  ≤940px the page stacks with goals first via `order`). A jsdom test guards
+  the three grid declarations — there are no screenshot tests, so CSS
+  regressions here are otherwise invisible.
 - **Materials render as icon tiles**, not lists: rarity-tinted ground
   (`.tile.r0–r5`, game convention green/blue/purple/gold), abbreviated qty
   on the tile (`fmtShort`, pure/engine: 3 sig figs, K/M from 10,000 up),

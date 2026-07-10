@@ -29,7 +29,9 @@ body{
 }
 h1,h2,h3,.disp{font-family:'Chakra Petch',system-ui,sans-serif; letter-spacing:.02em}
 .num{font-variant-numeric:tabular-nums}
-.wrap{max-width:1340px; margin:0 auto; padding:20px 16px 80px}
+/* wide by design: the summary panel is capped (see .cols) so every extra
+   pixel goes to the goals grid, which auto-fills 2 → 3 → 4 cards per row */
+.wrap{max-width:1800px; margin:0 auto; padding:20px 14px 80px}
 
 /* ── header ─────────────────────────────── */
 header{margin-bottom:22px}
@@ -72,7 +74,9 @@ input[type=number]::-webkit-inner-spin-button{opacity:.5}
 label.chk{display:inline-flex; gap:6px; align-items:center; cursor:pointer; color:var(--mut); font-size:12.5px}
 
 /* ── layout ─────────────────────────────── */
-.cols{display:grid; grid-template-columns:minmax(0,5fr) minmax(0,7fr); gap:18px; align-items:start}
+/* the summary panel is bounded, not proportional — 5fr/7fr pinned the goals
+   column at ~750px (exactly two cards) no matter how wide the window was */
+.cols{display:grid; grid-template-columns:minmax(320px,400px) minmax(0,1fr); gap:18px; align-items:start}
 @media(max-width:940px){.cols{grid-template-columns:1fr} .cols>section{order:-1}}
 .panel{background:var(--panel); border:1px solid var(--line); border-radius:12px}
 .panel-h{display:flex; align-items:baseline; gap:10px; padding:14px 16px 10px; border-bottom:1px solid var(--line)}
@@ -83,7 +87,7 @@ label.chk{display:inline-flex; gap:6px; align-items:center; cursor:pointer; colo
 @media(max-width:940px){.sticky{position:static}}
 
 /* ── goal cards: 2-per-row grid of read-only status views ── */
-#goals{display:grid; grid-template-columns:repeat(auto-fill, minmax(min(330px,100%), 1fr)); gap:12px; align-items:start}
+#goals{display:grid; grid-template-columns:repeat(auto-fill, minmax(min(320px,100%), 1fr)); gap:12px; align-items:start}
 #goals>.empty{grid-column:1/-1}
 .goal{border:1px solid var(--line); border-radius:10px; background:var(--panel2); overflow:hidden}
 .goal-mats{border-top:1px dashed var(--line); padding:4px 12px 10px}

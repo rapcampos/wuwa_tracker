@@ -960,6 +960,16 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok('every pop-up wrapper carries the fixed-overlay CSS',
      ['#modalWrap', '#palWrap', '#ordWrap', '#invWrap', '#undoBar'].every(s =>
        w.getComputedStyle(d.querySelector(s)).position === 'fixed'));
+  // layout: the summary panel is bounded so the goals grid can auto-fill 3–4 cards.
+  // A proportional (Nfr) summary column would pin the grid at two, whatever the width.
+  {
+    const cols = w.getComputedStyle(d.querySelector('.cols')).gridTemplateColumns;
+    ok('the summary column is bounded, not proportional',
+       /minmax\(\s*320px\s*,\s*400px\s*\)/.test(cols) && !/\dfr\s+minmax/.test(cols));
+    ok('the goals column takes every remaining pixel', /minmax\(0,\s*1fr\)/.test(cols));
+    ok('goal cards auto-fill at a 320px track',
+       /auto-fill,\s*minmax\(min\(320px/.test(w.getComputedStyle(d.querySelector('#goals')).gridTemplateColumns));
+  }
   ok('full catalog as tiles, one input each',
      d.querySelectorAll('#invGrid .itile').length > 100 &&
      d.querySelectorAll('#invGrid .iqty').length === d.querySelectorAll('#invGrid .itile').length);

@@ -194,6 +194,32 @@ button.search kbd{margin-left:auto; font-family:inherit; font-size:10px; color:v
   text-transform:uppercase; white-space:nowrap}
 .pal-item .tag.q{color:var(--cyan)}
 
+/* ── reorder pop-up (Ctrl+P) ────────────── */
+#ordWrap{position:fixed; inset:0; z-index:50; background:rgba(6,9,16,.55);
+  display:flex; justify-content:center; align-items:flex-start; padding:12vh 16px 16px}
+.ord-h{display:flex; align-items:center; gap:10px; padding:10px 14px;
+  border-bottom:1px solid var(--line); background:var(--panel2);
+  font-family:'Chakra Petch',sans-serif; font-size:13px; letter-spacing:.04em}
+.ord-h .sub{font-family:'IBM Plex Sans',sans-serif; font-size:11px; color:var(--faint); letter-spacing:0}
+.ord-h .close{margin-left:auto}
+#ordList{max-height:min(480px,62vh); overflow:auto; overscroll-behavior:contain; padding:8px}
+.ord-item{display:flex; gap:9px; align-items:center; padding:5px 8px; margin-bottom:6px;
+  font-size:13px; border:1px solid var(--line2); border-radius:8px; cursor:grab; user-select:none}
+.ord-item:last-child{margin-bottom:0}
+.ord-item:active{cursor:grabbing}
+.ord-item.r5{background:rgba(229,181,102,.08)}
+.ord-item.r4{background:rgba(166,127,224,.09)}
+.ord-item.r3{background:rgba(92,168,222,.09)}
+.ord-item.dragging{opacity:.45}
+.ord-item.drop-before{box-shadow:0 -2px 0 var(--cyan)}
+.ord-item.drop-after{box-shadow:0 2px 0 var(--cyan)}
+.ord-item .ico-wrap{width:26px; height:26px; margin:0; flex:none}
+.ord-item .ico-wrap img{width:26px; height:26px}
+.ord-item .oname{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.ord-item .tag{margin-left:auto; font-size:10px; color:var(--faint); letter-spacing:.08em;
+  text-transform:uppercase; white-space:nowrap}
+.ord-item .obtns{display:flex; gap:4px; flex:none}
+
 /* ── material tiles: icon on rarity-tinted ground, qty below, name on hover ── */
 .tiles{display:flex; flex-wrap:wrap; gap:6px; padding:2px 0}
 .tile{width:46px; border:1px solid var(--line2); border-radius:8px; background:var(--panel);
@@ -252,6 +278,7 @@ td.inv{width:96px; text-align:right}
   <div class="toolbar">
     <button class="search" id="btnAdd" title="Fuzzy-search characters and weapons (Ctrl+K)">⌕ Add goal…<kbd>Ctrl K</kbd></button>
     <button class="ghost" id="btnTpl" title="Edit the default goal templates for new 4★/5★ characters">Templates</button>
+    <button class="ghost" id="btnOrder" title="Reorder the priority queue in a compact drag list (Ctrl+P)">⇅ Reorder</button>
     <span class="spacer"></span>
     <button class="ghost" id="btnExport">Export JSON</button>
     <button class="ghost" id="btnImport">Import JSON</button>
@@ -284,6 +311,14 @@ td.inv{width:96px; text-align:right}
   <div class="palette" role="dialog" aria-modal="true" aria-label="Add goal">
     <input id="palIn" type="text" placeholder="Add a character or weapon…" autocomplete="off" spellcheck="false">
     <div id="palList"></div>
+  </div>
+</div>
+
+<div id="ordWrap" hidden>
+  <div class="palette" role="dialog" aria-modal="true" aria-label="Reorder queue">
+    <div class="ord-h">Reorder priorities <span class="sub">drag rows or ▲▼ · first = farm first</span>
+      <button class="tiny close" id="ordClose" title="Close (Esc)">✕</button></div>
+    <div id="ordList"></div>
   </div>
 </div>
 </div>
@@ -1533,7 +1568,7 @@ function paletteEntries(q){
   const grp = it => (it.kind === 'char' ? 0 : 10) + (5 - it.rarity);
   return out.sort((a,b) => grp(a) - grp(b) || a.score - b.score || (a.name < b.name ? -1 : 1));
 }
-function openPal(){ closeEdit(); $('#palWrap').hidden = false; palSel = 0; renderPal(); $('#palIn').focus(); }
+function openPal(){ closeEdit(); closeOrd(); $('#palWrap').hidden = false; palSel = 0; renderPal(); $('#palIn').focus(); }
 function closePal(){ $('#palWrap').hidden = true; $('#palIn').value = ''; }
 function renderPal(){
   const list = paletteEntries($('#palIn').value.trim());
@@ -1568,6 +1603,69 @@ $('#palIn').addEventListener('keydown', e => {
   else if(e.key === 'ArrowUp'){ e.preventDefault(); palSel = Math.max(palSel - 1, 0); renderPal(); }
   else if(e.key === 'Enter'){ e.preventDefault(); palActivate(items[palSel]); }
 });
+
+/* ── reorder pop-up: compact vertical drag list over the queue (Ctrl+P) ──
+   The whole row is the drag handle (▲▼ kept for touch); every move routes
+   through moveGoal → save + render, so the card grid re-sorts live behind
+   the overlay. render() re-renders the open list in place. */
+let ordDrag = null;
+const ordIsOpen = () => !$('#ordWrap').hidden;
+function openOrd(){ closeEdit(); closePal(); $('#ordWrap').hidden = false; renderOrder(); }
+function closeOrd(){ $('#ordWrap').hidden = true; }
+function renderOrder(){
+  if(!ordIsOpen()) return;
+  const box = $('#ordList');
+  box.innerHTML = state.goals.length ? state.goals.map((g, i) => {
+    const isW = g.weapon !== undefined;
+    const it = isW ? GAME.weapons[g.weapon] : GAME.characters[g.char];
+    return `<div class="ord-item r${it.rarity}" draggable="true" data-i="${i}">` +
+      `<span class="grip" title="Drag anywhere on the row">⠿</span>` +
+      `<span class="prio">P${i + 1}</span>` +
+      `<span class="ico-wrap">${icoImg(it.name, isW ? 'weapon' : 'char')}</span>` +
+      `<span class="oname">${esc(it.name)}</span>` +
+      `<span class="tag">${it.rarity}★ ${isW ? 'weapon' : 'char'}</span>` +
+      `<span class="obtns">` +
+        `<button class="tiny" data-om="${i}" data-to="${i - 1}" ${i === 0 ? 'disabled' : ''} title="Move up">▲</button>` +
+        `<button class="tiny" data-om="${i}" data-to="${i + 2}" ${i === state.goals.length - 1 ? 'disabled' : ''} title="Move down">▼</button>` +
+      `</span></div>`;
+  }).join('') : '<div class="empty">Queue is empty — press Ctrl+K to add goals.</div>';
+  box.querySelectorAll('[data-om]').forEach(b => b.addEventListener('click', e =>
+    moveGoal(+e.currentTarget.dataset.om, +e.currentTarget.dataset.to)));
+  box.querySelectorAll('.ord-item').forEach(row => {
+    const i = +row.dataset.i;
+    row.addEventListener('dragstart', e => {
+      ordDrag = i;
+      row.classList.add('dragging');
+      if(e.dataTransfer){
+        e.dataTransfer.effectAllowed = 'move';
+        try{ e.dataTransfer.setData('text/plain', String(i)); }catch(_){}
+      }
+    });
+    row.addEventListener('dragend', () => { ordDrag = null; renderOrder(); });
+    row.addEventListener('dragover', e => {
+      if(ordDrag === null) return;
+      e.preventDefault();
+      if(e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+      const r = row.getBoundingClientRect();
+      const after = (e.clientY || 0) > r.top + r.height / 2;
+      row.classList.toggle('drop-after', after);
+      row.classList.toggle('drop-before', !after);
+    });
+    row.addEventListener('dragleave', () => row.classList.remove('drop-before','drop-after'));
+    row.addEventListener('drop', e => {
+      e.preventDefault();
+      if(ordDrag === null) return;
+      const r = row.getBoundingClientRect();
+      const after = (e.clientY || 0) > r.top + r.height / 2;
+      const from = ordDrag; ordDrag = null;
+      moveGoal(from, i + (after ? 1 : 0));
+    });
+  });
+  bindIcons(box);
+}
+$('#btnOrder').addEventListener('click', openOrd);
+$('#ordClose').addEventListener('click', closeOrd);
+$('#ordWrap').addEventListener('click', e => { if(e.target === e.currentTarget) closeOrd(); });
 
 /* ── summary panel ── */
 let INVROWS = [];
@@ -1937,8 +2035,10 @@ function renderTplModal(wrap){
 $('#modalWrap').addEventListener('click', e => { if(e.target === e.currentTarget) closeEdit(); });
 document.addEventListener('keydown', e => {
   if((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')){ e.preventDefault(); openPal(); return; }
+  if((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')){ e.preventDefault(); openOrd(); return; }
   if(e.key === 'Escape'){
     if(palIsOpen()) closePal();
+    else if(ordIsOpen()) closeOrd();
     else if(editIdx !== null || editTpl !== null) closeEdit();
   }
 });
@@ -1980,9 +2080,10 @@ function renderFooter(){
     '<b>Icons:</b> place an “images” folder (with characters/, materials/, weapons/ subfolders) next to this ' +
     'file, files named like <b>lf_howler_core_icon.png</b> — see the GAME.icons comment for the full convention; anything missing ' +
     'falls back to the colored markers. Click ✎ on a card to edit levels, skills, and forte nodes in a pop-up; ' +
-    'cards themselves are read-only status views. Drag the ⠿ grip to reorder goals (▲▼ still work, and are the way to go on touch screens).';
+    'cards themselves are read-only status views. Drag the ⠿ grip to reorder goals (▲▼ still work, and are the way to go on touch screens), ' +
+    'or press <b>Ctrl+P</b> (“⇅ Reorder”) for a compact drag list of the whole queue.';
 }
-function render(){ renderGoals(); renderSummary(); renderFooter(); renderModal(); }
+function render(){ renderGoals(); renderSummary(); renderFooter(); renderModal(); renderOrder(); }
 render();
 if(storageOK){
   try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }catch(e){}  // normalize any old/corrupt save

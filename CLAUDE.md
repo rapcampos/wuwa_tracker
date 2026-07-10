@@ -252,7 +252,13 @@ are no screenshot tests — be extra careful with CSS-only changes.
 - Reordering: drag the ⠿ grip (HTML5 DnD, `dragIdx` module variable — not
   dataTransfer — carries state) **and** ▲▼ buttons, kept for touch screens.
   Both route through `moveGoal(from, to)` where `to` is the pre-removal
-  insertion index.
+  insertion index. There's also a **reorder pop-up** (`#ordWrap`, toolbar
+  "⇅ Reorder" or Ctrl/Cmd+P — preventDefault suppresses browser print): a
+  compact vertical list where whole rows drag (`ordDrag` variable, separate
+  from the cards' `dragIdx`) plus per-row ▲▼; live apply through the same
+  `moveGoal`, and `render()` re-renders the open list via `renderOrder()`
+  (no-op when closed). Ctrl+K/`openPal` closes it; Esc priority is palette →
+  reorder → editor.
 - Summary tabs: Total / Inventory (inline inventory + 3→1 synthesis toggle
   + hide-un-needed toggle) / Farm next (sequential allocation, deliberately
   no crafting — a craft spent on goal 1 would silently eat goal 2's stock;

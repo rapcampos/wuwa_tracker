@@ -469,6 +469,11 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   totBtn.dispatchEvent(new domE.window.Event('click', {bubbles:true}));
   ok('other tabs keep the empty-queue note',
      dE.querySelector('#summary .empty') !== null);
+  dE.querySelector('#btnOrder').dispatchEvent(new domE.window.Event('click', {bubbles:true}));
+  ok('reorder pop-up on an empty queue shows a note, not rows',
+     dE.querySelector('#ordWrap').hidden === false &&
+     dE.querySelectorAll('#ordList .ord-item').length === 0 &&
+     dE.querySelector('#ordList .empty') !== null);
 }
 
 // ── per-rarity default goals + Max button ──
@@ -681,6 +686,72 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   pIn2.value = 'phoebe'; fire(pIn2, 'input');
   ok('forgotten char is addable again', d.querySelector('#palList').textContent.includes('Phoebe'));
   fire(d.querySelector('#palWrap'), 'click');
+}
+
+// ── reorder pop-up (Ctrl+P): compact drag list, live apply ──
+{
+  const wrapO = () => d.querySelector('#ordWrap');
+  const rows = () => [...d.querySelectorAll('#ordList .ord-item')];
+  const onames = () => [...d.querySelectorAll('#ordList .oname')].map(e2 => e2.textContent);
+  ok('reorder pop-up hidden until opened', wrapO().hidden === true);
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'p', ctrlKey:true, bubbles:true}));
+  ok('Ctrl+P opens the reorder pop-up', wrapO().hidden === false);
+  ok('one draggable row per goal, in queue order, with prio + rarity tag',
+     rows().length === d.querySelectorAll('#goals .goal').length && rows().length >= 2 &&
+     rows().every(r => r.getAttribute('draggable') === 'true') &&
+     onames().every((n, i) => texts('.gname')[i].startsWith(n)) &&
+     rows()[0].querySelector('.prio').textContent === 'P1' &&
+     rows()[0].querySelector('.tag') !== null);
+  ok('edge buttons disabled (first ▲, last ▼)',
+     rows()[0].querySelector('[title="Move up"]').disabled === true &&
+     rows()[rows().length - 1].querySelector('[title="Move down"]').disabled === true &&
+     rows()[0].querySelector('[title="Move down"]').disabled === false);
+
+  // ▼ on the first row swaps 0↔1 in the panel AND the card grid behind it
+  const o0 = onames();
+  fire(rows()[0].querySelector('[title="Move down"]'), 'click');
+  ok('▼ moves the row down; panel stays open; main grid follows',
+     wrapO().hidden === false && onames()[0] === o0[1] && onames()[1] === o0[0] &&
+     texts('.gname')[0].startsWith(o0[1]) && texts('.gname')[1].startsWith(o0[0]));
+
+  // drag the last row and drop on the first → moves to top (jsdom rects are 0 ⇒ "before")
+  const oA = onames(), last = rows().length - 1;
+  fire(rows()[last], 'dragstart');
+  ok('dragging class applied to the row', rows()[last].classList.contains('dragging'));
+  fire(rows()[0], 'drop');
+  ok('drop moves the goal to the top of panel, grid, and save',
+     onames()[0] === oA[last] && texts('.gname')[0].startsWith(oA[last]) &&
+     JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).goals.length === oA.length);
+  // self-drop is a no-op
+  const oB = onames();
+  fire(rows()[1], 'dragstart');
+  fire(rows()[1], 'drop');
+  ok('self-drop is a no-op', onames().join(',') === oB.join(','));
+
+  // Ctrl+K hands over to the palette
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'k', ctrlKey:true, bubbles:true}));
+  ok('Ctrl+K closes reorder and opens the palette',
+     wrapO().hidden === true && d.querySelector('#palWrap').hidden === false);
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
+
+  // toolbar button opens; Esc, ✕, and backdrop all close
+  fire(d.querySelector('#btnOrder'), 'click');
+  ok('toolbar ⇅ opens it', wrapO().hidden === false);
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
+  ok('Esc closes it', wrapO().hidden === true);
+  fire(d.querySelector('#btnOrder'), 'click');
+  fire(d.querySelector('#ordClose'), 'click');
+  ok('✕ closes it', wrapO().hidden === true);
+  fire(d.querySelector('#btnOrder'), 'click');
+  fire(wrapO(), 'click');
+  ok('backdrop click closes it', wrapO().hidden === true);
+
+  // opening it from the goal editor closes the editor first
+  fire(d.querySelector('button[data-act="edit"][data-g="0"]'), 'click');
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'p', ctrlKey:true, bubbles:true}));
+  ok('Ctrl+P closes an open goal editor',
+     d.querySelector('#modalWrap').hidden === true && wrapO().hidden === false);
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
 }
 
 // ── sanitize: done list round-trips; a char can't be both queued and completed ──

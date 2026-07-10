@@ -181,6 +181,28 @@ for(const wid of ['autumntrace','lumingloss','thunderbolt','stonard','augment'])
   eq(`${wid} full: wexp`,    bag.wexp, 2289200);
 }
 
+// ═══ 11c. WEAPON CATALOG — full 4★/5★ roster through 3.5 ═══
+// 89 weapons (46 5★ + 43 4★), families verified per weapon from the fandom
+// wiki "Ascends with" categories + wuthering.gg/Game8 for the gaps (Jul 2026).
+{
+  const ws = Object.values(GAME.weapons);
+  eq('catalog: 89 weapons', ws.length, 89);
+  eq('catalog: 46 five-star', ws.filter(w => w.rarity === 5).length, 46);
+  eq('catalog: 43 four-star', ws.filter(w => w.rarity === 4).length, 43);
+  const TYPES = ['Broadblade','Sword','Pistols','Gauntlets','Rectifier'];
+  eq('catalog: every entry well-formed', ws.filter(w =>
+      w.name && w.mono && TYPES.includes(w.wtype) &&
+      Array.isArray(GAME.families[w.common]) && Array.isArray(GAME.families[w.forge]) &&
+      typeof w.beta === 'boolean').length, 89);
+  eq('catalog: unique display names', new Set(ws.map(w => w.name)).size, 89);
+  // 3.x (Rikka) generation weapon: new-region forge + enemy families flow
+  // through the same shared templates
+  const bag = costForGoal({weapon:'everbrightPolestar', cur:freshWpnState(), tgt:maxedWpnState()});
+  eq('3.x weapon full: forge (polarizer)', [0,1,2,3].map(t=>bag['polarizer'+t]), [6,8,6,20]);
+  eq('3.x weapon full: commons (mech)',    [0,1,2,3].map(t=>bag['mech'+t]),      [6,6,10,12]);
+  eq('3.x weapon full: credits', bag.credits, 1406960);
+}
+
 // ═══ 12. WEAPONS — PARTIAL RANGE: Lv50✦ (ord 6) → Lv80 unascended (ord 11) ═══
 // wexp 1,822,800−451,200 = 1,371,600; ranks 4 & 5 crossed:
 // credits 60k+80k + round(1,371,600×0.4)=548,640 → 688,640

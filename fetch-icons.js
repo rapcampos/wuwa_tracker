@@ -18,7 +18,8 @@ const want = [];
 for (const ch of Object.values(GAME.characters))
   if (!exists('char', ch.name)) want.push({kind:'char', name:ch.name, title:`File:Resonator ${ch.name}.png`});
 for (const w of Object.values(GAME.weapons))
-  if (!exists('weapon', w.name)) want.push({kind:'weapon', name:w.name, title:`File:Weapon ${w.name}.png`});
+  // '#' is illegal in MediaWiki titles — the wiki names them "Weapon Broadblade41.png"
+  if (!exists('weapon', w.name)) want.push({kind:'weapon', name:w.name, title:`File:Weapon ${w.name.replace(/#/g, '')}.png`});
 for (const id of Object.keys(MATS))
   if (id !== 'exp' && id !== 'wexp' && !exists('mat', MATS[id].name))
     want.push({kind:'mat', name:MATS[id].name, title:`File:Item ${MATS[id].name}.png`});

@@ -134,8 +134,13 @@ d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
 d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'k', ctrlKey:true, bubbles:true}));
 ok('Ctrl+K opens the palette', d.querySelector('#palWrap').hidden === false);
 palIn.value = 'aoh'; fire(palIn, 'input');
-ok('subsequence fuzzy: "aoh" → Ages of Harvest first',
-   d.querySelector('#palList .pal-item').textContent.includes('Ages of Harvest'));
+{ // subsequence matching spans word boundaries; tighter match ranks first
+  const hits = texts('#palList .pal-item');
+  ok('subsequence fuzzy: "aoh" → Azure Oath first (tightest match)',
+     hits[0].includes('Azure Oath'));
+  ok('subsequence fuzzy: "aoh" still surfaces Ages of Harvest',
+     hits.some(t => t.includes('Ages of Harvest')));
+}
 d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
 ok('Esc closes the palette', d.querySelector('#palWrap').hidden === true);
 

@@ -141,10 +141,26 @@ with Game8 per-rank pages and wuthering.gg):
   rarity-independent: 400/1,200/3,200/8,000 credits per core)
 - energy cores mirror potions exactly: 1k/3k/8k/20k EXP, rarities 2–5
 
-A weapon's FORGERY family is fixed by weapon type (Broadblade→waveworn,
-Sword→drip, Pistols→phlogiston, Gauntlets→cadence, Rectifier→helix —
-newer-region weapons may use newer sets, e.g. Firstlight's Herald→strings);
-the ENEMY family is per-weapon. Verify both when seeding a weapon.
+A weapon's FORGERY family is fixed by weapon type within a region
+generation (1.x/2.x: Broadblade→waveworn, Sword→drip, Pistols→phlogiston,
+Gauntlets→cadence, Rectifier→helix; 3.x Rikka sets: →carved, →polarizer,
+→combustor, →wshard, →strings); the ENEMY family is per-weapon. Verify both
+when seeding a weapon.
+
+**The full 4★/5★ weapon catalog through 3.5 is seeded** (89 entries: 46 5★ +
+43 4★, incl. the 3.4 Cyberpunk collab pair and the crafting series with
+their real `#`-names, e.g. "Broadblade#41"). Families were verified per
+weapon from the fandom wiki's "Ascends with" page categories (fetched via
+the MediaWiki API — page HTML is Cloudflare-blocked, the API is not), with
+wuthering.gg/Game8 filling the gaps (3.0 standard pool, 3.4 collab, Fusion
+Accretion) and spot-checks on single-source rows. 1★–3★ weapons are
+deliberately omitted. All families mapped onto the already-seeded
+`GAME.families` — the material registry did not grow. Azure Oath (Xuanling
+signature) is 3.5 beta data like Firstlight's Herald: quantities are
+template-locked, family (polarizer/mech, matching every other 3.x sword)
+from beta guides — both carry `beta:true`; confirm at launch. Engine test
+"11c" locks the catalog shape (89/46/43, well-formed entries, unique names)
+plus a 3.x-generation cost anchor (Everbright Polestar).
 
 **Suisui is 3.5 beta data** (release 2026-07-10): quantities are
 template-locked, but the "Autopuppet Kernel I–IV" tier names are
@@ -252,7 +268,9 @@ are no screenshot tests — be extra careful with CSS-only changes.
    materials/names (esp. the "LF/MF/HF/FF Autopuppet Kernel" tier pattern,
    Cloudperch Seed, Skyward Glazed Heart, Solidarity's Loneflame) and the
    signature weapon's English name ("Firstlight's Herald" vs launch rename);
-   drop the beta badges. Also spot-check Rebecca's weekly (We Who Question)
+   drop the beta badges. Same for Azure Oath (Xuanling's sword, `beta:true`):
+   confirm the name and its polarizer/mech families at launch.
+   Also spot-check Rebecca's weekly (We Who Question)
    and forge (Combustor) — single-source cells from the roster sweep.
    Missing image checklist: `images/missing_icons.md` (10 beta files) — run
    `node fetch-icons.js` after launch to pull them from the fandom wiki

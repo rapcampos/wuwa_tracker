@@ -111,9 +111,13 @@ it goes in block 2 with tests; presentation goes in block 3.
   `showPage` directly so jsdom needs no hashchange event; boot calls
   `showPage(curPage())`). `state.teams` = `[{name?, chars:[charId|null ×3]}]`;
   roster = queued + completed characters (`rosterGoals()`, weapons excluded).
-  Each character has an **energy budget** — optional `energy` field on the
-  GAME entry, default 1 = one team total (user will set 2 on some supports
-  later) — capping total placements across teams. Engine (pure, tested):
+  Teams render as cards in an auto-fill grid (`.tgrid`, min 185px), members
+  stacked vertically inside each card. Each character has an **energy
+  budget** — optional `energy` field on the GAME entry capping total
+  placements across teams; default 1 = one team total, and the user's six
+  supports are seeded with `energy: 2` (verina, shorekeeper, suisui, chisa,
+  mornye, buling — user-confirmed list, Jul 2026; other owned healers like
+  Baizhi/Youhu get 2 only if the user asks). Engine (pure, tested):
   `charEnergy`, `teamUsage`, `energyLeft`, `sanitizeTeams` (drops non-roster
   ids, dedupes within a team, enforces the budget with earlier teams
   winning, clamps/pads slots to 3; `name` survives only as a non-empty
@@ -239,7 +243,13 @@ are no screenshot tests — be extra careful with CSS-only changes.
 - **Materials render as icon tiles**, not lists: rarity-tinted ground
   (`.tile.r0–r5`, game convention green/blue/purple/gold), abbreviated qty
   on the tile (`fmtShort`, pure/engine: 3 sig figs, K/M from 10,000 up),
-  name + exact amounts + potion/core plan in the hover `title`. The
+  name + exact amounts + potion/core plan in the hover `title`.
+  **exp/wexp tiles show a top-tier item count, not raw EXP** (`expTopTier`/
+  `wexpTopTier`, pure/engine: ceil ÷ 20k — "366", not "7.31M"; `tileQty`
+  routes it), and the registry marks exp/wexp `r:5` so the ground matches
+  the Premium potion/core icon the tile carries; exact EXP stays in the
+  tooltip, and the Inventory tab's pooled rows still use raw EXP numbers
+  (they sit next to per-tier inputs). The
   **Inventory tab keeps its table** (Need/Have/Left + inventory inputs) and
   lists EVERY registry material — un-needed rows show '—' and no Left cell,
   so stock can be logged ahead of goals; it renders even with an empty queue

@@ -37,8 +37,9 @@ ok('total credits 3× default build (exact in title, 5.41M on tile)',
 ok("shared weekly (Sentinel's Dagger) merged to 12",
    d.querySelector(`#summary .tile[title="Sentinel's Dagger — 12 needed"]`) !== null);
 const expTile = [...d.querySelectorAll('#summary .tile')].find(t => t.title.startsWith('Resonator EXP'));
-ok('total EXP 3× full build with potion plan in tooltip',
-   expTile && expTile.title.includes('7,314,000') && expTile.title.includes('≈') && expTile.textContent.includes('7.31M'));
+ok('total EXP tile counts top-tier potions (7,314,000 ÷ 20k → 366), exact EXP + plan in tooltip',
+   expTile && expTile.title.includes('7,314,000') && expTile.title.includes('≈') &&
+   expTile.textContent.includes('366') && !expTile.textContent.includes('7.31M'));
 ok('tiles carry rarity grounds', d.querySelector('#summary .tile.r5') !== null &&
    d.querySelector('#summary .tile.r2') !== null && d.querySelector('#goals .tile.r4') !== null);
 
@@ -794,8 +795,8 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
      d.querySelectorAll('#teams .rchip.spent').length === 0);
 
   fire(d.querySelector('#btnTeam'), 'click');
-  ok('add team: one team, auto-named, 3 empty slots',
-     d.querySelectorAll('#teams .team').length === 1 &&
+  ok('add team: one team card in the grid, auto-named, 3 vertically stacked slots',
+     d.querySelectorAll('#teams .tgrid .team').length === 1 &&
      d.querySelectorAll('#teams .slot.empty').length === 3 &&
      d.querySelector('#teams .team-h').textContent.includes('Team 1'));
 

@@ -97,7 +97,8 @@ label.chk{display:inline-flex; gap:6px; align-items:center; cursor:pointer; colo
 .avatar{width:40px; height:40px; border-radius:9px; display:grid; place-items:center;
   font-family:'Chakra Petch'; font-weight:700; font-size:15px; color:#0A0E16; flex:none;
   box-shadow:0 0 0 1px rgba(255,255,255,.12) inset; position:relative; overflow:hidden}
-.avatar-img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; border-radius:inherit}
+.avatar-img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; border-radius:inherit;
+  background:inherit}  /* opaque over the monogram — transparent icons must not let it bleed through */
 .ico-wrap{display:inline-flex; width:22px; height:22px; margin-right:8px; vertical-align:-6px;
   align-items:center; justify-content:center}
 .ico-wrap img{width:22px; height:22px; object-fit:contain; border-radius:5px}
@@ -266,11 +267,12 @@ td.inv{width:96px; text-align:right}
   border-radius:20px; padding:3px 12px 3px 4px; font-size:12.5px}
 .rchip .avatar{width:22px; height:22px; font-size:9px; border-radius:50%}
 .rchip.spent{opacity:.35}
-.team{border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin-bottom:10px; max-width:680px}
+.tgrid{display:grid; grid-template-columns:repeat(auto-fill, minmax(185px, 1fr)); gap:10px; margin-bottom:12px}
+.team{border:1px solid var(--line); border-radius:10px; padding:10px 12px}
 .team-h{display:flex; align-items:center; gap:8px; margin-bottom:8px;
   font-family:'Chakra Petch',sans-serif; font-size:13px; letter-spacing:.04em}
 .team-h .tiny{margin-left:auto}
-.slots{display:grid; grid-template-columns:repeat(3, 1fr); gap:8px}
+.slots{display:flex; flex-direction:column; gap:8px}
 .slot{display:flex; align-items:center; gap:8px; border:1px solid var(--line2); border-radius:8px;
   padding:6px 8px; min-height:46px; background:var(--panel2); cursor:pointer;
   font:inherit; font-size:13px; color:var(--ink); text-align:left}
@@ -482,7 +484,7 @@ const GAME = {
       boss:'Rage Tacet Core', spec:'Pecok Flower', weekly:'Unending Destruction', beta:false},
     verina: {name:'Verina', mono:'VE', rarity:5, element:'Spectro', elColor:'var(--spectro)',
       wtype:'Rectifier', common:'howler', forge:'helix',
-      boss:'Elegy Tacet Core', spec:'Belle Poppy', weekly:'Monument Bell', beta:false},
+      boss:'Elegy Tacet Core', spec:'Belle Poppy', weekly:'Monument Bell', beta:false, energy:2},
     lingyang: {name:'Lingyang', mono:'LY', rarity:5, element:'Glacio', elColor:'var(--glacio)',
       wtype:'Gauntlets', common:'whisperin', forge:'cadence',
       boss:'Sound-Keeping Tacet Core', spec:'Coriolus', weekly:'Unending Destruction', beta:false},
@@ -497,7 +499,7 @@ const GAME = {
       boss:'Hidden Thunder Tacet Core', spec:'Violet Coral', weekly:'Unending Destruction', beta:false},
     shorekeeper: {name:'Shorekeeper', mono:'SK', rarity:5, element:'Spectro', elColor:'var(--spectro)',
       wtype:'Rectifier', common:'whisperin', forge:'helix',
-      boss:'Topological Confinement', spec:'Nova', weekly:"Sentinel's Dagger", beta:false},
+      boss:'Topological Confinement', spec:'Nova', weekly:"Sentinel's Dagger", beta:false, energy:2},
     camellya: {name:'Camellya', mono:'CM', rarity:5, element:'Havoc', elColor:'var(--havoc)',
       wtype:'Sword', common:'whisperin', forge:'drip',
       boss:'Topological Confinement', spec:'Nova', weekly:'Dreamless Feather', beta:false},
@@ -544,13 +546,13 @@ const GAME = {
     // ── 3.x (Lahai-Roi) ──
     chisa: {name:'Chisa', mono:'CH', rarity:5, element:'Havoc', elColor:'var(--havoc)',
       wtype:'Broadblade', common:'polygon', forge:'waveworn',
-      boss:'Abyssal Husk', spec:'Summer Flower', weekly:'When Irises Bloom', beta:false},
+      boss:'Abyssal Husk', spec:'Summer Flower', weekly:'When Irises Bloom', beta:false, energy:2},
     qiuyuan: {name:'Qiuyuan', mono:'QY', rarity:5, element:'Aero', elColor:'var(--aero)',
       wtype:'Sword', common:'whisperin', forge:'drip',
       boss:'Truth in Lies', spec:'Wintry Bell', weekly:'Curse of the Abyss', beta:false},
     mornye: {name:'Mornye', mono:'MO', rarity:5, element:'Fusion', elColor:'var(--fusion)',
       wtype:'Broadblade', common:'mech', forge:'carved',
-      boss:'Burning Judgment', spec:'Gemini Spore', weekly:"The Netherworld's Stare", beta:false},
+      boss:'Burning Judgment', spec:'Gemini Spore', weekly:"The Netherworld's Stare", beta:false, energy:2},
     aemeath: {name:'Aemeath', mono:'AE', rarity:5, element:'Fusion', elColor:'var(--fusion)',
       wtype:'Sword', common:'exoswarm', forge:'polarizer',
       boss:'Our Choice', spec:'Moss Amber', weekly:'Gold in Memory', beta:false},
@@ -584,7 +586,7 @@ const GAME = {
       boss:"Solidarity's Loneflame", spec:'Cloudperch Seed', weekly:'Skyward Glazed Heart', beta:false},
     suisui: {name:'Suisui', mono:'SS', rarity:5, element:'Glacio', elColor:'var(--glacio)',
       wtype:'Rectifier', common:'kernel', forge:'strings',                  // releases 2026-07-30 (act 2)
-      boss:"Solidarity's Loneflame", spec:'Flowborne Dream', weekly:'Skyward Glazed Heart', beta:false},
+      boss:"Solidarity's Loneflame", spec:'Flowborne Dream', weekly:'Skyward Glazed Heart', beta:false, energy:2},
     // ── Rover forms (shared portrait via icon override; Mysterious Code ×1 at ranks 2-6) ──
     roverSpectro: {name:'Rover: Spectro', mono:'RS', rarity:5, element:'Spectro', elColor:'var(--spectro)',
       wtype:'Sword', common:'whisperin', forge:'drip', bossCounts:[0,1,1,1,1,1],
@@ -631,7 +633,7 @@ const GAME = {
       boss:'Thundering Tacet Core', spec:'Terraspawn Fungus', weekly:"Sentinel's Dagger", beta:false},
     buling: {name:'Buling', mono:'BU', rarity:4, element:'Electro', elColor:'var(--electro)',
       wtype:'Rectifier', common:'whisperin', forge:'helix',
-      boss:'Blighted Crown of Puppet King', spec:'Pecok Flower', weekly:'Curse of the Abyss', beta:false},
+      boss:'Blighted Crown of Puppet King', spec:'Pecok Flower', weekly:'Curse of the Abyss', beta:false, energy:2},
   },
 
   /* Weapon templates — level+ascension only, no forte tree.
@@ -890,8 +892,9 @@ const ORDS = [...Array(14).keys()];
 function buildMatRegistry(){
   const M = {};
   M.credits = {name:'Shell Credit', cat:'Credits', r:3};
-  M.exp     = {name:'Resonator EXP', cat:'EXP', r:0};
-  M.wexp    = {name:'Weapon EXP', cat:'EXP', r:0};
+  // r:5 — tiles show these as their top-tier item (Premium potion/core, gold)
+  M.exp     = {name:'Resonator EXP', cat:'EXP', r:5};
+  M.wexp    = {name:'Weapon EXP', cat:'EXP', r:5};
   GAME.expItems.forEach(it => M[it.id] = {name:it.name, cat:'EXP', r:it.r});
   GAME.wpnExpItems.forEach(it => M[it.id] = {name:it.name, cat:'EXP', r:it.r});
   const famCat = {};
@@ -1033,6 +1036,11 @@ function expToItems(exp, source){
 }
 const expToPotions = exp => expToItems(exp, GAME.expItems);
 const wexpToCores  = exp => expToItems(exp, GAME.wpnExpItems);
+/* pooled EXP as an equivalent count of the highest-tier item (Premium
+   Resonance Potion / Premium Energy Core, 20k each) — material tiles show
+   this count instead of a raw EXP number; exact EXP stays in the tooltip */
+const expTopTier  = exp => Math.ceil(Math.max(0, exp) / GAME.expItems[GAME.expItems.length - 1].exp);
+const wexpTopTier = exp => Math.ceil(Math.max(0, exp) / GAME.wpnExpItems[GAME.wpnExpItems.length - 1].exp);
 
 /* ── inventory-aware deficit ──
    inv: {matId: qty} incl. potion ids and 'credits'.
@@ -1397,13 +1405,17 @@ function tileTip(id, qty){
   if(id === 'wexp'){ const p = coreText(wexpToCores(qty)); if(p) tip += ' · ' + p; }
   return tip;
 }
+/* exp/wexp tiles carry the top-tier item's icon, so their qty is that item
+   count (expTopTier), not raw EXP — "×12" premium potions, not "240K" */
+const tileQty = (id, n) => id === 'exp' ? fmtShort(expTopTier(n))
+                        : id === 'wexp' ? fmtShort(wexpTopTier(n)) : fmtShort(n);
 function matTiles(bag, order){
   const ids = order ? order.filter(id => id in bag) : sortMatIds(Object.keys(bag));
   if(!ids.length) return '';
   return `<div class="tiles">` + ids.map(id =>
     `<div class="tile r${MATS[id].r}" title="${esc(tileTip(id, bag[id]))}">` +
       matIco(id) +
-      `<span class="qty num">${fmtShort(bag[id])}</span>` +
+      `<span class="qty num">${tileQty(id, bag[id])}</span>` +
     `</div>`).join('') + `</div>`;
 }
 
@@ -1473,7 +1485,7 @@ function deficitTiles(need, rem, order){
     const left = rem[id] || 0;
     return `<div class="tile r${MATS[id].r}${left ? '' : ' done'}" title="${esc(deficitTip(id, need[id], left))}">` +
       matIco(id) +
-      `<span class="qty num">${left ? fmtShort(left) : '✓'}</span>` +
+      `<span class="qty num">${left ? tileQty(id, left) : '✓'}</span>` +
     `</div>`;
   }).join('') + `</div>`;
 }
@@ -1806,7 +1818,7 @@ function renderTeams(){
     `<div class="gmeta" style="margin-bottom:8px">Roster — everyone on the Ledger, queued or completed. A dimmed chip has no energy left to join another team.</div>` +
     (roster.length ? `<div class="roster">${chips}</div>`
                    : '<div class="empty">No characters yet — add goals on the Ledger page first.</div>') +
-    teams +
+    (state.teams.length ? `<div class="tgrid">${teams}</div>` : '') +
     `<button id="btnTeam"${roster.length ? '' : ' disabled'}>＋ Add team</button>`;
   box.querySelector('#btnTeam').addEventListener('click', () => {
     state.teams.push({chars:[null, null, null]});
@@ -2241,8 +2253,8 @@ function renderFooter(){
     'cards themselves are read-only status views. Drag the ⠿ grip to reorder goals (▲▼ still work, and are the way to go on touch screens), ' +
     'or press <b>Ctrl+P</b> (“⇅ Reorder”) for a compact drag list of the whole queue. ' +
     'The <b>Teams</b> page (header nav) builds 3-person teams from your roster — each character has an ' +
-    'energy budget (default 1) capping how many teams they can join; set <b>energy: 2</b> on a support’s ' +
-    'GAME entry to let them double up.';
+    'energy budget capping how many teams they can join: 1 by default, 2 for the seeded supports ' +
+    '(Verina, Shorekeeper, Suisui, Chisa, Mornye, Buling) — tweak the <b>energy</b> field on a GAME entry to adjust.';
 }
 function render(){ renderGoals(); renderSummary(); renderFooter(); renderModal(); renderOrder(); renderTeams(); }
 render();

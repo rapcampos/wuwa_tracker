@@ -9,7 +9,7 @@ eval(blocks.join('\n;\n') + `
 ;Object.assign(globalThis, {GAME, MATS, MILES, ORD_LEVEL, ORD_LABEL, CATEGORY_ORDER,
   costForGoal, totalBag, freshState, maxedState, expToPotions, remainingBag, farmNextWalk, sortMatIds,
   freshWpnState, maxedWpnState, wexpToCores, fmtShort, priorityMatIds, defaultGoalTgt, fuzzyScore,
-  nodeShortfall, charEnergy, teamUsage, energyLeft, sanitizeTeams});`);
+  nodeShortfall, charEnergy, teamUsage, energyLeft, sanitizeTeams, expTopTier, wexpTopTier});`);
 
 let pass = 0, fail = 0;
 const canon = v => (v && typeof v === 'object' && !Array.isArray(v))
@@ -106,6 +106,12 @@ for(const cid of ['jinhsi','phoebe','suisui','sanhua','augusta','lucilla']){
 eq('potions 1,272,000', expToPotions(1272000), {exp4:63, exp3:1, exp2:1, exp1:1});
 eq('potions 0', expToPotions(0), {});
 eq('potions 500 (rounds up)', expToPotions(500), {exp1:1});
+
+// top-tier equivalents (tile display): ceil(exp / 20,000), never negative
+eq('top-tier: full 5★ char build', expTopTier(2438000), 122);
+eq('top-tier: full 5★ weapon build', wexpTopTier(2692400), 135);
+eq('top-tier: partial rounds up', [expTopTier(1), expTopTier(20000), expTopTier(20001)], [1, 1, 2]);
+eq('top-tier: zero and negative are 0', [expTopTier(0), wexpTopTier(-5)], [0, 0]);
 
 // ═══ 7. SYNTHESIS: surplus crafts 3→1 upward ═══
 {
@@ -319,7 +325,12 @@ eq('fuzzy: case-insensitive', fuzzyScore('JINHSI', 'Jinhsi') >= 0, true);
 // ═══ 20. TEAMS (matrix team builder) ═══
 {
   const ROSTER = ['jinhsi', 'phoebe', 'suisui', 'sanhua'];
-  eq('energy defaults to 1 (no entry field seeded yet)', charEnergy('jinhsi'), 1);
+  eq('energy defaults to 1', charEnergy('jinhsi'), 1);
+  eq('seeded supports carry energy 2',
+     ['verina','shorekeeper','suisui','chisa','mornye','buling'].map(charEnergy), [2,2,2,2,2,2]);
+  eq('a seeded support may hold two teams (real data, no energyOf override)',
+     sanitizeTeams([{chars:['verina', null, null]}, {chars:['verina', null, null]}], ['verina']),
+     [{chars:['verina', null, null]}, {chars:['verina', null, null]}]);
   eq('usage counts placements across teams', teamUsage([
     {chars:['jinhsi', 'phoebe', null]}, {chars:['jinhsi', null, null]}]),
     {jinhsi:2, phoebe:1});

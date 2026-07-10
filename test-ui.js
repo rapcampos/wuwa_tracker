@@ -121,6 +121,26 @@ ok('tiles carry rarity grounds', d.querySelector('#summary .tile.r5') !== null &
      !tileBy('Elegy Tacet Core').getAttribute('title').includes('Phoebe'));
 }
 
+// ── crafting applies to the cards (synth toggle), reserved tiers kept ──
+{
+  w.eval(`state.inv.howler0 = 99999; save(); render();`);
+  const cardTile = pre => [...d.querySelectorAll('.goal[data-g="0"] .tile')]
+    .find(t => (t.getAttribute('title') || '').startsWith(pre));
+  ok('card crafts higher tiers out of tier-0 surplus',
+     cardTile('FF Howler Core').classList.contains('done') &&
+     cardTile('FF Howler Core').getAttribute('title').includes('covered'));
+  fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Inventory'), 'click');
+  const chk = d.querySelector('#synthChk');
+  chk.checked = false; fire(chk, 'change');
+  ok('synth off: the card shows the raw deficit again',
+     !cardTile('FF Howler Core').classList.contains('done'));
+  const chk2 = d.querySelector('#synthChk');
+  chk2.checked = true; fire(chk2, 'change');
+  ok('synth back on restores the crafted view', cardTile('FF Howler Core').classList.contains('done'));
+  fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Total'), 'click');
+  w.eval(`delete state.inv.howler0; save(); render();`);
+}
+
 // totals are ordered by queue priority: P1 Jinhsi's boss mat precedes P2 Phoebe's precedes P3 Suisui's
 {
   const titles = [...d.querySelectorAll('#summary .tile')].map(t => t.getAttribute('title'));

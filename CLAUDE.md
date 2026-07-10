@@ -277,10 +277,17 @@ are no screenshot tests — be extra careful with CSS-only changes.
 - **Tiles show the deficit after inventory** (`deficitTiles`): goal cards
   allocate the pool in queue order (renderGoals runs `farmNextWalk`, so the
   first card that needs a material eats the stock and later cards see the
-  leftovers — no crafting, same rule as the Farm next tab); the Total tab
-  nets the aggregate via `remainingBag` (synthesis-aware). Covered mats stay
-  visible as a dimmed ✓ (`.tile.done`), with the full requirement in the
-  tooltip. Farm next's own missing-list still uses plain `matTiles`.
+  leftovers — same rule as the Farm next tab). With the synthesis toggle
+  on, the walk also CRAFTS (`farmNextWalk(goals, inv, craft)` → pure
+  `craftFromPool`): each goal may cover family-tier deficits 3→1 from pool
+  surplus, but a `reserve` map holds every quantity any queued goal still
+  needs directly at each tier — those are never crafted away ("have 22,
+  need 10 → only 12 craft", user's rule). Chains (9× t0 → 1× t2) consume
+  exactly, wasting nothing on a short chain; low-tier deficits craft
+  before high. The Total tab nets the aggregate via `remainingBag`
+  (synthesis-aware as before). Covered mats stay visible as a dimmed ✓
+  (`.tile.done`), with the full requirement in the tooltip. The Inventory
+  tab's synth checkbox therefore also refreshes the goals grid.
 - **Cards are read-only status views**: header + mini forte tree (`miniTree`,
   span-based, no handlers) with per-column skill levels cur→tgt + an
   always-visible materials tile grid (`goalMats`). All editing happens in the ✎
@@ -326,9 +333,10 @@ are no screenshot tests — be extra careful with CSS-only changes.
 - Summary tabs: Total (aggregate deficit + waveplate line + the global
   "Ignore credits & EXP" toggle) / Inventory (inline inventory + 3→1
   synthesis toggle + hide-un-needed toggle) / Farm next (sequential
-  allocation, deliberately no crafting — a craft spent on goal 1 would
-  silently eat goal 2's stock; this is documented in-app) / Completed
-  (finished goals; tab label carries a count when non-empty).
+  allocation; crafting follows the synthesis toggle with reserved-tier
+  protection — see the deficit-tiles bullet; the in-app note states which
+  mode is active) / Completed (finished goals; tab label carries a count
+  when non-empty).
 - **"Ignore credits & EXP"** (`state.skipCE`, checkbox on the Total tab):
   a VIEW-level filter — `stripCE(bag)` (pure/engine) drops `credits`/`exp`/
   `wexp` before tiles, readiness bars, waveplate estimates, the Total

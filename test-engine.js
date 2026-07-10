@@ -10,7 +10,7 @@ eval(blocks.join('\n;\n') + `
   costForGoal, totalBag, freshState, maxedState, expToPotions, remainingBag, farmNextWalk, sortMatIds,
   freshWpnState, maxedWpnState, wexpToCores, fmtShort, priorityMatIds, defaultGoalTgt, fuzzyScore,
   nodeShortfall, charEnergy, teamUsage, energyLeft, sanitizeTeams, expTopTier, wexpTopTier,
-  waveplateEstimate, stripCE});`);
+  waveplateEstimate, stripCE, craftFromPool});`);
 
 let pass = 0, fail = 0;
 const canon = v => (v && typeof v === 'object' && !Array.isArray(v))
@@ -153,6 +153,35 @@ eq('top-tier: zero and negative are 0', [expTopTier(0), wexpTopTier(-5)], [0, 0]
   const walk2 = farmNextWalk([g3, {...g3, char:'jinhsi'}], {howler0: 6, credits: 99999});
   eq('walk: pool depletes in order', walk2.map(w => w.rem),
      [{}, {howler0: 2}]);
+}
+
+// ═══ 9b. WALK WITH CRAFTING: synth per goal, needed lower tiers protected ═══
+{
+  // the user's rule: 22 held, 10 must stay → only the 12 surplus crafts (4× next tier)
+  const pool = {carved2: 22};
+  eq('craft: surplus above the kept amount crafts up', craftFromPool(pool, {carved2: 10}, 'carved', 3, 4), 4);
+  eq('craft: the kept amount is untouched', pool.carved2, 10);
+  const pool2 = {howler0: 9};
+  eq('craft: chains 3→1 across tiers (9× t0 → 1× t2)', craftFromPool(pool2, {}, 'howler', 2, 1), 1);
+  eq('craft: chain consumed exactly', pool2.howler0, 0);
+  const pool3 = {howler0: 8};
+  eq('craft: a short chain wastes nothing', [craftFromPool(pool3, {}, 'howler', 2, 1), pool3.howler0], [0, 8]);
+  const pool4 = {howler1: 2, howler0: 3};
+  eq('craft: mixed-tier chain tops up from below', [craftFromPool(pool4, {}, 'howler', 2, 1), pool4.howler1, pool4.howler0],
+     [1, 0, 0]);
+
+  // walk integration: goal 1 (50✦→80) needs 12× howler2; goal 2 still needs
+  // 3× howler1 directly — goal 1's crafting must leave those 3 alone
+  const gA = {char:'jinhsi', cur:{...freshState(), ord:6}, tgt:{...freshState(), ord:11}};
+  const gB = {char:'jinhsi', cur:freshState(), tgt:{...freshState(), inh1:1}};
+  const w1 = farmNextWalk([gA, gB], {howler1: 39}, true);
+  eq('walk-craft: goal 1 crafts its tier-2 deficit from surplus', w1[0].rem.howler2, undefined);
+  eq('walk-craft: goal 2 keeps its reserved tier-1 stock', w1[1].rem.howler1, undefined);
+  const w2 = farmNextWalk([gA, gB], {howler1: 38}, true);
+  eq('walk-craft: one short — 11 crafted, reserve still intact',
+     [w2[0].rem.howler2, w2[1].rem.howler1], [1, undefined]);
+  const w0 = farmNextWalk([gA], {howler1: 36}, false);
+  eq('walk without craft flag is unchanged', w0[0].rem.howler2, 12);
 }
 
 // ═══ 10. REGISTRY & ORDINALS ═══

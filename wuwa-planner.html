@@ -1192,18 +1192,43 @@ function remainingBag(need, inv, synth){
           invWexp, needWexp, corePlan: wexpToCores(remWexp)};
 }
 
+/* craft `want` units of family `fid` tier `tier` out of lower-tier surplus
+   in `pool`, chaining 3→1 upward. Never dips below `reserve` — the stock
+   the queue still needs at each tier is untouchable ("if I have 22 and
+   need 10, only the other 12 may craft"). Mutates pool; returns units
+   produced (consumption is exact — a short chain wastes nothing). */
+function craftFromPool(pool, reserve, fid, tier, want){
+  const free  = t => Math.max(0, (pool[fid+t] || 0) - (reserve[fid+t] || 0));
+  const avail = t => t < 0 ? 0 : t === 0 ? free(0) : free(t) + Math.floor(avail(t-1) / 3);
+  const made = Math.min(want, tier > 0 ? Math.floor(avail(tier-1) / 3) : 0);
+  const consume = (t, amount) => {
+    const direct = Math.min(amount, free(t));
+    pool[fid+t] = (pool[fid+t] || 0) - direct;
+    if(amount - direct > 0) consume(t-1, (amount - direct) * 3);
+  };
+  if(made > 0) consume(tier-1, made * 3);
+  return made;
+}
+
 /* ── priority walk: allocate inventory to goals in queue order ──
-   Crafting is intentionally NOT applied here (a craft spent on goal 1
-   would silently eat goal 2's tier-3 stock); plain subtraction only.
+   With `craft` on (the synthesis toggle), each goal may also craft its
+   remaining family-tier deficits 3→1 from pool surplus — but only from
+   stock that no queued goal (this one or any later one) still needs
+   directly: those amounts are held in `reserve` and never crafted away.
    Returns [{goal, need, rem, ready}] */
-function farmNextWalk(goals, inv){
+function farmNextWalk(goals, inv, craft = false){
   const pool = {};
   for(const [k,v] of Object.entries(inv)) pool[k] = Math.max(0, Math.floor(v||0));
   let expPool  = GAME.expItems.reduce((s,it) => s + (pool[it.id]||0) * it.exp, 0);
   let wexpPool = GAME.wpnExpItems.reduce((s,it) => s + (pool[it.id]||0) * it.exp, 0);
 
-  return goals.map(goal => {
-    const need = costForGoal(goal);
+  const needs = goals.map(costForGoal);
+  const reserve = {};                          // family stock the queue still needs directly
+  if(craft) for(const n of needs) for(const [id, q] of Object.entries(n))
+    if(MATS[id] && MATS[id].family) reserve[id] = (reserve[id] || 0) + q;
+
+  return goals.map((goal, gi) => {
+    const need = needs[gi];
     const rem = {};
     for(const [id, qty] of Object.entries(need)){
       if(id === 'exp'){
@@ -1215,7 +1240,19 @@ function farmNextWalk(goals, inv){
       } else {
         const use = Math.min(qty, pool[id] || 0);
         pool[id] = (pool[id] || 0) - use;
+        if(craft && MATS[id] && MATS[id].family)
+          reserve[id] = Math.max(0, (reserve[id] || 0) - qty);   // this demand is served/settled
         if(qty - use > 0) rem[id] = qty - use;
+      }
+    }
+    if(craft){
+      const famIds = Object.keys(rem)          // cheapest chains first: low tiers before high
+        .filter(id => MATS[id] && MATS[id].family && MATS[id].tier > 0)
+        .sort((a, b) => MATS[a].tier - MATS[b].tier);
+      for(const id of famIds){
+        const made = craftFromPool(pool, reserve, MATS[id].family, MATS[id].tier, rem[id]);
+        if(made >= rem[id]) delete rem[id];
+        else if(made > 0) rem[id] -= made;
       }
     }
     return {goal, need, rem, ready: Object.keys(rem).length === 0};
@@ -1714,7 +1751,7 @@ function charCard(g, i, wk, vw, ceOnly){
 
 function renderGoals(){
   const box = $('#goals');
-  const walk = farmNextWalk(state.goals, state.inv);   // priority-ordered inventory allocation
+  const walk = farmNextWalk(state.goals, state.inv, state.synth);   // priority-ordered allocation + crafting
   box.innerHTML = state.goals.length
     ? state.goals.map((g, i) => goalCard(g, i, walk[i])).join('')
     : '<div class="empty">No goals yet — press Ctrl+K (or “⌕ Add goal…”) to queue a character or weapon.</div>';
@@ -2299,7 +2336,10 @@ function renderSummary(){
       });
     });
     const chk = $('#synthChk');
-    if(chk) chk.addEventListener('change', e => { state.synth = e.currentTarget.checked; save(); updateLeft(); });
+    if(chk) chk.addEventListener('change', e => {
+      state.synth = e.currentTarget.checked;
+      save(); updateLeft(); renderGoals();     // cards craft too now — keep them in step
+    });
     // hiding changes row structure, so this one is a real re-render
     const hid = $('#hideChk');
     if(hid) hid.addEventListener('change', e => { state.hideUn = e.currentTarget.checked; save(); renderSummary(); });
@@ -2308,7 +2348,7 @@ function renderSummary(){
   }
 
   // Farm next
-  const walk = farmNextWalk(state.goals, state.inv);
+  const walk = farmNextWalk(state.goals, state.inv, state.synth);
   let html = `<div class="gmeta" style="margin-bottom:8px">Inventory is spent top-down in queue order — this is what the top unmet goal still needs.${
     state.skipCE ? ' Credits &amp; EXP are ignored (Total-tab toggle).' : ''}</div>`;
   let expanded = false;
@@ -2328,7 +2368,9 @@ function renderSummary(){
       html += `<div style="margin:2px 0 14px">${matTiles(rem)}</div>`;
     }
   });
-  html += '<div style="color:var(--faint);font-size:11.5px;margin-top:6px">Crafting isn’t applied in this view, so tier surpluses stay reserved for lower-priority goals.</div>';
+  html += `<div style="color:var(--faint);font-size:11.5px;margin-top:6px">${state.synth
+    ? 'Crafting (3→1) applies here and on the cards — but stock any queued goal still needs directly is never crafted away.'
+    : 'Crafting is off (“Craft surplus 3→1” on the Inventory tab), so all tiers show raw deficits.'}</div>`;
   el.innerHTML = html;
   bindIcons(el);
 }

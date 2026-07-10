@@ -318,6 +318,26 @@ ok('top unmet goal expanded with its missing mats as tiles',
    d.querySelectorAll('#summary .tiles .tile').length > 0 &&
    d.querySelector('#summary .st.miss') !== null);
 
+// ── today's plan: the daily budget split into whole runs ──
+{
+  const runs = () => [...d.querySelectorAll('#summary .today .run')];
+  ok('the tab leads with today’s plan', d.querySelector('#summary .today') !== null &&
+     d.querySelector('#summary').firstElementChild.classList.contains('today') && runs().length > 0);
+  ok('the header shows what the plan spends of the daily budget',
+     /\d+ \/ 240⚡/.test(d.querySelector('#summary .today-h .budget').textContent));
+  ok('every run names an activity, a run count, a yield and a plate cost',
+     runs().every(r => r.querySelector('.rname').textContent.length > 0 &&
+       /^×\d+$/.test(r.querySelector('.x').textContent) &&
+       r.querySelector('.gain').textContent.startsWith('≈') &&
+       /^[\d,]+⚡$/.test(r.querySelector('.plates').textContent)));
+  ok('run rows carry the activity’s icon', runs().every(r => r.querySelector('.ico-wrap img') !== null));
+  ok('the plan never overspends the budget',
+     runs().reduce((s, r) => s + +r.querySelector('.plates').textContent.replace(/[^\d]/g, ''), 0) <= 240);
+  ok('a spare-plates / cap / overworld note explains the leftovers',
+     d.querySelector('#summary .today-f') === null ||
+     d.querySelector('#summary .today-f').textContent.length > 0);
+}
+
 // ── persistence round-trip ──
 const saved = JSON.parse(w.localStorage.getItem('wuwa-planner-v1'));
 ok('state persisted to localStorage', saved && saved.goals.length === 3 && saved.inv.exp4 === 100);

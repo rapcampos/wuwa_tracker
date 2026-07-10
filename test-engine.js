@@ -10,7 +10,7 @@ eval(blocks.join('\n;\n') + `
   costForGoal, totalBag, freshState, maxedState, expToPotions, remainingBag, farmNextWalk, sortMatIds,
   freshWpnState, maxedWpnState, wexpToCores, fmtShort, priorityMatIds, defaultGoalTgt, fuzzyScore,
   nodeShortfall, charEnergy, teamUsage, energyLeft, sanitizeTeams, expTopTier, wexpTopTier,
-  waveplateEstimate, stripCE, craftFromPool, affordCost, poolPlan, spendCost});`);
+  waveplateEstimate, stripCE, craftFromPool, affordCost, poolPlan, spendCost, dailyPlan});`);
 
 let pass = 0, fail = 0;
 const canon = v => (v && typeof v === 'object' && !Array.isArray(v))
@@ -471,6 +471,100 @@ eq('stripCE never mutates its input', (() => {
      sanitizeTeams([{name:'  Tower A ', chars:[]}, {name:42, chars:[]}, {name:'   ', chars:[]}], ROSTER),
      [{name:'Tower A', chars:[null, null, null]}, {chars:[null, null, null]},
       {chars:[null, null, null]}]);
+}
+
+// ═══ 21. DAILY PLAN (today's waveplate budget → whole runs) ═══
+{
+  const W = GAME.waveplates;
+  const firstOf = cat => Object.keys(MATS).find(id => MATS[id].cat === cat);
+  const BOSS = firstOf('Boss Drops'), WK = firstOf('Weekly Boss'), SPEC = firstOf('Specialty');
+  const FG = Object.keys(MATS).find(id => MATS[id].cat === 'Forgery' && MATS[id].tier === 0);
+  const FAM = MATS[FG].family;
+  const keys = p => p.runs.map(r => r.key);
+
+  eq('empty queue plans nothing', dailyPlan([]), {runs:[], used:0, leftover:240, overworld:[], weeklyCapped:false});
+  eq('an empty bag plans nothing', dailyPlan([{}]).runs, []);
+
+  // 9 boss mats at 4.5/claim = 2 claims; the budget is not spent past the demand
+  {
+    const p = dailyPlan([{[BOSS]: 9}]);
+    eq('boss demand rounds up to whole claims', p.runs,
+       [{key:'boss:' + BOSS, kind:'boss', id:BOSS, runs:2, cost:120, yield:9}]);
+    eq('used = plate cost of the runs', [p.used, p.leftover], [120, 120]);
+  }
+  // a partial claim still costs a whole claim
+  eq('one mat short of a claim still books one claim', dailyPlan([{[BOSS]: 1}]).runs[0].runs, 1);
+
+  // the budget bounds the plan
+  eq('a 60⚡ budget buys one boss claim', dailyPlan([{[BOSS]: 99}], 60).runs[0].runs, 1);
+  eq('a 40⚡ budget buys no boss claim at all', dailyPlan([{[BOSS]: 99}], 40).runs, []);
+  eq('…but still buys a 40⚡ forgery run', dailyPlan([{[BOSS]: 99, [FG]: 999}], 40).runs,
+     [{key:'fg:' + FAM, kind:'forgery', id:FAM + '3', runs:1, cost:40, yield:W.forgery.t0Equiv}]);
+
+  // forgery tiers collapse onto one domain, weighted 3× per tier
+  {
+    const p = dailyPlan([{[FAM + '1']: W.forgery.t0Equiv / 3}]);   // 17 t1 = 51 t0-equiv = 1 run
+    eq('a forgery family is one domain, tiers weighted 3×', p.runs.map(r => [r.key, r.runs]),
+       [['fg:' + FAM, 1]]);
+  }
+
+  // weekly bosses: 3 claims per week, however deep the demand or budget
+  {
+    const p = dailyPlan([{[WK]: 30}], 600);                        // demand 10 claims
+    eq('weekly claims stop at the 3/week cap', [p.runs[0].runs, p.weeklyCapped], [3, true]);
+    eq('an uncapped weekly demand does not raise the flag', dailyPlan([{[WK]: 3}]).weeklyCapped, false);
+  }
+
+  // overworld mats are pickups: no runs, listed separately
+  {
+    const p = dailyPlan([{[SPEC]: 60}]);
+    eq('specialty mats cost no waveplates', [p.runs, p.overworld], [[], [SPEC]]);
+  }
+
+  // the pools each get their own simulation
+  eq('credits / EXP / weapon EXP map to their sims',
+     keys(dailyPlan([{credits: 84000, exp: 78440, wexp: 79059}])).sort(),
+     ['credits', 'exp', 'wexp']);
+  eq('an EXP sim is priced and yielded from GAME.waveplates',
+     dailyPlan([{exp: 78440}]).runs[0], {key:'exp', kind:'exp', id:'exp4', runs:1, cost:40, yield:78440});
+  eq('potion items never appear as runs (they feed the pool)', dailyPlan([{exp4: 9}]).runs, []);
+
+  // priority: goal 0 is served first, and a later goal cannot pull runs forward
+  {
+    const p = dailyPlan([{[FG]: 999}, {[BOSS]: 99}], 80);
+    eq('the top goal takes the whole budget when it can use it', keys(p), ['fg:' + FAM]);
+    eq('…two runs of it', p.runs[0].runs, 2);
+  }
+  {
+    const p = dailyPlan([{[FG]: W.forgery.t0Equiv}, {[BOSS]: 9}], 240);  // goal 0 wants exactly 1 run
+    eq('a covered top goal spills the rest into the next', keys(p), ['fg:' + FAM, 'boss:' + BOSS]);
+    eq('spillover respects the next goal’s demand', p.runs.map(r => r.runs), [1, 2]);
+    eq('the plan is priced end to end', [p.used, p.leftover], [160, 80]);
+  }
+  {
+    // the same boss serves both goals: goal 0 needs 1 claim, goal 1 needs 2 more
+    const p = dailyPlan([{[BOSS]: 4}, {[BOSS]: 9}], 60);
+    eq('a shared activity is capped at the demand of the goals reached so far',
+       p.runs[0].runs, 1);
+    eq('…and the full demand is bought once the later goal is reached',
+       dailyPlan([{[BOSS]: 4}, {[BOSS]: 9}], 240).runs[0].runs, 3);
+  }
+
+  // water-filling inside one goal: the biggest remaining demand takes each run
+  {
+    const p = dailyPlan([{[FG]: W.forgery.t0Equiv, [BOSS]: 4}], 100);   // one run of each
+    eq('one goal’s activities share the budget', keys(p).sort(), ['boss:' + BOSS, 'fg:' + FAM]);
+    eq('…and the plan spends it all', p.used, 100);
+    const big = dailyPlan([{[FG]: 999, [BOSS]: 4}], 100);
+    eq('a much larger demand keeps taking runs (water-filling, not round-robin)',
+       big.runs.map(r => [r.key, r.runs]), [['fg:' + FAM, 2]]);
+  }
+  // the weekly's 3/week cap is a use-it-or-lose-it resource: it outranks demand
+  {
+    const p = dailyPlan([{[FG]: 9999, [WK]: 3}], 100);
+    eq('a weekly claim is scheduled ahead of a far bigger forgery demand',
+       p.runs.map(r => [r.key, r.runs]), [['wk:' + WK, 1], ['fg:' + FAM, 1]]);
+  }
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

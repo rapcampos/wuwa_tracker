@@ -375,6 +375,18 @@ are no screenshot tests — be extra careful with CSS-only changes.
   protection — see the deficit-tiles bullet; the in-app note states which
   mode is active) / Completed (finished goals; tab label carries a count
   when non-empty).
+- **Today's plan** (`dailyPlan`, pure/engine; `todayBox` renders it at the
+  top of Farm next): splits one day's 240⚡ into WHOLE runs. It takes the
+  walk's per-goal remainders in queue order, books each material to the
+  activity that drops it (same rules as `waveplateEstimate`; forgery tiers
+  collapse onto one domain, weighted 3× per tier), then buys runs one at a
+  time — goal 0's activities first, and a shared activity is capped at the
+  demand of the goals reached so far, so a later goal can't pull runs
+  forward. Inside a goal it water-fills (largest remaining demand takes each
+  run), **except that weekly bosses go first**: their 3-claims-per-week cap
+  is use-it-or-lose-it, and a big forgery demand would otherwise crowd the
+  claim out of the budget for good. Respects `skipCE` (it plans `viewBag`
+  remainders). Overworld mats yield no runs and are named in the footnote.
 - **"Ignore credits & EXP"** (`state.skipCE`, checkbox on the Total tab):
   a VIEW-level filter — `stripCE(bag)` (pure/engine) drops `credits`/`exp`/
   `wexp` before tiles, readiness bars, waveplate estimates, the Total

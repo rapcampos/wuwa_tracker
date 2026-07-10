@@ -130,10 +130,10 @@ it goes in block 2 with tests; presentation goes in block 3.
 - **Save format** lives in localStorage key `wuwa-planner-v1`. `sanitize()`
   migrates all older generations (v1 counts → v2 `{minor,major,inh}` arrays →
   current matrix) and repairs illegal states. Later-added top-level fields:
-  `done` (completed goals), `hideUn` (Inventory-tab filter), and `teams`
-  (Teams page) — all default safely when absent. Never break old-save
-  loading; add migrations instead. Storage is normalized (rewritten) once
-  at boot.
+  `done` (completed goals), `hideUn` (Inventory-tab filter), `skipCE`
+  ("Ignore credits & EXP"), and `teams` (Teams page) — all default safely
+  when absent. Never break old-save loading; add migrations instead.
+  Storage is normalized (rewritten) once at boot.
 
 ## Game data provenance (do not silently change numbers)
 
@@ -304,11 +304,20 @@ are no screenshot tests — be extra careful with CSS-only changes.
   `moveGoal`, and `render()` re-renders the open list via `renderOrder()`
   (no-op when closed). Ctrl+K/`openPal` closes it; Esc priority is palette →
   reorder → editor.
-- Summary tabs: Total / Inventory (inline inventory + 3→1 synthesis toggle
-  + hide-un-needed toggle) / Farm next (sequential allocation, deliberately
-  no crafting — a craft spent on goal 1 would silently eat goal 2's stock;
-  this is documented in-app) / Completed (finished goals; tab label carries
-  a count when non-empty).
+- Summary tabs: Total (aggregate deficit + waveplate line + the global
+  "Ignore credits & EXP" toggle) / Inventory (inline inventory + 3→1
+  synthesis toggle + hide-un-needed toggle) / Farm next (sequential
+  allocation, deliberately no crafting — a craft spent on goal 1 would
+  silently eat goal 2's stock; this is documented in-app) / Completed
+  (finished goals; tab label carries a count when non-empty).
+- **"Ignore credits & EXP"** (`state.skipCE`, checkbox on the Total tab):
+  a VIEW-level filter — `stripCE(bag)` (pure/engine) drops `credits`/`exp`/
+  `wexp` before tiles, readiness bars, waveplate estimates, the Total
+  aggregate, and Farm next's missing lists + READY flags. It never touches
+  the truth: `costForGoal` output, the finished/✓-mark check (a goal
+  needing only credits can't be marked complete by the toggle — cards say
+  "Only credits & EXP left — ignored"), and the Inventory tab (stock
+  logging keeps the real Need/Left numbers).
 - **Readiness bars**: every unfinished goal card carries a thin waveplate
   progress bar under its header (`readyBar`: full requirement vs the
   queue-order-allocated remainder — same `farmNextWalk` data as the tiles),

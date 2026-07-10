@@ -955,6 +955,14 @@ const CATEGORY_ORDER = ['Credits','EXP','Boss Drops','Weekly Boss','Specialty','
 // ── bag helpers ──
 const bagAdd = (bag, id, qty) => { if(qty>0) bag[id] = (bag[id]||0) + qty; return bag; };
 const bagMerge = (a, b) => { for(const [k,v] of Object.entries(b)) bagAdd(a,k,v); return a; };
+/* planning filter: drop the passively-accumulating pools (Shell Credits +
+   both EXP pools) from a bag — powers the "Ignore credits & EXP" toggle */
+function stripCE(bag){
+  const out = {};
+  for(const [k, v] of Object.entries(bag))
+    if(k !== 'credits' && k !== 'exp' && k !== 'wexp') out[k] = v;
+  return out;
+}
 
 // ── default goal states ──
 const freshState = () => ({ord:0, skills:[1,1,1,1,1], inh1:0, inh2:0, minor:0, major:0});
@@ -1358,13 +1366,13 @@ const newWpnGoal = (weapon, open) => ({weapon, cur:freshWpnState(), tgt:maxedWpn
 
 const defaultState = () => ({
   goals: [newGoal('jinhsi', true), newGoal('phoebe', false), newGoal('suisui', false)],
-  done: [], inv:{}, synth:true, hideUn:false, tab:'total', teams: [],
+  done: [], inv:{}, synth:true, hideUn:false, skipCE:false, tab:'total', teams: [],
   defaults: {4: defaultGoalTgt(4), 5: defaultGoalTgt(5)},
 });
 
 function sanitize(raw){
   const st = {goals:[], done:[], inv:{}, synth: raw ? !!raw.synth : true,
-              hideUn: !!(raw && raw.hideUn),
+              hideUn: !!(raw && raw.hideUn), skipCE: !!(raw && raw.skipCE),
               tab: ['total','left','next','done'].includes(raw && raw.tab) ? raw.tab : 'total'};
   const fix = x => {
     const o = freshState();
@@ -1561,8 +1569,12 @@ function miniTree(g){
 /* card materials show the DEFICIT after inventory, allocated in queue order
    (farmNextWalk semantics: the first goal that needs a material eats the
    stock; later goals see what's left). Covered mats stay visible as ✓. */
-const goalMats = wk => `<div class="goal-mats">${deficitTiles(wk.need, wk.rem) ||
-  '<div class="mats-note">Nothing needed — current already meets target.</div>'}</div>`;
+/* vw = the view-filtered walk entry (credits/EXP stripped when the toggle is
+   on); ceOnly = the goal truly needs something, but only credits/EXP */
+const viewBag = bag => state.skipCE ? stripCE(bag) : bag;
+const goalMats = (vw, ceOnly) => `<div class="goal-mats">${deficitTiles(vw.need, vw.rem) ||
+  `<div class="mats-note">${ceOnly ? 'Only credits & EXP left — ignored by the Total-tab toggle.'
+                                   : 'Nothing needed — current already meets target.'}</div>`}</div>`;
 
 function deficitTip(id, needQty, left){
   let tip = MATS[id].name + ' — ' + (left
@@ -1594,7 +1606,11 @@ const goalCtrls = (i, fin) =>
   `<button class="tiny danger" data-act="del" data-g="${i}" title="Remove">✕</button>`;
 
 function goalCard(g, i, wk){
-  return g.weapon !== undefined ? wpnCard(g, i, wk) : charCard(g, i, wk);
+  // vw drives the tiles + readiness bar; fin/✓ stays on the TRUE need so
+  // the "Ignore credits & EXP" toggle can never fake a finished goal
+  const vw = state.skipCE ? {need: stripCE(wk.need), rem: stripCE(wk.rem)} : wk;
+  const ceOnly = !Object.keys(vw.need).length && !!Object.keys(wk.need).length;
+  return g.weapon !== undefined ? wpnCard(g, i, wk, vw, ceOnly) : charCard(g, i, wk, vw, ceOnly);
 }
 
 /* readiness: waveplate progress for one goal — the full requirement vs
@@ -1626,7 +1642,7 @@ function readyBar(wk){
     `<span class="ready-lbl num">${lbl}</span></div>`;
 }
 
-function wpnCard(g, i, wk){
+function wpnCard(g, i, wk, vw, ceOnly){
   const w = GAME.weapons[g.weapon];
   return `<div class="goal" data-g="${i}" style="--acc:var(--weapon)">
     <div class="goal-top">
@@ -1636,10 +1652,10 @@ function wpnCard(g, i, wk){
       <div><div class="gname">${esc(w.name)}${w.beta ? '<span class="badge">3.5 BETA</span>' : ''}</div>
         <div class="gmeta">${w.rarity}★ ${w.wtype} weapon · ${ORD_LABEL(g.cur.ord)} → ${ORD_LABEL(g.tgt.ord)}</div></div>
       <div class="gctrl">${goalCtrls(i, !Object.keys(wk.need).length)}</div>
-    </div>${readyBar(wk)}${goalMats(wk)}</div>`;
+    </div>${readyBar(vw)}${goalMats(vw, ceOnly)}</div>`;
 }
 
-function charCard(g, i, wk){
+function charCard(g, i, wk, vw, ceOnly){
   const ch = GAME.characters[g.char];
   return `<div class="goal" data-g="${i}" style="--acc:${ch.elColor}">
     <div class="goal-top">
@@ -1649,7 +1665,7 @@ function charCard(g, i, wk){
       <div><div class="gname">${esc(ch.name)}${ch.beta ? '<span class="badge">3.5 BETA</span>' : ''}</div>
         <div class="gmeta">${ch.rarity}★ ${ch.element} · ${ch.wtype} · ${ORD_LABEL(g.cur.ord)} → ${ORD_LABEL(g.tgt.ord)}</div></div>
       <div class="gctrl">${goalCtrls(i, !Object.keys(wk.need).length)}</div>
-    </div>${readyBar(wk)}${miniTree(g)}${goalMats(wk)}</div>`;
+    </div>${readyBar(vw)}${miniTree(g)}${goalMats(vw, ceOnly)}</div>`;
 }
 
 function renderGoals(){
@@ -2072,16 +2088,27 @@ function renderSummary(){
   const need = totalBag(state.goals);
 
   if(state.tab === 'total'){
-    const res = remainingBag(need, state.inv, state.synth);
+    const needV = viewBag(need);
+    const res = remainingBag(needV, state.inv, state.synth);
     const wpAll = waveplateEstimate(res.rem);
     const wpLine = (wpAll.plates || wpAll.overworld.length)
       ? `<div class="gmeta" style="margin-bottom:8px" title="${esc(wpTip(wpAll))}">≈ <b>${fmt(wpAll.plates)}</b> waveplates ` +
         `≈ <b>${dayTxt(wpAll.days)}</b> at 240/day${wpAll.weeklyRuns ? ` · ${wpAll.weeklyRuns} weekly claims (3/week)` : ''}` +
         `${wpAll.overworld.length ? ' · plus overworld mats' : ''}</div>`
       : '';
-    el.innerHTML = wpLine +
+    const emptyMsg = state.skipCE && Object.keys(need).length
+      ? '<div class="empty">Only credits & EXP left — ignored by the toggle above.</div>'
+      : '<div class="empty">All targets already met.</div>';
+    el.innerHTML =
+      `<label class="chk" style="margin-bottom:8px" title="Applies everywhere: goal cards, this tab, Farm next, and the waveplate estimates. The Inventory tab keeps them so stock can still be logged.">` +
+        `<input type="checkbox" id="ceChk"${state.skipCE ? ' checked' : ''}> Ignore credits &amp; EXP</label>` +
+      wpLine +
       `<div class="gmeta" style="margin-bottom:8px">Everything still needed for ${state.goals.length} goal${state.goals.length > 1 ? 's' : ''} after inventory — ordered by queue priority. Hover a tile for exact amounts.</div>` +
-      (deficitTiles(need, res.rem, priorityMatIds(state.goals)) || '<div class="empty">All targets already met.</div>');
+      (deficitTiles(needV, res.rem, priorityMatIds(state.goals)) || emptyMsg);
+    $('#ceChk').addEventListener('change', e => {
+      state.skipCE = e.currentTarget.checked;
+      save(); render();
+    });
     bindIcons(el);
     return;
   }
@@ -2149,20 +2176,23 @@ function renderSummary(){
 
   // Farm next
   const walk = farmNextWalk(state.goals, state.inv);
-  let html = '<div class="gmeta" style="margin-bottom:8px">Inventory is spent top-down in queue order — this is what the top unmet goal still needs.</div>';
+  let html = `<div class="gmeta" style="margin-bottom:8px">Inventory is spent top-down in queue order — this is what the top unmet goal still needs.${
+    state.skipCE ? ' Credits &amp; EXP are ignored (Total-tab toggle).' : ''}</div>`;
   let expanded = false;
   walk.forEach((w, i) => {
     const isWpn = w.goal.weapon !== undefined;
     const ch = isWpn ? GAME.weapons[w.goal.weapon] : GAME.characters[w.goal.char];
     const bg = isWpn ? `var(--r${ch.rarity})` : ch.elColor;
-    const missN = Object.keys(w.rem).length;
+    const rem = viewBag(w.rem);
+    const ready = !Object.keys(rem).length;
+    const missN = Object.keys(rem).length;
     html += `<div class="goalstat" style="--acc:${isWpn ? 'var(--weapon)' : ch.elColor}"><span class="prio">P${i+1}</span>` +
       `<span class="avatar" style="background:${bg};width:24px;height:24px;font-size:10px;border-radius:6px">${ch.mono}${icoImg(ch.name, isWpn ? 'weapon' : 'char', 'avatar-img')}</span>` +
       `<strong>${esc(ch.name)}</strong><span class="gmeta">→ ${ORD_LABEL(w.goal.tgt.ord)}</span>` +
-      `<span class="st ${w.ready ? 'ready' : 'miss'}">${w.ready ? 'READY' : 'MISSING ' + missN}</span></div>`;
-    if(!w.ready && !expanded){
+      `<span class="st ${ready ? 'ready' : 'miss'}">${ready ? 'READY' : 'MISSING ' + missN}</span></div>`;
+    if(!ready && !expanded){
       expanded = true;
-      html += `<div style="margin:2px 0 14px">${matTiles(w.rem)}</div>`;
+      html += `<div style="margin:2px 0 14px">${matTiles(rem)}</div>`;
     }
   });
   html += '<div style="color:var(--faint);font-size:11.5px;margin-top:6px">Crafting isn’t applied in this view, so tier surpluses stay reserved for lower-priority goals.</div>';

@@ -10,7 +10,7 @@ eval(blocks.join('\n;\n') + `
   costForGoal, totalBag, freshState, maxedState, expToPotions, remainingBag, farmNextWalk, sortMatIds,
   freshWpnState, maxedWpnState, wexpToCores, fmtShort, priorityMatIds, defaultGoalTgt, fuzzyScore,
   nodeShortfall, charEnergy, teamUsage, energyLeft, sanitizeTeams, expTopTier, wexpTopTier,
-  waveplateEstimate});`);
+  waveplateEstimate, stripCE});`);
 
 let pass = 0, fail = 0;
 const canon = v => (v && typeof v === 'object' && !Array.isArray(v))
@@ -322,6 +322,14 @@ eq('fuzzy: shorter name wins the tie', fuzzyScore('car', 'Carlotta') < fuzzyScor
 eq('fuzzy: start-of-name beats mid-name', fuzzyScore('ta', 'Taoqi') < fuzzyScore('ta', 'Cantarella'), true);
 eq('fuzzy: empty query matches everything at 0', fuzzyScore('', 'Jinhsi'), 0);
 eq('fuzzy: case-insensitive', fuzzyScore('JINHSI', 'Jinhsi') >= 0, true);
+
+// ═══ 19a. STRIP CREDITS & EXP (the "Ignore credits & EXP" planning filter) ═══
+eq('stripCE drops exactly the three pooled ids',
+   stripCE({credits: 505200, exp: 1272000, wexp: 99, howler0: 4, 'boss:Elegy Tacet Core': 21}),
+   {howler0: 4, 'boss:Elegy Tacet Core': 21});
+eq('stripCE on an empty bag', stripCE({}), {});
+eq('stripCE never mutates its input', (() => {
+   const b = {credits: 1, howler0: 2}; stripCE(b); return b; })(), {credits: 1, howler0: 2});
 
 // ═══ 19b. WAVEPLATE ESTIMATES (endgame yields, community drop-rate sheet) ═══
 {

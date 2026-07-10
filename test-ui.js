@@ -64,6 +64,34 @@ ok('tiles carry rarity grounds', d.querySelector('#summary .tile.r5') !== null &
   w.eval(`delete state.inv['boss:Elegy Tacet Core']; save(); render();`);
 }
 
+// ── "Ignore credits & EXP" toggle: strips both pools from every planning view ──
+{
+  const titles = () => [...d.querySelectorAll('#summary .tile')].map(t => t.getAttribute('title') || '');
+  const ce = () => d.querySelector('#ceChk');
+  ok('toggle lives on the Total tab, off by default', ce() !== null && ce().checked === false);
+  ce().checked = true; fire(ce(), 'change');
+  ok('credit and EXP tiles vanish from Total; boss tiles stay',
+     !titles().some(t => t.startsWith('Shell Credit') || t.startsWith('Resonator EXP')) &&
+     titles().some(t => t.startsWith('Elegy Tacet Core')));
+  ok('goal cards drop their credit/EXP tiles too',
+     ![...d.querySelectorAll('.goal[data-g="0"] .tile')]
+       .some(t => (t.getAttribute('title') || '').startsWith('Shell Credit')));
+  ok('waveplate breakdown loses the sim/credit runs',
+     !(d.querySelector('.goal[data-g="0"] .ready').getAttribute('title') || '').includes('sims') &&
+     (d.querySelector('.goal[data-g="0"] .ready').getAttribute('title') || '').includes('boss ≈'));
+  ok('setting persists in the save',
+     JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).skipCE === true);
+  fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Farm next'), 'click');
+  ok('Farm next notes the filter and drops credit tiles',
+     d.querySelector('#summary .gmeta').textContent.includes('ignored') &&
+     ![...d.querySelectorAll('#summary .tile')]
+       .some(t => (t.getAttribute('title') || '').startsWith('Shell Credit')));
+  fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Total'), 'click');
+  ce().checked = false; fire(ce(), 'change');
+  ok('unticking restores the credit tile',
+     titles().some(t => t.startsWith('Shell Credit')));
+}
+
 // totals are ordered by queue priority: P1 Jinhsi's boss mat precedes P2 Phoebe's precedes P3 Suisui's
 {
   const titles = [...d.querySelectorAll('#summary .tile')].map(t => t.getAttribute('title'));

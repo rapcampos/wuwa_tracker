@@ -872,6 +872,39 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
      w.location.hash !== '#teams');
 }
 
+// ── single-level undo: toast + Ctrl+Z restore the last destructive action ──
+{
+  const bar = () => d.querySelector('#undoBar');
+  w.eval(`$('#undoBar').hidden = true;`);       // earlier blocks' deletions may have left it up
+  const before = texts('.gname');
+  fire(d.querySelector('button[data-act="del"][data-g="0"]'), 'click');
+  ok('deleting a goal shows the undo toast naming it',
+     bar().hidden === false &&
+     d.querySelector('#undoMsg').textContent.startsWith('Removed ') &&
+     texts('.gname').length === before.length - 1);
+  fire(d.querySelector('#btnUndo'), 'click');
+  ok('Undo restores the queue in order',
+     JSON.stringify(texts('.gname')) === JSON.stringify(before) && bar().hidden === true);
+
+  // Ctrl+Z path, via a team deletion on the Teams page
+  fire([...d.querySelectorAll('.pagenav button')].find(b => b.dataset.page === 'teams'), 'click');
+  fire(d.querySelector('#btnTeam'), 'click');
+  fire(d.querySelector('[data-rmteam="0"]'), 'click');
+  ok('team deletion arms undo', d.querySelectorAll('#teams .team').length === 0 && bar().hidden === false);
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'z', ctrlKey:true, bubbles:true}));
+  ok('Ctrl+Z restores the team', d.querySelectorAll('#teams .team').length === 1);
+  // Ctrl+Z from inside an input is left to the browser's native undo
+  fire(d.querySelector('[data-rmteam="0"]'), 'click');
+  const inp = d.createElement('input'); d.body.appendChild(inp);
+  inp.dispatchEvent(new w.KeyboardEvent('keydown', {key:'z', ctrlKey:true, bubbles:true}));
+  ok('Ctrl+Z inside an input does not undo', d.querySelectorAll('#teams .team').length === 0);
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'z', ctrlKey:true, bubbles:true}));
+  ok('…and the snapshot stays armed for the real Ctrl+Z', d.querySelectorAll('#teams .team').length === 1);
+  inp.remove();
+  fire(d.querySelector('[data-rmteam="0"]'), 'click');        // leave no teams behind
+  fire([...d.querySelectorAll('.pagenav button')].find(b => b.dataset.page === 'ledger'), 'click');
+}
+
 // ── Teams: #teams hash boot + save repair (dupes, budget, unknown ids) ──
 {
   const domT = new JSDOM(html, {runScripts:'outside-only', url:'https://localhost/#teams'});
@@ -895,5 +928,6 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok('old saves without teams default to none (jsdom main dom booted clean)', Array.isArray(savedT.teams));
 }
 
+dom.window.close();    // kill pending toast timers so Node exits promptly
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

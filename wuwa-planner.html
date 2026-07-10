@@ -226,6 +226,11 @@ button.search kbd{margin-left:auto; font-family:inherit; font-size:10px; color:v
   text-transform:uppercase; white-space:nowrap}
 .ord-item .obtns{display:flex; gap:4px; flex:none}
 
+/* ── undo toast (single-level, Ctrl+Z) ── */
+#undoBar{position:fixed; left:50%; bottom:18px; transform:translateX(-50%); z-index:70;
+  display:flex; align-items:center; gap:12px; background:var(--panel); border:1px solid var(--line2);
+  border-radius:9px; padding:8px 14px; font-size:12.5px; box-shadow:0 10px 30px rgba(0,0,0,.5)}
+
 /* ── material tiles: icon on rarity-tinted ground, qty below, name on hover ── */
 .tiles{display:flex; flex-wrap:wrap; gap:6px; padding:2px 0}
 .tile{width:46px; border:1px solid var(--line2); border-radius:8px; background:var(--panel);
@@ -357,6 +362,11 @@ td.inv{width:96px; text-align:right}
       <button class="tiny close" id="ordClose" title="Close (Esc)">✕</button></div>
     <div id="ordList"></div>
   </div>
+</div>
+
+<div id="undoBar" hidden role="status">
+  <span id="undoMsg"></span>
+  <button class="tiny" id="btnUndo" title="Restore the state from before (Ctrl+Z)">Undo</button>
 </div>
 </div>
 <script>
@@ -1436,6 +1446,32 @@ function save(){
   }catch(e){ note('Could not save — use Export to keep your plan.', true); }
 }
 
+/* ── single-level undo for destructive actions ──
+   withUndo snapshots the whole state before mutating; the toast button and
+   Ctrl+Z restore it through sanitize() (same path as an import). One slot:
+   the next destructive action replaces the previous snapshot; the toast
+   auto-hides but Ctrl+Z keeps working until then. */
+let undoSnap = null, undoTimer = null;
+function withUndo(label, fn){
+  const snap = JSON.stringify(state);
+  fn();
+  undoSnap = snap;
+  save(); render();
+  $('#undoMsg').textContent = label;
+  $('#undoBar').hidden = false;
+  clearTimeout(undoTimer);
+  undoTimer = setTimeout(() => { $('#undoBar').hidden = true; }, 8000);
+}
+function doUndo(){
+  if(!undoSnap) return;
+  state = sanitize(JSON.parse(undoSnap));
+  undoSnap = null;
+  $('#undoBar').hidden = true;
+  clearTimeout(undoTimer);
+  save(); render();
+}
+$('#btnUndo').addEventListener('click', doUndo);
+
 /* ── shared row builders ── */
 function dotColor(id){
   if(id === 'credits') return 'var(--gold)';
@@ -1695,14 +1731,25 @@ function onAct(e){
   if(act === 'up')   return moveGoal(i, i - 1);
   if(act === 'down') return moveGoal(i, i + 2);
   if(act === 'edit'){ editIdx = i; render(); return; }
-  if(act === 'del' || act === 'done'){
-    const [g] = state.goals.splice(i, 1);
-    if(act === 'done') state.done.push(g);
-    else pruneTeams();                        // deleted = out of the roster → off any team
-    if(editIdx !== null){                     // keep the pop-up pointed at the same goal
+  const fixEdit = () => {                     // keep the pop-up pointed at the same goal
+    if(editIdx !== null){
       if(editIdx === i) editIdx = null;
       else if(editIdx > i) editIdx--;
     }
+  };
+  if(act === 'done'){
+    const [g] = state.goals.splice(i, 1);
+    state.done.push(g);                       // reversible via ↩ on the Completed tab — no undo needed
+    fixEdit();
+  }
+  if(act === 'del'){
+    const g = state.goals[i];
+    const nm = g.weapon !== undefined ? GAME.weapons[g.weapon].name : GAME.characters[g.char].name;
+    return withUndo(`Removed ${nm}`, () => {
+      state.goals.splice(i, 1);
+      pruneTeams();                           // deleted = out of the roster → off any team
+      fixEdit();
+    });
   }
   save(); render();
 }
@@ -1910,8 +1957,8 @@ function renderTeams(){
     save(); render();
   });
   box.querySelectorAll('[data-rmteam]').forEach(b => b.addEventListener('click', e => {
-    state.teams.splice(+e.currentTarget.dataset.rmteam, 1);
-    save(); render();
+    const i = +e.currentTarget.dataset.rmteam;
+    withUndo(`Deleted ${state.teams[i].name || 'Team ' + (i + 1)}`, () => state.teams.splice(i, 1));
   }));
   box.querySelectorAll('.slot').forEach(b => b.addEventListener('click', e => {
     const t = +e.currentTarget.dataset.t, s = +e.currentTarget.dataset.s;
@@ -2006,9 +2053,13 @@ function renderSummary(){
       save(); render();
     }));
     el.querySelectorAll('[data-rmdone]').forEach(b => b.addEventListener('click', e => {
-      state.done.splice(+e.currentTarget.dataset.rmdone, 1);
-      pruneTeams();                           // forgotten = out of the roster → off any team
-      save(); render();
+      const i = +e.currentTarget.dataset.rmdone;
+      const g = state.done[i];
+      const nm = g.weapon !== undefined ? GAME.weapons[g.weapon].name : GAME.characters[g.char].name;
+      withUndo(`Forgot ${nm}`, () => {
+        state.done.splice(i, 1);
+        pruneTeams();                         // forgotten = out of the roster → off any team
+      });
     }));
     bindIcons(el);
     return;
@@ -2298,6 +2349,11 @@ $('#modalWrap').addEventListener('click', e => { if(e.target === e.currentTarget
 document.addEventListener('keydown', e => {
   if((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')){ e.preventDefault(); openPal(); return; }
   if((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')){ e.preventDefault(); openOrd(); return; }
+  if((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'z' || e.key === 'Z')){
+    const tag = (e.target && e.target.tagName) || '';
+    if(!/^(INPUT|TEXTAREA|SELECT)$/.test(tag)){ e.preventDefault(); doUndo(); }   // inputs keep native undo
+    return;
+  }
   if(e.key === 'Escape'){
     if(palIsOpen()) closePal();
     else if(ordIsOpen()) closeOrd();
@@ -2320,14 +2376,16 @@ $('#fileImport').addEventListener('change', e => {
   if(!f) return;
   const rd = new FileReader();
   rd.onload = () => {
-    try{ state = sanitize(JSON.parse(rd.result)); save(); render(); }
-    catch(err){ note('Import failed — that file isn’t a valid planner save.', true); }
+    try{
+      const st = sanitize(JSON.parse(rd.result));
+      withUndo('Imported a save file', () => { state = st; });
+    }catch(err){ note('Import failed — that file isn’t a valid planner save.', true); }
   };
   rd.readAsText(f);
   e.currentTarget.value = '';
 });
 $('#btnReset').addEventListener('click', () => {
-  if(confirm('Clear all goals and inventory?')){ state = defaultState(); save(); render(); }
+  if(confirm('Clear all goals and inventory?')) withUndo('Reset everything', () => { state = defaultState(); });
 });
 
 /* ── footer & boot ── */

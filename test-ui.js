@@ -43,6 +43,27 @@ ok('total EXP tile counts top-tier potions (7,314,000 ÷ 20k → 366), exact EXP
 ok('tiles carry rarity grounds', d.querySelector('#summary .tile.r5') !== null &&
    d.querySelector('#summary .tile.r2') !== null && d.querySelector('#goals .tile.r4') !== null);
 
+// ── readiness bars: per-card waveplate estimate + Total-tab summary line ──
+{
+  ok('every unfinished card carries a readiness bar', d.querySelectorAll('#goals .goal .ready').length === 3);
+  const bar = () => d.querySelector('.goal[data-g="0"] .ready');
+  ok('fresh goals start at 0% with a waveplate label',
+     bar().querySelector('.ready-fill').getAttribute('style').includes('width:0%') &&
+     bar().querySelector('.ready-lbl').textContent.includes('⚡'));
+  ok('bar tooltip breaks the estimate down by activity',
+     (bar().getAttribute('title') || '').includes('boss ≈') &&
+     bar().getAttribute('title').includes('3/week cap') &&
+     bar().getAttribute('title').includes('overworld'));
+  ok('Total tab shows the aggregate waveplate line',
+     (() => { const g = [...d.querySelectorAll('#summary .gmeta')].map(x => x.textContent).join(' ');
+              return g.includes('waveplates') && g.includes('240/day') && g.includes('weekly claims'); })());
+  // stocking inventory moves the bar (and reverts cleanly)
+  w.eval(`state.inv['boss:Elegy Tacet Core'] = 21; save(); render();`);
+  ok('inventory pushes the bar off 0%',
+     !bar().querySelector('.ready-fill').getAttribute('style').includes('width:0%'));
+  w.eval(`delete state.inv['boss:Elegy Tacet Core']; save(); render();`);
+}
+
 // totals are ordered by queue priority: P1 Jinhsi's boss mat precedes P2 Phoebe's precedes P3 Suisui's
 {
   const titles = [...d.querySelectorAll('#summary .tile')].map(t => t.getAttribute('title'));

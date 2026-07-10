@@ -99,6 +99,11 @@ label.chk{display:inline-flex; gap:6px; align-items:center; cursor:pointer; colo
   box-shadow:0 0 0 1px rgba(255,255,255,.12) inset; position:relative; overflow:hidden}
 .avatar-img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; border-radius:inherit;
   background:inherit}  /* opaque over the monogram — transparent icons must not let it bleed through */
+/* readiness: waveplate progress bar under the card header */
+.ready{display:flex; align-items:center; gap:8px; padding:2px 12px 0}
+.ready-track{flex:1; height:4px; border-radius:2px; background:var(--line); overflow:hidden}
+.ready-fill{height:100%; background:var(--acc,var(--cyan)); opacity:.85}
+.ready-lbl{font-size:10.5px; color:var(--mut); white-space:nowrap}
 .ico-wrap{display:inline-flex; width:22px; height:22px; margin-right:8px; vertical-align:-6px;
   align-items:center; justify-content:center}
 .ico-wrap img{width:22px; height:22px; object-fit:contain; border-radius:5px}
@@ -667,6 +672,26 @@ const GAME = {
     {id:'wexp4', name:'Premium Energy Core',  exp:20000, r:5},
   ],
 
+  /* Waveplate (stamina) economics — endgame averages at UL70 / SOL3 Phase 8
+     from the community drop-rate project (WuWa Data Gathering discord's
+     crowdsourced sheet, linked from the fandom wiki's Boss/Weekly Challenge
+     pages; costs cross-checked on the wiki, Jul 2026). Sample sizes: boss
+     n=335, weekly n=39(+291 at UL60, same 3.0 rate), forgery n=2610 at
+     domain lv90, sims n≈100. `t0Equiv` = average forgery yield per run
+     converted to tier-0 units via the 3:1 synthesis rule. Estimates book
+     each material to its dedicated activity; side drops (bosses also give
+     credits/EXP, weeklies give weapon EXP…) are ignored, so real farming
+     lands a bit under the estimate. */
+  waveplates: {
+    daily:     240,                              // regeneration per day
+    boss:      {cost:60, drops:4.5},             // boss mats per claim
+    weekly:    {cost:60, drops:3, perWeek:3},    // weekly mats per claim; 3 claims/week TOTAL
+    forgery:   {cost:40, t0Equiv:51},            // forge mats per run, in tier-0 equivalents
+    simExp:    {cost:40, exp:78440},             // Resonator EXP per Resonance Potion run
+    simWexp:   {cost:40, exp:79059},             // Weapon EXP per Energy Core run
+    simCredit: {cost:40, credits:84000},         // dedicated Shell Credit run
+  },
+
   /* Full weapon catalog through 3.5 — every 4★ and 5★ (89 entries).
      One small entry each; cost templates are shared per rarity (asc5w/asc4w).
      The FORGERY family follows weapon type within a region generation
@@ -1041,6 +1066,37 @@ const wexpToCores  = exp => expToItems(exp, GAME.wpnExpItems);
    this count instead of a raw EXP number; exact EXP stays in the tooltip */
 const expTopTier  = exp => Math.ceil(Math.max(0, exp) / GAME.expItems[GAME.expItems.length - 1].exp);
 const wexpTopTier = exp => Math.ceil(Math.max(0, exp) / GAME.wpnExpItems[GAME.wpnExpItems.length - 1].exp);
+
+/* ── waveplate estimate: the stamina cost of farming a deficit bag ──
+   Books every material to its dedicated activity at the endgame yields in
+   GAME.waveplates. Specialty + enemy-drop (common) materials are overworld
+   pickups — no waveplates — and are returned in `overworld` instead.
+   `by` carries the unrounded per-activity split for tooltips; weeklyRuns
+   counts weekly-boss claims (capped 3/week in game — time, not stamina). */
+function waveplateEstimate(bag){
+  const W = GAME.waveplates;
+  const by = {boss:0, weekly:0, forgery:0, exp:0, wexp:0, credits:0};
+  let weeklyRuns = 0;
+  const overworld = [];
+  for(const [id, qty] of Object.entries(bag)){
+    if(!(qty > 0)) continue;
+    const m = MATS[id];
+    if(id === 'credits')       by.credits += qty / W.simCredit.credits * W.simCredit.cost;
+    else if(id === 'exp')      by.exp     += qty / W.simExp.exp * W.simExp.cost;
+    else if(id === 'wexp')     by.wexp    += qty / W.simWexp.exp * W.simWexp.cost;
+    else if(!m || m.cat === 'EXP') continue;                 // potion/core items never appear in deficits
+    else if(m.cat === 'Boss Drops')  by.boss += qty / W.boss.drops * W.boss.cost;
+    else if(m.cat === 'Weekly Boss'){
+      const runs = qty / W.weekly.drops;
+      weeklyRuns += runs;
+      by.weekly += runs * W.weekly.cost;
+    }
+    else if(m.cat === 'Forgery') by.forgery += qty * Math.pow(3, m.tier) / W.forgery.t0Equiv * W.forgery.cost;
+    else overworld.push(id);                                 // Specialty + Enemy Drops
+  }
+  const plates = Math.ceil(by.boss + by.weekly + by.forgery + by.exp + by.wexp + by.credits);
+  return {plates, days: plates / W.daily, weeklyRuns: Math.ceil(weeklyRuns), overworld, by};
+}
 
 /* ── inventory-aware deficit ──
    inv: {matId: qty} incl. potion ids and 'credits'.
@@ -1503,6 +1559,35 @@ function goalCard(g, i, wk){
   return g.weapon !== undefined ? wpnCard(g, i, wk) : charCard(g, i, wk);
 }
 
+/* readiness: waveplate progress for one goal — the full requirement vs
+   what's left after the queue-order inventory allocation (same walk as the
+   tiles). Bar fill = share of the waveplate farming already covered. */
+const dayTxt = d => (d >= 10 ? Math.round(d) : Math.round(d * 10) / 10) + 'd';
+function wpTip(w){
+  const p = [];
+  const add = (n, l) => { if(n >= 0.5) p.push(`${l} ≈${Math.ceil(n)}`); };
+  add(w.by.boss, 'boss');
+  if(w.by.weekly >= 0.5)
+    p.push(`weekly ≈${Math.ceil(w.by.weekly)} (${w.weeklyRuns} claim${w.weeklyRuns === 1 ? '' : 's'}, 3/week cap)`);
+  add(w.by.forgery, 'forgery');
+  add(w.by.exp, 'EXP sims');
+  add(w.by.wexp, 'weapon-EXP sims');
+  add(w.by.credits, 'credit sims');
+  let t = p.length ? 'Waveplates left — ' + p.join(' · ') : 'No waveplate farming left';
+  if(w.overworld.length) t += ' · plus overworld pickups (specialty / enemy mats)';
+  return t;
+}
+function readyBar(wk){
+  const needW = waveplateEstimate(wk.need), remW = waveplateEstimate(wk.rem);
+  if(!needW.plates && !needW.overworld.length) return '';        // finished goal — no bar
+  const pct = needW.plates ? clamp(Math.round((1 - remW.plates / needW.plates) * 100), 0, 100) : 100;
+  const lbl = remW.plates ? `≈${fmt(remW.plates)}⚡ · ${dayTxt(remW.days)}`
+            : remW.overworld.length ? 'overworld only' : 'materials ready';
+  return `<div class="ready" title="${esc(wpTip(remW))}">` +
+    `<div class="ready-track"><div class="ready-fill" style="width:${pct}%"></div></div>` +
+    `<span class="ready-lbl num">${lbl}</span></div>`;
+}
+
 function wpnCard(g, i, wk){
   const w = GAME.weapons[g.weapon];
   return `<div class="goal" data-g="${i}" style="--acc:var(--weapon)">
@@ -1513,7 +1598,7 @@ function wpnCard(g, i, wk){
       <div><div class="gname">${esc(w.name)}${w.beta ? '<span class="badge">3.5 BETA</span>' : ''}</div>
         <div class="gmeta">${w.rarity}★ ${w.wtype} weapon · ${ORD_LABEL(g.cur.ord)} → ${ORD_LABEL(g.tgt.ord)}</div></div>
       <div class="gctrl">${goalCtrls(i, !Object.keys(wk.need).length)}</div>
-    </div>${goalMats(wk)}</div>`;
+    </div>${readyBar(wk)}${goalMats(wk)}</div>`;
 }
 
 function charCard(g, i, wk){
@@ -1526,7 +1611,7 @@ function charCard(g, i, wk){
       <div><div class="gname">${esc(ch.name)}${ch.beta ? '<span class="badge">3.5 BETA</span>' : ''}</div>
         <div class="gmeta">${ch.rarity}★ ${ch.element} · ${ch.wtype} · ${ORD_LABEL(g.cur.ord)} → ${ORD_LABEL(g.tgt.ord)}</div></div>
       <div class="gctrl">${goalCtrls(i, !Object.keys(wk.need).length)}</div>
-    </div>${miniTree(g)}${goalMats(wk)}</div>`;
+    </div>${readyBar(wk)}${miniTree(g)}${goalMats(wk)}</div>`;
 }
 
 function renderGoals(){
@@ -1935,7 +2020,14 @@ function renderSummary(){
 
   if(state.tab === 'total'){
     const res = remainingBag(need, state.inv, state.synth);
-    el.innerHTML = `<div class="gmeta" style="margin-bottom:8px">Everything still needed for ${state.goals.length} goal${state.goals.length > 1 ? 's' : ''} after inventory — ordered by queue priority. Hover a tile for exact amounts.</div>` +
+    const wpAll = waveplateEstimate(res.rem);
+    const wpLine = (wpAll.plates || wpAll.overworld.length)
+      ? `<div class="gmeta" style="margin-bottom:8px" title="${esc(wpTip(wpAll))}">≈ <b>${fmt(wpAll.plates)}</b> waveplates ` +
+        `≈ <b>${dayTxt(wpAll.days)}</b> at 240/day${wpAll.weeklyRuns ? ` · ${wpAll.weeklyRuns} weekly claims (3/week)` : ''}` +
+        `${wpAll.overworld.length ? ' · plus overworld mats' : ''}</div>`
+      : '';
+    el.innerHTML = wpLine +
+      `<div class="gmeta" style="margin-bottom:8px">Everything still needed for ${state.goals.length} goal${state.goals.length > 1 ? 's' : ''} after inventory — ordered by queue priority. Hover a tile for exact amounts.</div>` +
       (deficitTiles(need, res.rem, priorityMatIds(state.goals)) || '<div class="empty">All targets already met.</div>');
     bindIcons(el);
     return;

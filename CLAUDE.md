@@ -169,6 +169,19 @@ Gauntlets→cadence, Rectifier→helix; 3.x Rikka sets: →carved, →polarizer,
 →combustor, →wshard, →strings); the ENEMY family is per-weapon. Verify both
 when seeding a weapon.
 
+**Waveplate yields (`GAME.waveplates`)** are endgame (UL70/SOL3-8) averages
+from the community drop-rate project (WuWa Data Gathering discord's sheet,
+linked from the wiki's Boss/Weekly Challenge pages; costs cross-checked on
+the wiki): boss 60⚡ → 4.5 mats (n=335), weekly 60⚡ → 3 mats + 3 claims/week
+cap, forgery 40⚡ → 51 tier-0 equivalents at domain lv90 (n=2610), sims 40⚡ →
+78,440 resonator EXP / 79,059 weapon EXP / 84,000 credits. These are
+crowdsourced averages, not datamine — softer numbers than the cost tables;
+engine test 19b anchors them (full 5★ char ⌈5723.08⌉ = 5,724⚡ ≈ 23.85 days;
+full 5★ weapon 2,522⚡). `waveplateEstimate(bag)` books each material to its
+dedicated activity and ignores side drops, so real farming lands slightly
+under the estimate; specialty + enemy commons are overworld (0⚡), returned
+in `overworld`.
+
 **The full 4★/5★ weapon catalog through 3.5 is seeded** (89 entries: 46 5★ +
 43 4★, incl. the 3.4 Cyberpunk collab pair and the crafting series with
 their real `#`-names, e.g. "Broadblade#41"). Families were verified per
@@ -296,6 +309,13 @@ are no screenshot tests — be extra careful with CSS-only changes.
   no crafting — a craft spent on goal 1 would silently eat goal 2's stock;
   this is documented in-app) / Completed (finished goals; tab label carries
   a count when non-empty).
+- **Readiness bars**: every unfinished goal card carries a thin waveplate
+  progress bar under its header (`readyBar`: full requirement vs the
+  queue-order-allocated remainder — same `farmNextWalk` data as the tiles),
+  labeled "≈N⚡ · Xd" ("overworld only" when only free pickups remain);
+  the tooltip (`wpTip`) splits the estimate by activity and notes the
+  weekly 3-claims/week cap. The Total tab gets an aggregate line above the
+  tiles. Finished goals render no bar.
 - localStorage is unavailable in the claude.ai artifact preview iframe —
   the app detects this and shows a "preview mode" note. Never assume storage
   works; everything must degrade to in-memory + Export/Import.
@@ -314,11 +334,12 @@ are no screenshot tests — be extra careful with CSS-only changes.
    are dropped from file names.) The 2026-07-10 launch checkpoint is done —
    see the provenance section. Note: the Dimbreath/WutheringData datamine
    is abandoned at 3.1.0 — verify post-3.1 data via Game8/prydwen instead.
-2. Backlog (user-approved ideas, unscheduled): waveplate-cost estimates,
-   optional synthesis in Farm Next, optional per-character stat labels on
-   tree nodes (declined for now — cosmetic), Echo XP/tuners as a separate
-   section. No farming-schedule/day-of-week features — WuWa domains are
-   always open (user-confirmed).
+2. Backlog (user-approved ideas, unscheduled): optional synthesis in Farm
+   Next, Echo XP/tuners as a separate section, farm-session +N steppers on
+   Inventory rows, "prioritize this team" queue reordering; per-character
+   stat labels on tree nodes (declined for now — cosmetic). No
+   farming-schedule/day-of-week features — WuWa domains are always open
+   (user-confirmed).
 
 ## Working agreements with this user
 

@@ -9,7 +9,8 @@ eval(blocks.join('\n;\n') + `
 ;Object.assign(globalThis, {GAME, MATS, MILES, ORD_LEVEL, ORD_LABEL, CATEGORY_ORDER,
   costForGoal, totalBag, freshState, maxedState, expToPotions, remainingBag, farmNextWalk, sortMatIds,
   freshWpnState, maxedWpnState, wexpToCores, fmtShort, priorityMatIds, defaultGoalTgt, fuzzyScore,
-  nodeShortfall, charEnergy, teamUsage, energyLeft, sanitizeTeams, expTopTier, wexpTopTier});`);
+  nodeShortfall, charEnergy, teamUsage, energyLeft, sanitizeTeams, expTopTier, wexpTopTier,
+  waveplateEstimate});`);
 
 let pass = 0, fail = 0;
 const canon = v => (v && typeof v === 'object' && !Array.isArray(v))
@@ -321,6 +322,38 @@ eq('fuzzy: shorter name wins the tie', fuzzyScore('car', 'Carlotta') < fuzzyScor
 eq('fuzzy: start-of-name beats mid-name', fuzzyScore('ta', 'Taoqi') < fuzzyScore('ta', 'Cantarella'), true);
 eq('fuzzy: empty query matches everything at 0', fuzzyScore('', 'Jinhsi'), 0);
 eq('fuzzy: case-insensitive', fuzzyScore('JINHSI', 'Jinhsi') >= 0, true);
+
+// ═══ 19b. WAVEPLATE ESTIMATES (endgame yields, community drop-rate sheet) ═══
+{
+  // clean single-activity anchors: 9 boss mats = 2 claims = 120 plates;
+  // 3 weekly mats = 1 claim = 60; 51 tier-0 forge = 1 run = 40 (tier-3 ×27);
+  // one sim run each of EXP / weapon EXP / credits = 40 apiece
+  eq('wp: boss', waveplateEstimate({'boss:Elegy Tacet Core': 9}).plates, 120);
+  const wk = waveplateEstimate({"wk:Sentinel's Dagger": 3});
+  eq('wp: weekly + claim count', [wk.plates, wk.weeklyRuns], [60, 1]);
+  eq('wp: forgery tier-0', waveplateEstimate({waveworn0: 51}).plates, 40);
+  eq('wp: forgery tier-3 is 27× tier-0', waveplateEstimate({waveworn3: 51}).plates, 27 * 40);
+  eq('wp: sim runs', [waveplateEstimate({exp: 78440}).plates,
+                      waveplateEstimate({wexp: 79059}).plates,
+                      waveplateEstimate({credits: 84000}).plates], [40, 40, 40]);
+  eq('wp: overworld mats cost nothing but are reported',
+     (() => { const r = waveplateEstimate({'spec:Belle Poppy': 60, howler0: 29});
+              return [r.plates, r.overworld.sort()]; })(),
+     [0, ['howler0', 'spec:Belle Poppy']]);
+  eq('wp: empty bag', waveplateEstimate({}), {plates:0, days:0, weeklyRuns:0, overworld:[],
+     by:{boss:0, weekly:0, forgery:0, exp:0, wexp:0, credits:0}});
+
+  // full-build anchors (hand-computed from the seeded yields):
+  // 5★ char: boss 613.3 + weekly 520 + forgery 1892.5 (2,413 t0-equiv)
+  //          + EXP 1243.2 + credits 1454.0 → ⌈5723.08⌉ = 5724 (≈23.85 days)
+  const full = waveplateEstimate(costForGoal({char:'jinhsi', cur:freshState(), tgt:maxedState()}));
+  eq('wp: full 5★ character build', [full.plates, full.weeklyRuns, full.overworld.length],
+     [5724, 9, 5]);
+  eq('wp: full-build days at 240/day', Math.round(full.days * 100) / 100, 23.85);
+  // 5★ weapon: forgery 489.4 (624 t0-equiv) + wexp 1362.2 + credits 670.0 → ⌈2521.62⌉ = 2522
+  const wfull = waveplateEstimate(costForGoal({weapon:'agesOfHarvest', cur:freshWpnState(), tgt:maxedWpnState()}));
+  eq('wp: full 5★ weapon build', [wfull.plates, wfull.weeklyRuns], [2522, 0]);
+}
 
 // ═══ 20. TEAMS (matrix team builder) ═══
 {

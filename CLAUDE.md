@@ -87,6 +87,12 @@ it goes in block 2 with tests; presentation goes in block 3.
   group as 5★ chars · 4★ chars · 5★/4★/3★ weapons (fuzzy rank within a
   group) with faint rarity row tints (`.pal-item.rN`). Arrows navigate,
   Enter activates, Esc/backdrop close. The old inline add-menu is gone.
+  **Right-click (or Shift+Enter) adds the goal maxed** — `palActivate(it,
+  max)` runs `maxTarget(goal)`, the same transform behind the editor's
+  ⤒ Max target button (Lv90 · skills 10 · every node at least planned).
+  Weapons already target Lv90 from `newWpnGoal`, so `max` is a no-op for
+  them. `#palHint` advertises it, and hides in team-pick mode (no "maxed"
+  concept when filling a slot).
 - **Editor skill controls**: each skill column has −/+ pairs under BOTH the
   current and target selects (`data-skc/sks/skd`), plus the bulk ±1 gutters
   flanking the grid. The goal editor deliberately has no bottom legend and
@@ -439,12 +445,15 @@ are no screenshot tests — be extra careful with CSS-only changes.
    are dropped from file names.) The 2026-07-10 launch checkpoint is done —
    see the provenance section. Note: the Dimbreath/WutheringData datamine
    is abandoned at 3.1.0 — verify post-3.1 data via Game8/prydwen instead.
-2. Backlog (user-approved ideas, unscheduled): optional synthesis in Farm
-   Next, Echo XP/tuners as a separate section, farm-session +N steppers on
-   Inventory rows, "prioritize this team" queue reordering; per-character
-   stat labels on tree nodes (declined for now — cosmetic). No
-   farming-schedule/day-of-week features — WuWa domains are always open
-   (user-confirmed).
+2. Backlog (user-approved ideas, unscheduled): Echo XP/tuners as a separate
+   section (Tacet Field, 60⚡ ≈24k echo XP at endgame), "buy all affordable
+   steps" in the goal editor, Teams rename/reorder + "prioritize this team"
+   queue reordering, per-block `resetState()` isolation in `test-ui.js` (the
+   suite is one long stateful story and a leaked `state.synth` has broken a
+   later block twice), `iconSlug` duplicated between the app and
+   `fetch-icons.js`, legacy unused `goal.open`; per-character stat labels on
+   tree nodes (declined for now — cosmetic). No farming-schedule/day-of-week
+   features — WuWa domains are always open (user-confirmed).
 
 ## Working agreements with this user
 

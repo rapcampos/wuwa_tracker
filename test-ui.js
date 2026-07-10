@@ -243,6 +243,51 @@ palIn.value = 'aoh'; fire(palIn, 'input');
 d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
 ok('Esc closes the palette', d.querySelector('#palWrap').hidden === true);
 
+// ── right-click / Shift+Enter add a fully maxed goal ──
+{
+  const tgtOf = name => w.eval(`JSON.stringify(state.goals.find(g =>
+    g.char && GAME.characters[g.char].name === ${JSON.stringify(name)}).tgt)`);
+  const nodesOf = name => w.eval(`JSON.stringify(state.goals.find(g =>
+    g.char && GAME.characters[g.char].name === ${JSON.stringify(name)}).nodes)`);
+  ok('the palette advertises the maxed add', d.querySelector('#palHint').hidden === false &&
+     /right-click/.test(d.querySelector('#palHint').textContent));
+
+  // baseline: a plain click uses the rarity template (5★ → forte 6)
+  fire(d.querySelector('#btnAdd'), 'click');
+  palIn.value = 'changli'; fire(palIn, 'input');
+  fire([...d.querySelectorAll('#palList .pal-item')].find(x => x.textContent.includes('Changli')), 'click');
+  ok('a plain click adds from the template', JSON.parse(tgtOf('Changli')).skills.join() === '6,6,6,6,6');
+
+  // right-click: Lv90, every skill 10, every node planned
+  fire(d.querySelector('#btnAdd'), 'click');
+  palIn.value = 'camellya'; fire(palIn, 'input');
+  [...d.querySelectorAll('#palList .pal-item')].find(x => x.textContent.includes('Camellya'))
+    .dispatchEvent(new w.MouseEvent('contextmenu', {bubbles:true, cancelable:true}));
+  ok('right-click adds a maxed character goal', d.querySelector('#palWrap').hidden === true &&
+     JSON.parse(tgtOf('Camellya')).ord === 13 &&
+     JSON.parse(tgtOf('Camellya')).skills.join() === '10,10,10,10,10');
+  ok('…with every forte node at least planned',
+     JSON.parse(nodesOf('Camellya')).every(row => row.every(v => v >= 1)));
+  ok('…and the derived counts follow the matrix',
+     JSON.parse(tgtOf('Camellya')).minor === 4 && JSON.parse(tgtOf('Camellya')).major === 4 &&
+     JSON.parse(tgtOf('Camellya')).inh1 === 1 && JSON.parse(tgtOf('Camellya')).inh2 === 1);
+
+  // Shift+Enter is the keyboard equivalent
+  fire(d.querySelector('#btnAdd'), 'click');
+  palIn.value = 'zani'; fire(palIn, 'input');
+  palIn.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Enter', shiftKey:true, bubbles:true}));
+  ok('Shift+Enter adds a maxed goal too', JSON.parse(tgtOf('Zani')).skills.join() === '10,10,10,10,10');
+
+  // team-pick mode has no "maxed" concept
+  w.eval(`openPal({t:0, s:0})`);
+  ok('the hint hides in team-pick mode', d.querySelector('#palHint').hidden === true);
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
+
+  w.eval(`state.goals = state.goals.filter(g => !g.char ||
+    !['Changli','Camellya','Zani'].includes(GAME.characters[g.char].name)); save(); render();`);
+  ok('scratch goals removed for the rest of the suite', texts('.gname').length === 3);
+}
+
 // helper: open palette, type a query, Enter-add the top hit
 const palAdd = q => {
   fire(d.querySelector('#btnAdd'), 'click');

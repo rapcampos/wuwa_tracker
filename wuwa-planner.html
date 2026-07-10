@@ -203,6 +203,9 @@ button.search kbd{margin-left:auto; font-family:inherit; font-size:10px; color:v
 .pal-item .tag{margin-left:auto; font-size:10px; color:var(--faint); letter-spacing:.08em;
   text-transform:uppercase; white-space:nowrap}
 .pal-item .tag.q{color:var(--cyan)}
+.pal-f{border-top:1px solid var(--line); background:var(--panel2); padding:6px 12px;
+  font-size:10.5px; color:var(--faint)}
+.pal-f[hidden]{display:none}
 
 /* ── reorder pop-up (Ctrl+P) ────────────── */
 #ordWrap{position:fixed; inset:0; z-index:50; background:rgba(6,9,16,.55);
@@ -415,6 +418,7 @@ td.inv{width:96px; text-align:right}
   <div class="palette" role="dialog" aria-modal="true" aria-label="Add goal">
     <input id="palIn" type="text" placeholder="Add a character or weapon…" autocomplete="off" spellcheck="false">
     <div id="palList"></div>
+    <div id="palHint" class="pal-f">Enter adds from your template · right-click or Shift+Enter adds it maxed</div>
   </div>
 </div>
 
@@ -2118,18 +2122,38 @@ function renderPal(){
     `</div>`).join('') : '<div class="empty">No matches.</div>';
   $('#palList').querySelectorAll('.pal-item').forEach(el => {
     el.addEventListener('click', () => palActivate(list[+el.dataset.i]));
+    el.addEventListener('contextmenu', e => { e.preventDefault(); palActivate(list[+el.dataset.i], true); });
     el.addEventListener('mousemove', () => {
       if(palSel !== +el.dataset.i){ palSel = +el.dataset.i; renderPal(); }
     });
   });
+  $('#palHint').hidden = !!palPick;           // no "maxed" concept when picking a team member
   bindIcons($('#palList'));
 }
-function palActivate(it){
+/* everything into the target — Lv90, skills 10, every node (incl. both
+   passives, col 2 of the matrix) at least planned. Shared by the editor's
+   ⤒ Max target button and the palette's right-click add. Weapons carry only
+   a level, and newWpnGoal already targets Lv90, so `max` is a no-op there. */
+function maxTarget(g){
+  g.tgt.ord = 13;
+  if(g.weapon === undefined){
+    g.tgt.skills = [10,10,10,10,10];
+    for(let r=0; r<2; r++) for(let c=0; c<5; c++) g.nodes[r][c] = Math.max(g.nodes[r][c], 1);
+    syncNodeCounts(g);
+  }
+  return g;
+}
+/* max: add the goal fully maxed instead of from the rarity template
+   (right-click or Shift+Enter). Ignored in team-pick mode. */
+function palActivate(it, max){
   if(!it) return;
   const pick = palPick;                       // closePal clears it
   closePal();
-  if(pick) state.teams[pick.t].chars[pick.s] = it.id;
-  else state.goals.push(it.kind === 'wpn' ? newWpnGoal(it.id, true) : newGoal(it.id, true, state.defaults));
+  if(pick){ state.teams[pick.t].chars[pick.s] = it.id; }
+  else{
+    const g = it.kind === 'wpn' ? newWpnGoal(it.id, true) : newGoal(it.id, true, state.defaults);
+    state.goals.push(max ? maxTarget(g) : g);
+  }
   save(); render();
 }
 $('#btnAdd').addEventListener('click', () => openPal());
@@ -2140,7 +2164,7 @@ $('#palIn').addEventListener('keydown', e => {
   const items = paletteEntries($('#palIn').value.trim());
   if(e.key === 'ArrowDown'){ e.preventDefault(); palSel = Math.min(palSel + 1, items.length - 1); renderPal(); }
   else if(e.key === 'ArrowUp'){ e.preventDefault(); palSel = Math.max(palSel - 1, 0); renderPal(); }
-  else if(e.key === 'Enter'){ e.preventDefault(); palActivate(items[palSel]); }
+  else if(e.key === 'Enter'){ e.preventDefault(); palActivate(items[palSel], e.shiftKey); }
 });
 
 /* ── reorder pop-up: compact vertical drag list over the queue (Ctrl+P) ──
@@ -2811,17 +2835,9 @@ function renderModal(){
     }
     save(); render();
   }));
-  // Max target: everything into the target — Lv90, skills 10, every node
-  // (incl. both passives — col 2 of the matrix) at least planned
-  box.querySelector('[data-max]').addEventListener('click', () => {
-    g.tgt.ord = 13;
-    if(!isW){
-      g.tgt.skills = [10,10,10,10,10];
-      for(let r2=0; r2<2; r2++) for(let c2=0; c2<5; c2++) g.nodes[r2][c2] = Math.max(g.nodes[r2][c2], 1);
-      syncNodeCounts(g);
-    }
-    save(); render();
-  });
+  // Max target: everything into the target (same transform the palette's
+  // right-click add applies)
+  box.querySelector('[data-max]').addEventListener('click', () => { maxTarget(g); save(); render(); });
   // Max goal: current snaps to target (the backlog "set current = target"
   // quick action) — planned nodes flip to owned, skipped ones stay skipped;
   // the goal then costs nothing and its card offers ✓ Mark completed

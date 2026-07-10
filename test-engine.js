@@ -8,7 +8,8 @@ const blocks = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]
 eval(blocks.join('\n;\n') + `
 ;Object.assign(globalThis, {GAME, MATS, MILES, ORD_LEVEL, ORD_LABEL, CATEGORY_ORDER,
   costForGoal, totalBag, freshState, maxedState, expToPotions, remainingBag, farmNextWalk, sortMatIds,
-  freshWpnState, maxedWpnState, wexpToCores, fmtShort, priorityMatIds, defaultGoalTgt, fuzzyScore});`);
+  freshWpnState, maxedWpnState, wexpToCores, fmtShort, priorityMatIds, defaultGoalTgt, fuzzyScore,
+  nodeShortfall});`);
 
 let pass = 0, fail = 0;
 const canon = v => (v && typeof v === 'object' && !Array.isArray(v))
@@ -261,6 +262,20 @@ eq('default target 4★: Lv80 · forte 6 · all nodes + passives', defaultGoalTg
   eq('5★ default goal: credits', bag.credits, 1803300);
   eq('5★ default goal: weekly', bag["wk:Sentinel's Dagger"], 6);
 }
+
+// ═══ 17d. NODE SHORTFALL (Completed-tab indicator vs template plan) ═══
+eq('shortfall: maxed build covers the full template', nodeShortfall(maxedState(), defaultGoalTgt(5)),
+   {minor:0, major:0, inh1:0, inh2:0});
+eq('shortfall: fresh build misses everything the template plans',
+   nodeShortfall(freshState(), defaultGoalTgt(5)), {minor:4, major:4, inh1:1, inh2:1});
+eq('shortfall: partial build lists what is missing',
+   nodeShortfall({minor:4, major:2, inh1:1, inh2:0}, defaultGoalTgt(5)),
+   {minor:0, major:2, inh1:0, inh2:1});
+eq('shortfall: skipping nodes in the template forgives them',
+   nodeShortfall({minor:2, major:0, inh1:1, inh2:0}, {minor:2, major:0, inh1:1, inh2:0}),
+   {minor:0, major:0, inh1:0, inh2:0});
+eq('shortfall: overbuilt never goes negative',
+   nodeShortfall(maxedState(), {minor:1, major:0, inh1:0, inh2:0}), {minor:0, major:0, inh1:0, inh2:0});
 
 // ═══ 18. COMPACT QUANTITIES (material tiles): 3 significant digits ═══
 eq('fmtShort exact under 10k', [fmtShort(46), fmtShort(999), fmtShort(9999)], ['46','999','9,999']);

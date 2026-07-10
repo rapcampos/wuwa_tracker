@@ -637,6 +637,19 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
      d.querySelector('#summary .st.ready') !== null &&
      d.querySelector('#summary [data-undone]') !== null &&
      d.querySelector('#summary [data-rmdone]') !== null);
+  ok('completed row is a single line: level + forte levels + lit node indicator',
+     d.querySelector('#summary .mini') === null &&
+     d.querySelector('#summary .goalstat .gmeta').textContent.includes('forte all 6') &&
+     d.querySelector('#summary .goalstat .nodechk.on') !== null &&
+     (d.querySelector('#summary .nodechk').getAttribute('title') || '').includes('cover'));
+  // dropping below the template's node plan unlights the indicator
+  w.eval('state.done[0].nodes[1][0] = 0; syncNodeCounts(state.done[0]); save(); render();');
+  ok('indicator goes dark below the template plan; tooltip names the gap',
+     d.querySelector('#summary .nodechk') !== null &&
+     d.querySelector('#summary .nodechk.on') === null &&
+     d.querySelector('#summary .nodechk').getAttribute('title').includes('1 major stat node'));
+  w.eval('state.done[0].nodes[1][0] = 2; syncNodeCounts(state.done[0]); save(); render();');
+  ok('re-owning the node relights the indicator', d.querySelector('#summary .nodechk.on') !== null);
   ok('completed list persisted',
      JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).done.some(g => g.char === 'phoebe'));
   // completed characters are hidden from the add palette
@@ -679,6 +692,11 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok('sanitize: queued char wins over its done copy',
      savedD.done.length === 2 && !savedD.done.some(g => g.char === 'jinhsi'));
   ok('done tab persists and renders its rows', dD.querySelectorAll('#summary .goalstat').length === 2);
+  ok('char done rows carry the node indicator, weapon rows do not',
+     dD.querySelectorAll('#summary .nodechk').length === 1 &&
+     dD.querySelector('#summary .goalstat .nodechk') !== null);
+  ok('a bare done record (no owned nodes) reads dark against the template',
+     dD.querySelector('#summary .nodechk.on') === null);
   ok('completed count shows on the tab',
      [...dD.querySelectorAll('#tabs button')].some(b => b.textContent === 'Completed (2)'));
 }

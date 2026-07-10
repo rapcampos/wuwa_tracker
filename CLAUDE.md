@@ -95,9 +95,17 @@ it goes in block 2 with tests; presentation goes in block 3.
 - **Completed goals**: a card whose cost is empty (current meets target)
   grows a ✓ button that moves the goal from `state.goals` to `state.done`
   (full goal objects, state intact). The **Completed summary tab** lists
-  them with ↩ (restore to queue end — raise the target to keep building)
-  and ✕ (forget; the char becomes addable again). A character exists at
-  most once across queue + done; `sanitize()` lets the queued copy win.
+  them as single-line `.goalstat` rows: icon · name · rarity/level · for
+  characters also achieved forte levels ("forte all 6" when uniform, else
+  "10/10/8/8/6") and a **node indicator** (`.nodechk`) — a diamond lit when
+  the build's OWNED node counts cover the per-rarity template's plan
+  (`nodeShortfall(cur, tpl)`, pure/engine, count-based since templates
+  don't record columns; tooltip names any gap). It's a LIVE comparison:
+  editing a template re-grades every completed build — deliberate ("does
+  this build meet my current standard?"). Row buttons: ↩ (restore to queue
+  end — raise the target to keep building) and ✕ (forget; the char becomes
+  addable again). A character exists at most once across queue + done;
+  `sanitize()` lets the queued copy win.
 - **Save format** lives in localStorage key `wuwa-planner-v1`. `sanitize()`
   migrates all older generations (v1 counts → v2 `{minor,major,inh}` arrays →
   current matrix) and repairs illegal states. Later-added top-level fields:

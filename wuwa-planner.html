@@ -1613,29 +1613,40 @@ function save(){
   }catch(e){ note('Could not save — use Export to keep your plan.', true); }
 }
 
-/* ── single-level undo for destructive actions ──
-   withUndo snapshots the whole state before mutating; the toast button and
-   Ctrl+Z restore it through sanitize() (same path as an import). One slot:
-   the next destructive action replaces the previous snapshot; the toast
-   auto-hides but Ctrl+Z keeps working until then. */
-let undoSnap = null, undoTimer = null;
-function withUndo(label, fn){
-  const snap = JSON.stringify(state);
-  fn();
-  undoSnap = snap;
-  save(); render();
-  $('#undoMsg').textContent = label;
+/* ── multi-level undo for destructive actions ──
+   withUndo snapshots the whole state before mutating and pushes it onto a
+   ring buffer (oldest dropped past UNDO_MAX — a snapshot is a few kB of
+   JSON, so depth is cheap). The toast button and Ctrl+Z pop the newest and
+   restore it through sanitize(), the same path as an import.
+   The bar always names what the NEXT undo will revert: after popping it
+   re-labels itself with the step below, so Ctrl+Z walks back through the
+   stack. It auto-hides after 8s, but Ctrl+Z keeps working while the stack
+   holds snapshots. Snapshots are transient — a reload starts empty. */
+const UNDO_MAX = 20;
+let undoStack = [], undoTimer = null;
+function undoToast(){
+  const top = undoStack[undoStack.length - 1];
+  if(!top){ $('#undoBar').hidden = true; clearTimeout(undoTimer); return; }
+  const n = undoStack.length;
+  $('#undoMsg').textContent = top.label + (n > 1 ? ` · ${n} steps back` : '');
   $('#undoBar').hidden = false;
   clearTimeout(undoTimer);
   undoTimer = setTimeout(() => { $('#undoBar').hidden = true; }, 8000);
 }
-function doUndo(){
-  if(!undoSnap) return;
-  state = sanitize(JSON.parse(undoSnap));
-  undoSnap = null;
-  $('#undoBar').hidden = true;
-  clearTimeout(undoTimer);
+function withUndo(label, fn){
+  const snap = JSON.stringify(state);
+  fn();
+  undoStack.push({label, snap});
+  if(undoStack.length > UNDO_MAX) undoStack.shift();
   save(); render();
+  undoToast();
+}
+function doUndo(){
+  const top = undoStack.pop();
+  if(!top) return;
+  state = sanitize(JSON.parse(top.snap));
+  save(); render();
+  undoToast();
 }
 $('#btnUndo').addEventListener('click', doUndo);
 

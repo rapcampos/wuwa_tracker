@@ -1120,10 +1120,11 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
 }
 
-// ── single-level undo: toast + Ctrl+Z restore the last destructive action ──
+// ── multi-level undo: toast + Ctrl+Z walk back through the snapshot stack ──
 {
   const bar = () => d.querySelector('#undoBar');
-  w.eval(`$('#undoBar').hidden = true;`);       // earlier blocks' deletions may have left it up
+  // earlier blocks' deletions armed the stack and left the toast up
+  w.eval(`undoStack.length = 0; $('#undoBar').hidden = true;`);
   const before = texts('.gname');
   fire(d.querySelector('button[data-act="del"][data-g="0"]'), 'click');
   ok('deleting a goal shows the undo toast naming it',
@@ -1151,6 +1152,32 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   inp.remove();
   fire(d.querySelector('[data-rmteam="0"]'), 'click');        // leave no teams behind
   fire([...d.querySelectorAll('.pagenav button')].find(b => b.dataset.page === 'ledger'), 'click');
+
+  // depth: three wrapped mutations, three undos, back to the starting value.
+  // (a stock number rather than the queue — earlier blocks left it too short)
+  const stock = () => w.eval('state.inv.howler0 || 0');
+  w.eval(`undoStack.length = 0; delete state.inv.howler0; save();
+          for(const k of [1, 2, 3]) withUndo('set ' + k, () => state.inv.howler0 = k);`);
+  ok('three wrapped mutations stack three snapshots',
+     w.eval('undoStack.length') === 3 && stock() === 3);
+  ok('the toast names the newest step and counts the ones behind it',
+     d.querySelector('#undoMsg').textContent === 'set 3 · 3 steps back');
+  fire(d.querySelector('#btnUndo'), 'click');
+  ok('one undo pops one snapshot and re-arms the next',
+     w.eval('undoStack.length') === 2 && stock() === 2 && bar().hidden === false &&
+     d.querySelector('#undoMsg').textContent === 'set 2 · 2 steps back');
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'z', ctrlKey:true, bubbles:true}));
+  ok('the last snapshot drops the step counter', d.querySelector('#undoMsg').textContent === 'set 1');
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'z', ctrlKey:true, bubbles:true}));
+  ok('undoing to the bottom restores the original value and hides the toast',
+     stock() === 0 && w.eval('undoStack.length') === 0 && bar().hidden === true);
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'z', ctrlKey:true, bubbles:true}));
+  ok('undoing an empty stack is a no-op', stock() === 0);
+  ok('the ring buffer drops the oldest past UNDO_MAX', w.eval(`
+    undoStack.length = 0;
+    for(let k = 0; k < UNDO_MAX + 5; k++) withUndo('x' + k, () => {});
+    [undoStack.length, undoStack[0].label].join(',')`) === `${w.eval('UNDO_MAX')},x5`);
+  w.eval(`undoStack.length = 0; $('#undoBar').hidden = true;`);
 }
 
 // ── backup: button gated on File System Access; Export stamps the meta key ──

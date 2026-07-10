@@ -381,14 +381,17 @@ are no screenshot tests — be extra careful with CSS-only changes.
   the tooltip (`wpTip`) splits the estimate by activity and notes the
   weekly 3-claims/week cap. The Total tab gets an aggregate line above the
   tiles. Finished goals render no bar.
-- **Undo (single-level)**: `withUndo(label, fn)` snapshots the whole state
-  as JSON before a destructive mutation and shows a bottom toast
-  (`#undoBar`, auto-hides after 8s); `doUndo()` restores through
-  `sanitize()` and also answers **Ctrl+Z** (skipped when focus is in an
-  input/select/textarea — native undo wins there). Wrapped actions: goal
-  delete, forget-completed, team delete, Reset all, Import. Marking a goal
-  done is NOT wrapped (↩ already reverses it). One slot: the next
-  destructive action overwrites the snapshot.
+- **Undo (multi-level)**: `withUndo(label, fn)` snapshots the whole state as
+  JSON before a destructive mutation and pushes it onto `undoStack`, a ring
+  buffer of `UNDO_MAX` = 20 (a snapshot is a few kB, so depth is cheap; the
+  stack is transient — a reload starts empty). A bottom toast (`#undoBar`,
+  auto-hides after 8s) always names what the NEXT undo reverts, with a
+  "· N steps back" counter; `doUndo()` pops, restores through `sanitize()`,
+  re-labels the toast from the step below, and also answers **Ctrl+Z**
+  (skipped when focus is in an input/select/textarea — native undo wins
+  there), so Ctrl+Z walks back through the stack. Wrapped actions: goal
+  delete, forget-completed, team delete, upgrade purchase, Reset all,
+  Import. Marking a goal done is NOT wrapped (↩ already reverses it).
 - **Backup**: "⛃ Backup file" links a JSON file via the File System Access
   API (Chromium; button hides elsewhere) — every `save()` debounce-rewrites
   it (`scheduleBackup`/`writeBackup`), the handle persists in IndexedDB

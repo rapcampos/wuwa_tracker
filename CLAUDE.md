@@ -349,6 +349,15 @@ are no screenshot tests — be extra careful with CSS-only changes.
   stock → editor; Ctrl+K/P close it too) runs the full `render()`, which
   is the "apply everywhere when done" step. The Inventory tab stays as the
   Need/Have/Left report.
+  Two bulk-entry affordances live here: a **fuzzy filter box** (`#invFind`,
+  transient `invFilter`, reuses `fuzzyScore` — so "lfhow" finds LF Howler
+  Core) that rebuilds the grid per keystroke *safely*, because the input sits
+  in the header OUTSIDE `#invGrid`; Enter on a lone match jumps into its
+  quantity input, and `openInv`/`closeInv` clear the filter (a stale one
+  could hide the very tile a `.tile` click asked to focus). And **`+1`/`+5`
+  steppers** (`.istep`) on every tile for logging a farm session, Shift-click
+  subtracts, clamped at zero; they patch one input and `save()` WITHOUT
+  rebuilding the grid, so the scroll position survives a long session.
 - Reordering: drag the ⠿ grip (HTML5 DnD, `dragIdx` module variable — not
   dataTransfer — carries state) **and** ▲▼ buttons, kept for touch screens.
   Both route through `moveGoal(from, to)` where `to` is the pre-removal

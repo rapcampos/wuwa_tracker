@@ -997,6 +997,59 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok('typing a quantity saves it immediately',
      JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).inv['boss:Elegy Tacet Core'] === 7);
   ok('editing does not rebuild the grid (focus safety)', q.isConnected);
+
+  // farm-session steppers: +1 / +5, Shift subtracts, never below zero
+  {
+    const steps = () => tileOf('Elegy Tacet Core').querySelectorAll('.istep');
+    const qty = () => +tileOf('Elegy Tacet Core').querySelector('.iqty').value;
+    const invOf = () => JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).inv['boss:Elegy Tacet Core'];
+    fire(steps()[0], 'click');
+    ok('+1 bumps the tile and saves', qty() === 8 && invOf() === 8);
+    fire(steps()[1], 'click');
+    ok('+5 logs a farm session', qty() === 13 && invOf() === 13);
+    steps()[1].dispatchEvent(new w.MouseEvent('click', {bubbles:true, shiftKey:true}));
+    ok('Shift+click subtracts', qty() === 8 && invOf() === 8);
+    ok('the steppers do not rebuild the grid either', q.isConnected);
+    const zero = tileOf('Shell Credit').querySelector('.iqty');
+    zero.value = ''; fire(zero, 'change');
+    tileOf('Shell Credit').querySelectorAll('.istep')[0]
+      .dispatchEvent(new w.MouseEvent('click', {bubbles:true, shiftKey:true}));
+    ok('a stepper never drives stock below zero',
+       zero.value === '' && JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).inv.credits === undefined);
+  }
+
+  // fuzzy filter box: subsequence match on the material name, live per keystroke
+  {
+    const find = d.querySelector('#invFind');
+    const tiles = () => d.querySelectorAll('#invGrid .itile').length;
+    find.value = 'lfhow'; fire(find, 'input');
+    ok('the filter narrows the grid to a subsequence match',
+       tiles() === 1 && tileOf('LF Howler Core') !== undefined);
+    ok('the filter box keeps focus (it lives outside the rebuilt grid)', find.isConnected);
+    // subsequence, not substring: every shown tile must score, none may be missing
+    find.value = 'core'; fire(find, 'input');
+    ok('a broader query keeps exactly the subsequence matches', tiles() > 1 && w.eval(`
+      const shown = IGRID.map(id => MATS[id].name);
+      const want = Object.keys(MATS).filter(id => id !== 'exp' && id !== 'wexp')
+        .map(id => MATS[id].name).filter(n => fuzzyScore('core', n) >= 0);
+      shown.length === want.length && want.every(n => shown.includes(n));`));
+    find.value = 'zzzznope'; fire(find, 'input');
+    ok('no match shows an empty note naming the query',
+       tiles() === 0 && d.querySelector('#invGrid .empty').textContent.includes('zzzznope'));
+    // Enter on a single match jumps into its input
+    find.value = 'lfhow'; fire(find, 'input');
+    find.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Enter', bubbles:true}));
+    ok('Enter on the last match focuses its quantity input',
+       d.activeElement === d.querySelector('#invGrid .iqty[data-i="0"]'));
+    find.value = ''; fire(find, 'input');
+    ok('clearing the filter restores the catalog', tiles() > 100);
+    // a stale filter must never hide the material a tile click asks for
+    find.value = 'lfhow'; fire(find, 'input');
+    w.eval(`openInv('credits')`);
+    ok('opening on a material clears a stale filter',
+       find.value === '' && w.eval('invFilter') === '' &&
+       w.eval(`MATS[IGRID[+document.activeElement.dataset.i]].name`) === 'Shell Credit');
+  }
   // hide un-needed filters the grid (same persisted state.hideUn as the tab)
   const nAll = d.querySelectorAll('#invGrid .itile').length;
   const hid = d.querySelector('#ihideChk');

@@ -234,7 +234,14 @@ button.search kbd{margin-left:auto; font-family:inherit; font-size:10px; color:v
 #invWrap{position:fixed; inset:0; z-index:50; background:rgba(6,9,16,.55);
   display:flex; justify-content:center; align-items:flex-start; padding:8vh 16px 16px}
 .inv-pop{width:min(780px,96vw)}
+.inv-pop .ord-h{flex-wrap:wrap}
 .inv-pop .ord-h .chk{font-size:11.5px; color:var(--mut); white-space:nowrap}
+.inv-pop .ord-h .sub{flex-basis:100%}
+/* scoped: .palette input is the full-width palette search box */
+.inv-pop .ord-h .find{width:150px; flex:none; border:1px solid var(--line2); border-radius:6px;
+  background:var(--panel); padding:4px 8px; font:inherit; font-size:11.5px; color:var(--ink); outline:none}
+.inv-pop .ord-h .find:focus{border-color:var(--cyan)}
+.inv-pop .ord-h .find::placeholder{color:var(--faint)}
 #invGrid{max-height:min(560px,72vh); overflow:auto; overscroll-behavior:contain; padding:10px 14px 14px}
 #invGrid .cat{display:block; padding:12px 0 6px; font-size:10.5px; text-transform:uppercase;
   letter-spacing:.16em; color:var(--faint)}
@@ -248,6 +255,11 @@ button.search kbd{margin-left:auto; font-family:inherit; font-size:10px; color:v
   padding:2px 1px; -moz-appearance:textfield}
 .itile input::-webkit-outer-spin-button, .itile input::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
 .itile.done{opacity:.55}
+.itile .isteps{display:flex; width:100%; border-top:1px solid var(--line2)}
+.itile .isteps button{flex:1; min-width:0; border:none; border-radius:0; background:transparent;
+  color:var(--faint); font:inherit; font-size:9.5px; letter-spacing:0; line-height:1; padding:3px 0; cursor:pointer}
+.itile .isteps button + button{border-left:1px solid var(--line2)}
+.itile .isteps button:hover{background:var(--line); color:var(--ink)}
 
 /* ── editor upgrade rows (spend inventory) ── */
 .upg{margin-top:14px; border-top:1px solid var(--line); padding-top:10px}
@@ -406,10 +418,12 @@ td.inv{width:96px; text-align:right}
 <div id="invWrap" hidden>
   <div class="palette inv-pop" role="dialog" aria-modal="true" aria-label="Inventory">
     <div class="ord-h">Stock
+      <input id="invFind" class="find" type="text" placeholder="Filter…" autocomplete="off" spellcheck="false"
+             title="Fuzzy filter by material name — 'lfh' finds LF Howler Core">
       <label class="chk"><input type="checkbox" id="isynthChk"> Craft 3→1</label>
       <label class="chk"><input type="checkbox" id="ihideChk"> Hide un-needed</label>
-      <span class="sub">hover a tile for its name · closing applies everywhere</span>
-      <button class="tiny close" id="invClose" title="Close (Esc)">✕</button></div>
+      <button class="tiny close" id="invClose" title="Close (Esc)">✕</button>
+      <span class="sub">hover a tile for its name · +1/+5 log a farm session (Shift subtracts) · closing applies everywhere</span></div>
     <div id="invGrid"></div>
   </div>
 </div>
@@ -2184,9 +2198,12 @@ function renderTeams(){
    next pick up the new stock at once. IGRID carries ids by index — data
    attributes must never hold material ids (apostrophes). */
 let IGRID = [];
+let invFilter = '';                            // transient: fuzzy filter, cleared on open/close
 const invIsOpen = () => !$('#invWrap').hidden;
 function openInv(focusId){
   closeEdit(); closePal(); closeOrd();
+  invFilter = '';                              // a stale filter could hide focusId
+  $('#invFind').value = '';
   $('#invWrap').hidden = false;
   renderInvGrid();
   if(typeof focusId === 'string'){             // jump straight to one material's input
@@ -2221,6 +2238,8 @@ function bindTileClicks(root){
 function closeInv(){
   if($('#invWrap').hidden) return;
   $('#invWrap').hidden = true;
+  invFilter = '';
+  $('#invFind').value = '';
   render();
 }
 function renderInvGrid(){
@@ -2252,31 +2271,56 @@ function renderInvGrid(){
     if((A.family || '') !== (B.family || '')) return (A.family || '') < (B.family || '') ? -1 : 1;
     return A.name < B.name ? -1 : 1;
   });
+  const shown = id => (!state.hideUn || isNeeded(id)) && fuzzyScore(invFilter, MATS[id].name) >= 0;
   let html = '';
   for(const cat of CATEGORY_ORDER){
-    const catIds = gameSort(ids.filter(id => MATS[id].cat === cat && (!state.hideUn || isNeeded(id))));
+    const catIds = gameSort(ids.filter(id => MATS[id].cat === cat && shown(id)));
     if(!catIds.length) continue;
     html += `<span class="cat">${cat}</span><div class="igrid">` + catIds.map(id => {
       const i = IGRID.push(id) - 1;
       return `<div class="itile r${MATS[id].r}${need[id] && !res.rem[id] ? ' done' : ''}" title="${esc(tip(id))}">` +
         matIco(id) +
         `<input type="number" min="0" step="1" class="iqty" data-i="${i}" value="${state.inv[id] ?? ''}" placeholder="0">` +
+        `<div class="isteps">` +
+          `<button class="istep" data-i="${i}" data-d="1" title="Add 1 — hold Shift to subtract">+1</button>` +
+          `<button class="istep" data-i="${i}" data-d="5" title="Add 5 — hold Shift to subtract">+5</button>` +
+        `</div>` +
       `</div>`;
     }).join('') + `</div>`;
   }
-  box.innerHTML = html || '<div class="empty">Nothing needed right now — untick “Hide un-needed” to log stock for later.</div>';
-  box.querySelectorAll('.iqty').forEach(inp => inp.addEventListener('change', e => {
-    const id = IGRID[+e.currentTarget.dataset.i];
-    const v = Math.max(0, Math.floor(+e.currentTarget.value || 0));
+  box.innerHTML = html || `<div class="empty">${invFilter
+    ? 'No material matches “' + esc(invFilter) + '”.'
+    : 'Nothing needed right now — untick “Hide un-needed” to log stock for later.'}</div>`;
+  const setQty = (id, v, inp) => {
     if(v) state.inv[id] = v; else delete state.inv[id];
-    e.currentTarget.value = v || '';
+    inp.value = v || '';
     save();                                    // tints/tooltips refresh on close or next open
+  };
+  box.querySelectorAll('.iqty').forEach(inp => inp.addEventListener('change', e => {
+    const t = e.currentTarget;
+    setQty(IGRID[+t.dataset.i], Math.max(0, Math.floor(+t.value || 0)), t);
+  }));
+  /* farm-session steppers: nudge one tile without rebuilding the grid
+     (a rebuild would lose the scroll position mid-session) */
+  box.querySelectorAll('.istep').forEach(b => b.addEventListener('click', e => {
+    const t = e.currentTarget, i = +t.dataset.i, id = IGRID[i];
+    const inp = box.querySelector(`.iqty[data-i="${i}"]`);
+    const d = (+t.dataset.d) * (e.shiftKey ? -1 : 1);
+    setQty(id, Math.max(0, Math.floor(+inp.value || 0) + d), inp);
   }));
   bindIcons(box);
 }
 $('#btnInv').addEventListener('click', () => openInv());
 $('#invClose').addEventListener('click', closeInv);
 $('#invWrap').addEventListener('click', e => { if(e.target === e.currentTarget) closeInv(); });
+/* the filter box lives in the header, outside #invGrid — rebuilding the grid
+   on every keystroke never steals the focus the user is typing into */
+$('#invFind').addEventListener('input', e => { invFilter = e.currentTarget.value.trim(); renderInvGrid(); });
+$('#invFind').addEventListener('keydown', e => {
+  if(e.key !== 'Enter' || IGRID.length !== 1) return;     // one match left → jump into it
+  const inp = $('#invGrid').querySelector('.iqty[data-i="0"]');
+  if(inp){ inp.focus(); if(inp.select) inp.select(); }
+});
 $('#isynthChk').addEventListener('change', e => { state.synth = e.currentTarget.checked; save(); renderInvGrid(); });
 $('#ihideChk').addEventListener('change', e => { state.hideUn = e.currentTarget.checked; save(); renderInvGrid(); });
 

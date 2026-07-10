@@ -10,7 +10,7 @@ eval(blocks.join('\n;\n') + `
   costForGoal, totalBag, freshState, maxedState, expToPotions, remainingBag, farmNextWalk, sortMatIds,
   freshWpnState, maxedWpnState, wexpToCores, fmtShort, priorityMatIds, defaultGoalTgt, fuzzyScore,
   nodeShortfall, charEnergy, teamUsage, energyLeft, sanitizeTeams, expTopTier, wexpTopTier,
-  waveplateEstimate, stripCE, craftFromPool});`);
+  waveplateEstimate, stripCE, craftFromPool, affordCost, poolPlan, spendCost});`);
 
 let pass = 0, fail = 0;
 const canon = v => (v && typeof v === 'object' && !Array.isArray(v))
@@ -182,6 +182,45 @@ eq('top-tier: zero and negative are 0', [expTopTier(0), wexpTopTier(-5)], [0, 0]
      [w2[0].rem.howler2, w2[1].rem.howler1], [1, undefined]);
   const w0 = farmNextWalk([gA], {howler1: 36}, false);
   eq('walk without craft flag is unchanged', w0[0].rem.howler2, 12);
+}
+
+// ═══ 9c. SPENDING (upgrade transactions) ═══
+{
+  eq('afford: pooled EXP compares totals', affordCost({exp4: 3}, {exp: 60000}), {});
+  eq('afford: shortfall reported per id',
+     affordCost({credits: 4000, whisperin0: 1}, {credits: 5000, whisperin0: 4, exp: 1000}),
+     {credits: 1000, whisperin0: 3, exp: 1000});
+  eq('plan: greedy floors then exact finish',
+     poolPlan({exp4: 2, exp1: 5}, 41000, GAME.expItems), {plan: {exp4: 2, exp1: 1}, short: 0});
+  eq('plan: smallest single held item covers a sliver',
+     poolPlan({exp4: 9, exp1: 9}, 500, GAME.expItems), {plan: {exp1: 1}, short: 0});
+  eq('plan: short when the pool runs dry',
+     poolPlan({exp1: 2}, 5000, GAME.expItems), {plan: {exp1: 2}, short: 3000});
+  const inv = {credits: 5000, whisperin0: 4, exp4: 1};
+  eq('spend: refuses and leaves inv untouched when short',
+     [spendCost(inv, {credits: 99999}), inv.credits], [false, 5000]);
+  eq('spend: phoebe 20→20✦ drains the exact anchor cost, zeroed keys removed', (() => {
+     const ok2 = spendCost(inv, costForGoal({char:'phoebe', cur:{...freshState(), ord:1}, tgt:{...freshState(), ord:2}}));
+     return [ok2, inv.credits, inv.whisperin0, inv.exp4];
+  })(), [true, undefined, undefined, 1]);
+  const inv2 = {exp4: 100, exp1: 3};
+  spendCost(inv2, {exp: 41000});
+  eq('spend: EXP drinks greedily with minimal overflow', inv2, {exp4: 98, exp1: 2});
+
+  // craft-aware spending (synth toggle): lower tiers cover higher-tier
+  // costs — the "weapon 7th in the queue, only LF mats held" case
+  eq('afford+craft: lower tiers cover a higher-tier cost',
+     affordCost({whisperin0: 12, credits: 5000}, {whisperin1: 4, credits: 5000}, true), {});
+  eq('afford without craft still reports the tier shortfall',
+     affordCost({whisperin0: 12}, {whisperin1: 4}), {whisperin1: 4});
+  eq("afford+craft: the cost's own lower-tier line is paid before crafting",
+     affordCost({howler0: 9}, {howler0: 6, howler1: 1}, true), {});
+  eq('afford+craft: short when what remains cannot chain',
+     affordCost({howler0: 8}, {howler0: 6, howler1: 1}, true), {howler1: 1});
+  const inv3 = {whisperin0: 13, credits: 6000};
+  eq('spend+craft: crafts exactly and keeps the remainder',
+     [spendCost(inv3, {whisperin1: 4, credits: 5000}, true), inv3.whisperin0, inv3.credits],
+     [true, 1, 1000]);
 }
 
 // ═══ 10. REGISTRY & ORDINALS ═══

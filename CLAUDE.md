@@ -297,6 +297,25 @@ are no screenshot tests — be extra careful with CSS-only changes.
   `render()` re-renders the open modal in place. `editIdx` is transient
   (never persisted); Esc/backdrop/✕ close; deleting the edited goal closes.
   `goal.open` still exists in saves but is legacy/unused.
+- **Upgrade transactions** (goal editor, below the Max buttons — never in
+  template mode): one row per next step — next level/ascension ordinal,
+  +1 per skill, each purchasable forte node — with its exact cost
+  (`costForGoal` between adjacent states) and an ⬆ button that spends
+  inventory and advances `cur` by that one step, wrapped in `withUndo`
+  (misclick = one Ctrl+Z). Affordability checks the user's **FULL stock —
+  queue priority never gates spending** (user-explicit requirement; the
+  walk's allocation is display-only), and with the synthesis toggle on it
+  also **crafts lower tiers 3→1 to cover a missing tier** (the cost's own
+  lower-tier lines are paid first; the button title announces "crafts
+  lower tiers" when that will happen). Engine: `payPlan` settles a cost
+  against a scratch inventory copy (crafting via `craftFromPool`, zeroed
+  keys stripped); `affordCost` = its missing map, `spendCost` swaps the
+  copy in atomically; `poolPlan` drinks potions/cores greedily with
+  minimal overflow and previews in the title. Shortfalls land in the
+  disabled button's tooltip. Node purchases respect the in-game gate: an
+  upper node is offered only once its lower node is OWNED (Ⅱ only after
+  Ⅰ). The plain cur/tgt selects stay free bookkeeping — they never touch
+  inventory.
 - Rendering is "state changes → full re-render" via `render()` — EXCEPT
   inventory/synth edits, which patch the Inventory tab's computed cells in
   place (`updateLeft`: Left cells via `data-l`, pooled-EXP Have via `data-h`,

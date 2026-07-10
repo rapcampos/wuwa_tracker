@@ -1018,6 +1018,84 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   w.eval(`delete state.inv['boss:Elegy Tacet Core']; delete state.inv.credits; save(); render();`);
 }
 
+// ── upgrade transactions: editor buttons spend inventory, one Ctrl+Z away ──
+{
+  w.eval(`Object.keys(state.inv).forEach(k => delete state.inv[k]);
+    state.goals.push(newGoal('phoebe', false, state.defaults));
+    state.goals[state.goals.length - 1].cur.ord = 1;
+    save(); render();`);
+  const gi = w.eval('state.goals.length - 1');
+  fire(d.querySelector(`button[data-act="edit"][data-g="${gi}"]`), 'click');
+  const rows = () => [...mbox().querySelectorAll('.upg-row')];
+  ok('editor grows an upgrade section; next level step leads',
+     mbox().querySelector('.upg') !== null && rows()[0].textContent.includes('Lv 20 → Lv 20 ✦'));
+  ok('unaffordable step: disabled button, shortfall in the tooltip',
+     rows()[0].querySelector('[data-upg]').disabled === true &&
+     rows()[0].querySelector('[data-upg]').getAttribute('title').includes('Missing:') &&
+     rows()[0].querySelector('[data-upg]').getAttribute('title').includes('LF Whisperin Core'));
+  ok('node dependency: planned lowers offered, uppers gated on owned lowers',
+     rows().some(r => r.textContent.includes('Minor node')) &&
+     !rows().some(r => r.textContent.includes('Major node')) &&
+     rows().some(r => r.textContent.includes('Inherent Ⅰ')) &&
+     !rows().some(r => r.textContent.includes('Inherent Ⅱ')));
+
+  // fund the ascension exactly (anchor: 4× LF Whisperin Core + 5,000 credits)
+  w.eval(`state.inv.whisperin0 = 4; state.inv.credits = 5000; save(); render();`);
+  ok('funded step enables', rows()[0].querySelector('[data-upg]').disabled === false);
+  ok('queue priority never gates spending — this goal is last in a longer queue', gi > 0);
+  fire(rows()[0].querySelector('[data-upg]'), 'click');
+  ok('purchase advances current and drains the exact cost',
+     w.eval(`state.goals[${gi}].cur.ord`) === 2 &&
+     w.eval('state.inv.whisperin0 === undefined && state.inv.credits === undefined') === true);
+  ok('purchase arms the undo toast with the goal name',
+     d.querySelector('#undoBar').hidden === false &&
+     d.querySelector('#undoMsg').textContent.includes('Phoebe'));
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'z', ctrlKey:true, bubbles:true}));
+  ok('Ctrl+Z refunds both the level and the materials',
+     w.eval(`state.goals[${gi}].cur.ord`) === 1 && w.eval('state.inv.whisperin0') === 4);
+
+  // buy Inherent Ⅰ (anchor: 3× T2 forge + 3× T2 common + 1 weekly + 10,000)
+  w.eval(`{ const ch = GAME.characters.phoebe;
+    state.inv[ch.forge + '1'] = 3; state.inv[ch.common + '1'] = 3;
+    state.inv['wk:' + ch.weekly] = 1; state.inv.credits = 10000; save(); render(); }`);
+  const inhRow = () => rows().find(r => r.textContent.includes('Inherent Ⅰ'));
+  ok('funded node step enables', inhRow().querySelector('[data-upg]').disabled === false);
+  fire(inhRow().querySelector('[data-upg]'), 'click');
+  ok('node purchase flips planned → owned and spends everything',
+     w.eval(`state.goals[${gi}].nodes[0][2]`) === 2 &&
+     w.eval('state.inv.credits === undefined') === true);
+  ok('Inherent Ⅱ becomes purchasable once Ⅰ is owned',
+     rows().some(r => r.textContent.includes('Inherent Ⅱ')));
+
+  // crafting-aware spending: hold a tier-1 line ONLY as tier-0 ×3
+  // (an earlier block leaves the synth toggle off — turn it on explicitly)
+  w.eval(`{ Object.keys(state.inv).forEach(k => delete state.inv[k]);
+    state.synth = true;
+    const g = state.goals[${gi}];
+    g.cur.ord = 3;                                    // next step: rank-2 ascension
+    const cost = costForGoal({char:'phoebe', cur:g.cur, tgt:{...g.cur, ord:4, skills:[...g.cur.skills]}});
+    window.__t1 = null;
+    for(const [id, q] of Object.entries(cost)){
+      if(id === 'exp') state.inv.exp4 = Math.ceil(q / 20000);
+      else if(MATS[id] && MATS[id].family && MATS[id].tier === 1){
+        state.inv[MATS[id].family + '0'] = q * 3; window.__t1 = id;
+      } else state.inv[id] = q;
+    }
+    save(); render(); }`);
+  ok('craft scenario prepared (a tier-1 line held only as tier-0 ×3)', w.eval('window.__t1') !== null);
+  ok('synth on: the step is affordable through crafting, and says so',
+     rows()[0].querySelector('[data-upg]').disabled === false &&
+     rows()[0].querySelector('[data-upg]').getAttribute('title').includes('crafts lower tiers'));
+  fire(rows()[0].querySelector('[data-upg]'), 'click');
+  ok('purchase crafts the tier-0 stock away and advances',
+     w.eval(`state.goals[${gi}].cur.ord`) === 4 &&
+     w.eval('Object.keys(state.inv).every(k => !k.endsWith("0"))') === true);
+
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
+  w.eval(`state.goals.splice(${gi}, 1);
+    Object.keys(state.inv).forEach(k => delete state.inv[k]); save(); render();`);
+}
+
 // ── single-level undo: toast + Ctrl+Z restore the last destructive action ──
 {
   const bar = () => d.querySelector('#undoBar');

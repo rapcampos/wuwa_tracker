@@ -245,6 +245,14 @@ button.search kbd{margin-left:auto; font-family:inherit; font-size:10px; color:v
 .itile input::-webkit-outer-spin-button, .itile input::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
 .itile.done{opacity:.55}
 
+/* ── editor upgrade rows (spend inventory) ── */
+.upg{margin-top:14px; border-top:1px solid var(--line); padding-top:10px}
+.upg-h{font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--faint); margin-bottom:6px}
+.upg-row{display:flex; align-items:center; gap:9px; padding:2px 0; font-size:12.5px}
+.upg-row button[disabled]{opacity:.35; cursor:default}
+.upg-lbl{white-space:nowrap}
+.upg-cost{margin-left:auto; color:var(--mut); font-size:11px; text-align:right; max-width:55%}
+
 /* ── undo toast (single-level, Ctrl+Z) ── */
 #undoBar{position:fixed; left:50%; bottom:18px; transform:translateX(-50%); z-index:70;
   display:flex; align-items:center; gap:12px; background:var(--panel); border:1px solid var(--line2);
@@ -1117,6 +1125,82 @@ const wexpToCores  = exp => expToItems(exp, GAME.wpnExpItems);
 const expTopTier  = exp => Math.ceil(Math.max(0, exp) / GAME.expItems[GAME.expItems.length - 1].exp);
 const wexpTopTier = exp => Math.ceil(Math.max(0, exp) / GAME.wpnExpItems[GAME.wpnExpItems.length - 1].exp);
 
+/* ── spending (upgrade transactions) ──
+   affordCost: what a cost bag is missing from inv — exp/wexp compare the
+   POOLED potion/core totals, everything else raw counts (no auto-crafting;
+   the in-game upgrade screen doesn't craft either). Empty ⇔ affordable.
+   poolPlan: which potions/cores to drink for an EXP amount — greedy
+   largest-first floors, then the smallest single held item that covers the
+   remainder (minimal overflow); `short` > 0 when the pool can't cover it.
+   spendCost: apply a cost bag to inv (mutates, deletes zeroed keys);
+   refuses and leaves inv untouched when unaffordable. */
+/* payPlan: settle a cost bag against a scratch copy of inv. With craft on,
+   family-tier deficits are covered by 3→1 crafting from lower-tier surplus —
+   the cost's own direct lines are always paid first, so crafting only eats
+   true surplus. Returns {inv: settled copy, missing} — missing empty ⇔
+   payable; the copy is only meaningful in that case. */
+function payPlan(inv, cost, craft){
+  const next = {};
+  for(const [k, v] of Object.entries(inv)){
+    const n = Math.max(0, Math.floor(v || 0));
+    if(n) next[k] = n;
+  }
+  const missing = {};
+  const drink = (amount, items) => {
+    const {plan, short} = poolPlan(next, amount, items);
+    for(const [id, n] of Object.entries(plan)){
+      next[id] -= n;
+      if(!next[id]) delete next[id];
+    }
+    return short;
+  };
+  const famDeficit = [];
+  for(const [id, qty] of Object.entries(cost)){
+    if(!(qty > 0)) continue;
+    if(id === 'exp'){ const s = drink(qty, GAME.expItems); if(s) missing.exp = s; }
+    else if(id === 'wexp'){ const s = drink(qty, GAME.wpnExpItems); if(s) missing.wexp = s; }
+    else {
+      const use = Math.min(qty, next[id] || 0);
+      if(use){ next[id] -= use; if(!next[id]) delete next[id]; }
+      if(qty - use > 0){
+        if(craft && MATS[id] && MATS[id].family && MATS[id].tier > 0) famDeficit.push([id, qty - use]);
+        else missing[id] = qty - use;
+      }
+    }
+  }
+  famDeficit.sort((a, b) => MATS[a[0]].tier - MATS[b[0]].tier);   // cheap chains first
+  for(const [id, wantQ] of famDeficit){
+    const made = craftFromPool(next, {}, MATS[id].family, MATS[id].tier, wantQ);
+    if(made < wantQ) missing[id] = wantQ - made;
+  }
+  for(const k of Object.keys(next)) if(!(next[k] > 0)) delete next[k];   // crafting can zero keys
+  return {inv: next, missing};
+}
+const affordCost = (inv, cost, craft) => payPlan(inv, cost, craft).missing;
+function poolPlan(inv, amount, items){
+  const plan = {};
+  const held = id => Math.max(0, Math.floor(inv[id] || 0)) - (plan[id] || 0);
+  let rem = amount;
+  for(const it of [...items].sort((a, b) => b.exp - a.exp)){
+    const n = Math.min(held(it.id), Math.floor(rem / it.exp));
+    if(n > 0){ plan[it.id] = n; rem -= n * it.exp; }
+  }
+  if(rem > 0){
+    const topUp = [...items].sort((a, b) => a.exp - b.exp).find(it => held(it.id) > 0 && it.exp >= rem);
+    if(topUp){ plan[topUp.id] = (plan[topUp.id] || 0) + 1; rem = 0; }
+    else for(const it of [...items].sort((a, b) => b.exp - a.exp))
+      while(rem > 0 && held(it.id) > 0){ plan[it.id] = (plan[it.id] || 0) + 1; rem -= it.exp; }
+  }
+  return {plan, short: Math.max(0, rem)};
+}
+function spendCost(inv, cost, craft){
+  const {inv: next, missing} = payPlan(inv, cost, craft);
+  if(Object.keys(missing).length) return false;
+  for(const k of Object.keys(inv)) delete inv[k];
+  Object.assign(inv, next);
+  return true;
+}
+
 /* ── waveplate estimate: the stamina cost of farming a deficit bag ──
    Books every material to its dedicated activity at the endgame yields in
    GAME.waveplates. Specialty + enemy-drop (common) materials are overworld
@@ -1564,6 +1648,13 @@ function planText(plan, source){
   return parts.length ? '≈ ' + parts.join(' · ') : '';
 }
 const potionText = plan => planText(plan, GAME.expItems);
+/* compact one-line cost ("4× LF Whisperin Core · 5,000 credits") for the
+   editor's upgrade rows and their Missing tooltips */
+const costText = bag => sortMatIds(Object.keys(bag)).map(id =>
+  id === 'credits' ? fmt(bag.credits) + ' credits'
+  : id === 'exp'  ? fmt(bag.exp) + ' EXP'
+  : id === 'wexp' ? fmt(bag.wexp) + ' Weapon EXP'
+  : bag[id] + '× ' + MATS[id].name).join(' · ');
 const coreText   = plan => planText(plan, GAME.wpnExpItems);
 function catRow(cat, span){ return `<tr><td class="cat" colspan="${span}">${cat}</td></tr>`; }
 
@@ -2434,6 +2525,55 @@ function renderModal(){
     <button class="tiny" data-max title="Target → Lv 90${isW ? '' : ', all skills 10, every node &amp; passive planned'}">⤒ Max target</button>
     <button class="tiny good" data-maxgoal title="Current → target${isW ? '' : ': levels, skills, and every planned node becomes owned'} — the card then offers ✓ Mark completed">✓ Max goal</button>
   </div>`;
+
+  /* ── upgrade transactions: spend inventory, advance current one step ──
+     Mirrors the in-game upgrade screens: one button per next step, enabled
+     only when raw stock covers the cost (no auto-crafting there either);
+     every purchase runs through withUndo, so a misclick is one Ctrl+Z away.
+     The plain selects above stay free bookkeeping — they never spend. */
+  const steps = [];
+  if(g.cur.ord < g.tgt.ord){
+    const cost = costForGoal(isW
+      ? {weapon: g.weapon, cur: g.cur, tgt: {ord: g.cur.ord + 1}}
+      : {char: g.char, cur: g.cur, tgt: {...g.cur, ord: g.cur.ord + 1, skills: [...g.cur.skills]}});
+    steps.push({label: `${ORD_LABEL(g.cur.ord)} → ${ORD_LABEL(g.cur.ord + 1)}`, cost,
+                apply: () => { g.cur.ord++; }});
+  }
+  if(!isW){
+    for(let sk = 0; sk < 5; sk++) if(g.cur.skills[sk] < g.tgt.skills[sk]){
+      const skTgt = {...g.cur, skills: g.cur.skills.map((v, k) => k === sk ? v + 1 : v)};
+      steps.push({label: `${GAME.skillNames[sk]} ${g.cur.skills[sk]} → ${g.cur.skills[sk] + 1}`,
+                  cost: costForGoal({char: g.char, cur: g.cur, tgt: skTgt}),
+                  apply: (k => () => { g.cur.skills[k]++; })(sk)});
+    }
+    for(let nc = 0; nc < 5; nc++) for(let nr = 0; nr < 2; nr++){
+      if(g.nodes[nr][nc] !== 1) continue;
+      if(nr === 1 && g.nodes[0][nc] !== 2) continue;      // in-game: upper needs the lower node OWNED
+      const inh = nc === INH_COL;
+      const field = inh ? (nr ? 'inh2' : 'inh1') : (nr ? 'major' : 'minor');
+      const ndTgt = {...g.cur, skills: [...g.cur.skills], [field]: (g.cur[field] || 0) + 1};
+      steps.push({label: inh ? `Inherent ${nr ? 'Ⅱ' : 'Ⅰ'}`
+                             : `${nr ? 'Major' : 'Minor'} node · col ${nc < INH_COL ? nc + 1 : nc}`,
+                  cost: costForGoal({char: g.char, cur: g.cur, tgt: ndTgt}),
+                  apply: ((r2, c2) => () => { g.nodes[r2][c2] = 2; syncNodeCounts(g); })(nr, nc)});
+    }
+  }
+  if(steps.length){
+    html += `<div class="upg"><div class="upg-h">Upgrade — spends your FULL stock (priority never blocks it${
+      state.synth ? ', lower tiers craft 3→1 as needed' : ''}) · one Ctrl+Z undoes</div>` +
+      steps.map((st, k) => {
+        const miss = affordCost(state.inv, st.cost, state.synth);
+        const can = !Object.keys(miss).length;
+        const drink = can && st.cost.exp ? ' · drinks ' + potionText(poolPlan(state.inv, st.cost.exp, GAME.expItems).plan)
+                    : can && st.cost.wexp ? ' · drinks ' + coreText(poolPlan(state.inv, st.cost.wexp, GAME.wpnExpItems).plan) : '';
+        const crafts = can && state.synth && Object.keys(affordCost(state.inv, st.cost, false)).length
+          ? ' · crafts lower tiers 3→1 to cover it' : '';
+        return `<div class="upg-row"><button class="tiny${can ? ' good' : ''}" data-upg="${k}"${can ? '' : ' disabled'} ` +
+          `title="${esc(can ? 'Spend and advance' + drink + crafts : 'Missing: ' + costText(miss))}">⬆</button>` +
+          `<span class="upg-lbl">${st.label}</span>` +
+          `<span class="upg-cost num">${esc(costText(st.cost))}</span></div>`;
+      }).join('') + `</div>`;
+  }
   const box = $('#modalBox');
   box.style.setProperty('--acc', isW ? 'var(--weapon)' : it.elColor);
   box.innerHTML = html;
@@ -2478,6 +2618,14 @@ function renderModal(){
     }
     save(); render();
   });
+  box.querySelectorAll('[data-upg]').forEach(b => b.addEventListener('click', e => {
+    const st = steps[+e.currentTarget.dataset.upg];
+    if(!st || Object.keys(affordCost(state.inv, st.cost, state.synth)).length) return;
+    withUndo(`${it.name}: ${st.label}`, () => {
+      spendCost(state.inv, st.cost, state.synth);
+      st.apply();
+    });
+  }));
   box.querySelectorAll('[data-skc]').forEach(b => b.addEventListener('click', e => {
     const c2 = +e.currentTarget.dataset.skc, delta = +e.currentTarget.dataset.skd;
     if(e.currentTarget.dataset.sks === 'cur'){                          // same rules as onField

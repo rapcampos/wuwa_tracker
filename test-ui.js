@@ -64,6 +64,22 @@ ok('tiles carry rarity grounds', d.querySelector('#summary .tile.r5') !== null &
   w.eval(`delete state.inv['boss:Elegy Tacet Core']; save(); render();`);
 }
 
+// ── inventory edits refresh the goals grid on blur, not per change ──
+{
+  fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Inventory'), 'click');
+  const row = [...d.querySelectorAll('#summary table.mats tr')].find(r => r.textContent.includes('Elegy Tacet Core'));
+  const inp = row.querySelector('.invIn');
+  const fill = () => d.querySelector('.goal[data-g="0"] .ready-fill').getAttribute('style');
+  inp.value = '21'; fire(inp, 'change');
+  ok('a committed change alone leaves the goals grid untouched', fill().includes('width:0%'));
+  fire(inp, 'blur');
+  ok('leaving the field refreshes the goals grid', !fill().includes('width:0%'));
+  ok('the inventory input survives the refresh (only #goals rebuilt)', inp.isConnected);
+  inp.value = ''; fire(inp, 'change'); fire(inp, 'blur');
+  ok('clearing + blur restores the bar', fill().includes('width:0%'));
+  fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Total'), 'click');
+}
+
 // ── "Ignore credits & EXP" toggle: strips both pools from every planning view ──
 {
   const titles = () => [...d.querySelectorAll('#summary .tile')].map(t => t.getAttribute('title') || '');

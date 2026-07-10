@@ -2006,6 +2006,7 @@ function invRow(id, needTxt, left){
    goals, never on inventory, so the patch set is fixed: Left cells (data-l,
    keyed by INVROWS index or 'exp'/'wexp'), pooled-EXP Have cells (data-h),
    and the potion/core plan rows (data-p). */
+let invDirty = false;    // inventory edited since the goals grid last refreshed
 function updateLeft(){
   const res = remainingBag(totalBag(state.goals), state.inv, state.synth);
   const leftOf = k => k === 'exp' ? (res.rem.exp || 0)
@@ -2158,13 +2159,24 @@ function renderSummary(){
     html += '</table>';
     el.innerHTML = head + (INVROWS.length ? html
       : '<div class="empty">Nothing needed right now — untick “Hide un-needed” to log stock for later.</div>');
-    el.querySelectorAll('.invIn').forEach(inp => inp.addEventListener('change', e => {
-      const id = INVROWS[+e.currentTarget.dataset.i];
-      const v = Math.max(0, Math.floor(+e.currentTarget.value || 0));
-      if(v) state.inv[id] = v; else delete state.inv[id];
-      e.currentTarget.value = v || '';
-      save(); updateLeft();
-    }));
+    el.querySelectorAll('.invIn').forEach(inp => {
+      inp.addEventListener('change', e => {
+        const id = INVROWS[+e.currentTarget.dataset.i];
+        const v = Math.max(0, Math.floor(+e.currentTarget.value || 0));
+        if(v) state.inv[id] = v; else delete state.inv[id];
+        e.currentTarget.value = v || '';
+        invDirty = true;
+        save(); updateLeft();
+      });
+      // the goals grid refreshes when focus LEAVES a field, not per change —
+      // spinner clicks / retypes on one count coalesce into one re-render.
+      // Safe: focus lives in this table, and only #goals is rebuilt.
+      inp.addEventListener('blur', () => {
+        if(!invDirty) return;
+        invDirty = false;
+        renderGoals();
+      });
+    });
     const chk = $('#synthChk');
     if(chk) chk.addEventListener('change', e => { state.synth = e.currentTarget.checked; save(); updateLeft(); });
     // hiding changes row structure, so this one is a real re-render

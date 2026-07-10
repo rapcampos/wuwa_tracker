@@ -292,8 +292,11 @@ are no screenshot tests — be extra careful with CSS-only changes.
   potion/core plan rows via `data-p`). Rebuilding the table there would
   destroy the input the user is tabbing into and dump focus to the top of
   the page, so keep row structure dependent on goals only, never on
-  inventory. Event handlers bind after each render; data attributes carry
-  indices, never material ids (apostrophes in names).
+  inventory. The goals grid catches up on **blur** of an inventory input
+  (`invDirty` flag → `renderGoals()` — safe because only `#goals` is
+  rebuilt, focus lives in the summary table; multiple edits to one field
+  coalesce into one refresh). Event handlers bind after each render; data
+  attributes carry indices, never material ids (apostrophes in names).
 - Reordering: drag the ⠿ grip (HTML5 DnD, `dragIdx` module variable — not
   dataTransfer — carries state) **and** ▲▼ buttons, kept for touch screens.
   Both route through `moveGoal(from, to)` where `to` is the pre-removal

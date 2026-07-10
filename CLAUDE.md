@@ -260,7 +260,11 @@ are no screenshot tests — be extra careful with CSS-only changes.
   material tooltip (tiles, Inventory rows, stock grid) ends with
   "· needed by <goal names>" — the `NEEDERS` map, rebuilt once per render
   pass by `buildNeeders()` (tests must match tile titles by prefix, not
-  equality).
+  equality) — then "· click to edit stock": **clicking any `.tile` opens
+  the stock grid focused on that material's input** (`bindTileClicks`
+  recovers the id from the tooltip's leading display name — data
+  attributes must not carry ids; `openInv(focusId)` scrolls + focuses;
+  exp/wexp pool tiles land on their premium item).
   **exp/wexp tiles show a top-tier item count, not raw EXP** (`expTopTier`/
   `wexpTopTier`, pure/engine: ceil ÷ 20k — "366", not "7.31M"; `tileQty`
   routes it), and the registry marks exp/wexp `r:5` so the ground matches

@@ -1096,6 +1096,20 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
     Object.keys(state.inv).forEach(k => delete state.inv[k]); save(); render();`);
 }
 
+// ── clicking a material tile jumps into the stock grid on that item ──
+{
+  fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Total'), 'click');
+  const tileBy = pre => [...d.querySelectorAll('#summary .tile')]
+    .find(t => (t.getAttribute('title') || '').startsWith(pre));
+  const someTile = tileBy("Sentinel's Dagger") || tileBy('Shell Credit');
+  const expectName = someTile.getAttribute('title').split(' — ')[0];
+  fire(someTile, 'click');
+  ok('tile click opens the stock grid', d.querySelector('#invWrap').hidden === false);
+  ok('…with that material’s input focused',
+     w.eval('MATS[IGRID[+document.activeElement.dataset.i]].name') === expectName);
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
+}
+
 // ── single-level undo: toast + Ctrl+Z restore the last destructive action ──
 {
   const bar = () => d.querySelector('#undoBar');

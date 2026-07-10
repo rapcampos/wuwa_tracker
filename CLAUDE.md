@@ -324,6 +324,14 @@ are no screenshot tests — be extra careful with CSS-only changes.
   delete, forget-completed, team delete, Reset all, Import. Marking a goal
   done is NOT wrapped (↩ already reverses it). One slot: the next
   destructive action overwrites the snapshot.
+- **Backup**: "⛃ Backup file" links a JSON file via the File System Access
+  API (Chromium; button hides elsewhere) — every `save()` debounce-rewrites
+  it (`scheduleBackup`/`writeBackup`), the handle persists in IndexedDB
+  (`wuwa-planner-fs`), and a reload resumes silently only while the browser
+  keeps the permission (otherwise the button relinks with one click, which
+  satisfies the user-gesture rule). Export also stamps a backup. The stamp
+  lives in a SEPARATE localStorage key `wuwa-planner-meta` (never inside
+  the save); when it's over 7 days old the boot note nags with a warn tint.
 - localStorage is unavailable in the claude.ai artifact preview iframe —
   the app detects this and shows a "preview mode" note. Never assume storage
   works; everything must degrade to in-memory + Export/Import.

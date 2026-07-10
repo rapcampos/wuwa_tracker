@@ -905,6 +905,30 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   fire([...d.querySelectorAll('.pagenav button')].find(b => b.dataset.page === 'ledger'), 'click');
 }
 
+// ── backup: button gated on File System Access; Export stamps the meta key ──
+{
+  ok('backup button hidden without the File System Access API (jsdom)',
+     d.querySelector('#btnBackup').hidden === true);
+  ok('no backup stamp before the first export',
+     w.localStorage.getItem('wuwa-planner-meta') === null);
+  fire(d.querySelector('#btnExport'), 'click');               // download part is try/caught in jsdom
+  const meta = JSON.parse(w.localStorage.getItem('wuwa-planner-meta') || '{}');
+  ok('Export stamps lastBackup', typeof meta.lastBackup === 'number' && meta.lastBackup > 0);
+}
+
+// ── backup staleness: boot nags when the last backup is over a week old ──
+{
+  const domB = new JSDOM(html, {runScripts:'outside-only', url:'https://localhost/'});
+  domB.window.localStorage.setItem('wuwa-planner-meta',
+    JSON.stringify({lastBackup: Date.now() - 12 * 86400000}));
+  domB.window.eval([...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).join('\n;\n'));
+  const noteB = domB.window.document.querySelector('#storageNote');
+  ok('boot note warns about a 12-day-old backup',
+     noteB.textContent.includes('12 days ago') && noteB.className.includes('warn'));
+  ok('undo toast hidden at boot', domB.window.document.querySelector('#undoBar').hidden === true);
+  domB.window.close();
+}
+
 // ── Teams: #teams hash boot + save repair (dupes, budget, unknown ids) ──
 {
   const domT = new JSDOM(html, {runScripts:'outside-only', url:'https://localhost/#teams'});

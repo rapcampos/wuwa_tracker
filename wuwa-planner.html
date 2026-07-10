@@ -319,6 +319,7 @@ td.inv{width:96px; text-align:right}
     <span class="spacer"></span>
     <button class="ghost" id="btnExport">Export JSON</button>
     <button class="ghost" id="btnImport">Import JSON</button>
+    <button class="ghost" id="btnBackup" title="Link a JSON file that rewrites itself on every change (Chromium browsers)">⛃ Backup file</button>
     <button class="ghost danger" id="btnReset">Reset all</button>
     <input type="file" id="fileImport" accept="application/json" hidden>
   </div>
@@ -1438,6 +1439,7 @@ function note(msg, warn){
   n.className = 'storage-note' + (warn ? ' warn' : '');
 }
 function save(){
+  scheduleBackup();                            // linked backup file, if any (no-op otherwise)
   if(!storageOK){ return; }
   try{
     localStorage.setItem(STORE_KEY, JSON.stringify(state));
@@ -2363,12 +2365,15 @@ document.addEventListener('keydown', e => {
 
 /* ── toolbar: export / import / reset ── */
 $('#btnExport').addEventListener('click', () => {
-  const blob = new Blob([JSON.stringify({v:1, ...state}, null, 2)], {type:'application/json'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'wuwa-planner-save.json';
-  a.click();
-  URL.revokeObjectURL(a.href);
+  markBackup();
+  try{
+    const blob = new Blob([JSON.stringify({v:1, ...state}, null, 2)], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'wuwa-planner-save.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }catch(e){}                                  // no object URLs in test/preview environments
 });
 $('#btnImport').addEventListener('click', () => $('#fileImport').click());
 $('#fileImport').addEventListener('change', e => {
@@ -2387,6 +2392,90 @@ $('#fileImport').addEventListener('change', e => {
 $('#btnReset').addEventListener('click', () => {
   if(confirm('Clear all goals and inventory?')) withUndo('Reset everything', () => { state = defaultState(); });
 });
+
+/* ── backup: linked file write-through + staleness reminder ──
+   With the File System Access API (Chromium), "⛃ Backup file" links a JSON
+   file once and every save rewrites it (debounced). The handle persists in
+   IndexedDB; a reload resumes silently only if the browser kept the
+   permission — otherwise the same button relinks with one click. Where the
+   API is missing (Firefox/Safari/preview/jsdom) the button hides and the
+   boot note nags when the last backup is over a week old. Export also
+   counts as a backup. */
+const META_KEY = 'wuwa-planner-meta';
+let meta = {lastBackup: 0};
+if(storageOK){ try{ meta = {...meta, ...(JSON.parse(localStorage.getItem(META_KEY)) || {})}; }catch(e){} }
+function markBackup(){
+  meta.lastBackup = Date.now();
+  if(storageOK){ try{ localStorage.setItem(META_KEY, JSON.stringify(meta)); }catch(e){} }
+}
+const backupAge = () => meta.lastBackup ? Math.floor((Date.now() - meta.lastBackup) / 86400000) : Infinity;
+
+let bakHandle = null, bakTimer = null;
+const FS_OK = typeof window.showSaveFilePicker === 'function';
+function scheduleBackup(){
+  if(!bakHandle) return;
+  clearTimeout(bakTimer);
+  bakTimer = setTimeout(writeBackup, 1500);
+}
+async function writeBackup(){
+  if(!bakHandle) return;
+  try{
+    const wr = await bakHandle.createWritable();
+    await wr.write(JSON.stringify({v:1, ...state}, null, 2));
+    await wr.close();
+    markBackup();
+  }catch(e){
+    bakHandle = null;
+    note('Backup write failed — click “⛃ Backup file” to relink.', true);
+  }
+}
+/* handle persistence: minimal IndexedDB wrapper (localStorage can't hold file handles) */
+function bakDB(){
+  return new Promise((res, rej) => {
+    if(!window.indexedDB) return rej(new Error('no idb'));
+    const rq = indexedDB.open('wuwa-planner-fs', 1);
+    rq.onupgradeneeded = () => rq.result.createObjectStore('h');
+    rq.onsuccess = () => res(rq.result);
+    rq.onerror = () => rej(rq.error);
+  });
+}
+const bakStore = h => bakDB().then(db => new Promise((res, rej) => {
+  const tx = db.transaction('h', 'readwrite');
+  tx.objectStore('h').put(h, 'backup');
+  tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+})).catch(() => {});
+const bakLoad = () => bakDB().then(db => new Promise((res, rej) => {
+  const rq = db.transaction('h').objectStore('h').get('backup');
+  rq.onsuccess = () => res(rq.result || null); rq.onerror = () => rej(rq.error);
+})).catch(() => null);
+
+async function linkBackup(){
+  try{
+    const h = await window.showSaveFilePicker({
+      suggestedName: 'wuwa-planner-backup.json',
+      types: [{description: 'JSON save', accept: {'application/json': ['.json']}}],
+    });
+    bakHandle = h;
+    await bakStore(h);
+    await writeBackup();
+    note('Backup linked — the file now rewrites itself on every change.');
+  }catch(e){}                                  // picker cancelled
+}
+if(FS_OK){
+  $('#btnBackup').addEventListener('click', async () => {
+    if(bakHandle) return writeBackup();        // already linked: manual poke
+    const h = await bakLoad();                 // stored handle? re-request permission (user gesture)
+    if(h && h.requestPermission && (await h.requestPermission({mode:'readwrite'})) === 'granted'){
+      bakHandle = h;
+      await writeBackup();
+      note('Backup relinked — the file rewrites itself on every change.');
+    } else linkBackup();
+  });
+  bakLoad().then(async h => {                  // silent resume when the permission survived reload
+    if(h && h.queryPermission && (await h.queryPermission({mode:'readwrite'})) === 'granted')
+      bakHandle = h;
+  });
+} else $('#btnBackup').hidden = true;
 
 /* ── footer & boot ── */
 function renderFooter(){
@@ -2411,7 +2500,11 @@ render();
 showPage(curPage());
 if(storageOK){
   try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }catch(e){}  // normalize any old/corrupt save
-  note('Autosaves in this browser · Export for a portable backup.');
+  const age = backupAge();
+  if(age !== Infinity && age > 7)
+    note(`Autosaves in this browser · last backup ${age} days ago — Export or link a backup file.`, true);
+  else
+    note('Autosaves in this browser · Export for a portable backup.');
 } else {
   note('Preview mode — autosave unavailable here. Download this file and open it locally (or use Export) to keep changes.', true);
 }

@@ -253,6 +253,15 @@ built-in rarity dot / element monogram, so missing files must never break
 layout. `overrides` maps display name → base filename (no extension).
 Weapons reuse this same pipeline (kind `weapon` → `images/weapons/`).
 
+The **inline waveplate glyph** `wpIco()` reuses this pipeline for a non-`MATS`
+name — `icoImg('Waveplate', 'mat', 'wp-ico')` → `images/materials/
+waveplate_icon.png` (fetched from the fandom wiki like the rest) — and
+replaces the old `⚡` text everywhere waveplate quantities render: the card
+readiness labels, the Total-tab estimate line, and the today-plan
+header/rows/note. Sized to text via `.wp-ico`. Tooltips still spell out
+"waveplates" (title attributes can't carry an `<img>`), and the `⚡` in the
+data-provenance numbers below is just prose.
+
 ## Testing (non-negotiable workflow)
 
 Two Node suites live next to the HTML and **eval the shipping file itself**
@@ -456,7 +465,8 @@ are no screenshot tests — be extra careful with CSS-only changes.
 - **Readiness bars**: every unfinished goal card carries a thin waveplate
   progress bar under its header (`readyBar`: full requirement vs the
   queue-order-allocated remainder — same `farmNextWalk` data as the tiles),
-  labeled "≈N⚡ · Xd" ("overworld only" when only free pickups remain);
+  labeled "≈N·Xd" with the waveplate icon (`wpIco`, was ⚡) between the
+  count and unit ("overworld only" when only free pickups remain);
   the tooltip (`wpTip`) splits the estimate by activity and notes the
   weekly 3-claims/week cap. The Total tab gets an aggregate line above the
   tiles. Finished goals render no bar.

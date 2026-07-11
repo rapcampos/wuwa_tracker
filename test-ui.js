@@ -72,16 +72,21 @@ ok('tiles carry rarity grounds', d.querySelector('#summary .tile.r5') !== null &
 {
   ok('every unfinished card carries a readiness bar', d.querySelectorAll('#goals .goal .ready').length === 3);
   const bar = () => d.querySelector('.goal[data-g="0"] .ready');
-  ok('fresh goals start at 0% with a waveplate label',
+  ok('fresh goals start at 0% with a waveplate label (icon, not ⚡ text)',
      bar().querySelector('.ready-fill').getAttribute('style').includes('width:0%') &&
-     bar().querySelector('.ready-lbl').textContent.includes('⚡'));
+     bar().querySelector('.ready-lbl .wp-ico') !== null &&
+     !bar().querySelector('.ready-lbl').textContent.includes('⚡'));
+  ok('the waveplate glyph resolves to the fetched icon file',
+     bar().querySelector('.ready-lbl .wp-ico').getAttribute('src') === 'images/materials/waveplate_icon.png');
   ok('bar tooltip breaks the estimate down by activity',
      (bar().getAttribute('title') || '').includes('boss ≈') &&
      bar().getAttribute('title').includes('3/week cap') &&
      bar().getAttribute('title').includes('overworld'));
-  ok('Total tab shows the aggregate waveplate line',
-     (() => { const g = [...d.querySelectorAll('#summary .gmeta')].map(x => x.textContent).join(' ');
-              return g.includes('waveplates') && g.includes('240/day') && g.includes('weekly claims'); })());
+  ok('Total tab shows the aggregate waveplate line, iconized', (() => {
+     const line = [...d.querySelectorAll('#summary .gmeta')].find(x => /240\/day/.test(x.textContent));
+     const g = [...d.querySelectorAll('#summary .gmeta')].map(x => x.textContent).join(' ');
+     return line && line.querySelector('.wp-ico') !== null &&
+            g.includes('240/day') && g.includes('weekly claims') && !g.includes('⚡'); })());
   // stocking inventory moves the bar (and reverts cleanly)
   w.eval(`state.inv['boss:Elegy Tacet Core'] = 21; save(); render();`);
   ok('inventory pushes the bar off 0%',
@@ -393,13 +398,15 @@ ok('top unmet goal expanded with its missing mats as tiles',
   const runs = () => [...d.querySelectorAll('#summary .today .run')];
   ok('the tab leads with today’s plan', d.querySelector('#summary .today') !== null &&
      d.querySelector('#summary').firstElementChild.classList.contains('today') && runs().length > 0);
-  ok('the header shows what the plan spends of the daily budget',
-     /\d+ \/ 240⚡/.test(d.querySelector('#summary .today-h .budget').textContent));
-  ok('every run names an activity, a run count, a yield and a plate cost',
+  ok('the header shows what the plan spends of the daily budget, iconized', (() => {
+     const b = d.querySelector('#summary .today-h .budget');
+     return /\d+ \/ 240$/.test(b.textContent.trim()) && b.querySelector('.wp-ico') !== null; })());
+  ok('every run names an activity, a run count, a yield and an iconized plate cost',
      runs().every(r => r.querySelector('.rname').textContent.length > 0 &&
        /^×\d+$/.test(r.querySelector('.x').textContent) &&
        r.querySelector('.gain').textContent.startsWith('≈') &&
-       /^[\d,]+⚡$/.test(r.querySelector('.plates').textContent)));
+       /^[\d,]+$/.test(r.querySelector('.plates').textContent) &&
+       r.querySelector('.plates .wp-ico') !== null));
   ok('run rows carry the activity’s icon', runs().every(r => r.querySelector('.ico-wrap img') !== null));
   ok('the plan never overspends the budget',
      runs().reduce((s, r) => s + +r.querySelector('.plates').textContent.replace(/[^\d]/g, ''), 0) <= 240);

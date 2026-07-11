@@ -297,7 +297,23 @@ Two Node suites live next to the HTML and **eval the shipping file itself**
 Run both after **any** change: `node test-engine.js && node test-ui.js`.
 Every new feature ships with tests in the same turn. jsdom is installed via
 npm; puppeteer is unavailable in the sandbox (Chrome CDN blocked), so there
-are no screenshot tests — be extra careful with CSS-only changes.
+are no automated screenshot tests — jsdom asserts DOM/wiring, never pixels.
+
+**Visual check (WSL only):** the repo sits on the Windows C: drive and the
+host has Chrome, so headless Chrome can render a real screenshot the agent
+can view. Static page:
+`"/mnt/c/Program Files/Google/Chrome/Application/chrome.exe" --headless=new
+--disable-gpu --hide-scrollbars --user-data-dir="C:\Temp\cshot"
+--virtual-time-budget=3000 --window-size=1500,1700
+--screenshot="C:\dev\projects\wuwa_tracker\shot.png"
+"file:///C:/dev/projects/wuwa_tracker/wuwa-planner.html"` — local `images/`
+resolve over `file://`. For an INTERACTIVE state, copy the HTML to a temp
+file IN THE PROJECT DIR (so `images/` still resolve) and append a `<script>`
+that drives it — top-level `let`s (`editIdx`, `showTip`, `state`…) are
+shared across classic scripts, e.g. `editIdx = 0; renderModal();` for the
+editor or `showTip(document.querySelector('#summary .tile'))` for the hover
+popover. `shot*.png` and `_shottmp.html` are gitignored. This is a manual
+visual aid, not a test — still be careful with CSS-only changes.
 
 ## UI conventions
 

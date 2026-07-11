@@ -1,2 +1,6 @@
 node_modules/
 .claude/settings.local.json
+
+# local screenshot artifacts (WSL headless Chrome)
+shot*.png
+_shottmp.html

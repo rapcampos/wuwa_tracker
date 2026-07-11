@@ -2324,6 +2324,7 @@ function openInv(focusId){
       if(inp.select) inp.select();
     }
   }
+  else $('#invFind').focus();                  // the filter is the way in — start typing
 }
 /* clicking any material tile opens the stock grid focused on that item —
    the id is recovered from the tooltip's leading display name (data

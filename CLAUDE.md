@@ -358,7 +358,7 @@ are no screenshot tests — be extra careful with CSS-only changes.
   Two bulk-entry affordances live here: a **fuzzy filter box** (`#invFind`,
   transient `invFilter`, reuses `fuzzyScore` — so "lfhow" finds LF Howler
   Core) that rebuilds the grid per keystroke *safely*, because the input sits
-  in the header OUTSIDE `#invGrid`; Enter on a lone match jumps into its
+  in the header OUTSIDE `#invGrid`; `openInv()` focuses it, Enter on a lone match jumps into its
   quantity input, and `openInv`/`closeInv` clear the filter (a stale one
   could hide the very tile a `.tile` click asked to focus). And **`+1`/`+5`
   steppers** (`.istep`) on every tile for logging a farm session, Shift-click

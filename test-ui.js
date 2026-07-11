@@ -1020,6 +1020,8 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok('stock pop-up hidden until opened', wrapI().hidden === true);
   d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'i', ctrlKey:true, bubbles:true}));
   ok('Ctrl+I opens the stock grid', wrapI().hidden === false);
+  ok('…with the filter box focused, ready to type',
+     d.activeElement === d.querySelector('#invFind'));
   ok('the wrapper is a real fixed overlay (CSS present, not just unhidden)',
      w.getComputedStyle(wrapI()).position === 'fixed');
   ok('every pop-up wrapper carries the fixed-overlay CSS',

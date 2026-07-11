@@ -548,6 +548,48 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok('backdrop click closes the pop-up', d.querySelector('#modalWrap').hidden === true);
 }
 
+// ── forte stat payoff line in the edit pop-up (editor only, live) ──
+{
+  reset();
+  // Jinhsi has node data (critRate + atk); default target plans every node
+  fire(d.querySelector('button[data-act="edit"][data-g="0"]'), 'click');
+  const line = () => mbox().querySelector('.fstat');
+  ok('the editor shows a forte stat line for a character with node data', line() !== null);
+  ok('the full planned build totals both stats',
+     /\+8%\s*Crit\. Rate/.test(line().textContent) && /\+12%\s*ATK/.test(line().textContent));
+  ok('the card itself carries no stat line (editor only)',
+     d.querySelector('#goals .fstat') === null);
+
+  // live: skipping every stat node empties the total, and the line stays
+  w.eval(`{ const g = state.goals[0];
+    for(const c of [0,1,3,4]){ g.nodes[0][c] = 0; g.nodes[1][c] = 0; }
+    syncNodeCounts(g); save(); render(); }`);
+  ok('skipping all stat nodes shows the empty-state, line does not vanish',
+     line() !== null && /no stat nodes planned/.test(line().textContent));
+
+  // re-owning one crit column updates live: 1.2 + 2.8 = 4%
+  fire(mbox().querySelector('.node[data-r="0"][data-c="0"]'), 'contextmenu');   // lower col0 → owned
+  fire(mbox().querySelector('.node[data-r="1"][data-c="0"]'), 'contextmenu');   // upper col0 → owned
+  ok('re-owning one crit column recomputes to +4% live',
+     /\+4%\s*Crit\. Rate/.test(line().textContent) && !/ATK/.test(line().textContent));
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
+
+  // a character with no datamined node data shows no line at all
+  w.eval(`state.goals.push(newGoal('suisui', false, state.defaults)); save(); render();`);
+  const si = w.eval(`state.goals.findIndex(g => g.char === 'suisui')`);
+  fire(d.querySelector(`button[data-act="edit"][data-g="${si}"]`), 'click');
+  ok('a post-3.1 character (no node data) shows no stat line', mbox().querySelector('.fstat') === null);
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
+
+  // weapon goals never show it
+  reset();
+  w.eval(`state.goals.push(newWpnGoal('agesOfHarvest', false)); save(); render();`);
+  const wi = w.eval('state.goals.length - 1');
+  fire(d.querySelector(`button[data-act="edit"][data-g="${wi}"]`), 'click');
+  ok('weapon goals show no forte stat line', mbox().querySelector('.fstat') === null);
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
+}
+
 // ── save migrations → matrix ──
 {
   const run = payload => {

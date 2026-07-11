@@ -10,7 +10,8 @@ eval(blocks.join('\n;\n') + `
   costForGoal, totalBag, freshState, maxedState, expToPotions, remainingBag, farmNextWalk, sortMatIds,
   freshWpnState, maxedWpnState, wexpToCores, fmtShort, priorityMatIds, defaultGoalTgt, fuzzyScore,
   nodeShortfall, charEnergy, teamUsage, energyLeft, sanitizeTeams, expTopTier, wexpTopTier,
-  waveplateEstimate, stripCE, craftFromPool, affordCost, poolPlan, spendCost, dailyPlan, familyIds, famLabel});`);
+  waveplateEstimate, stripCE, craftFromPool, affordCost, poolPlan, spendCost, dailyPlan, familyIds, famLabel,
+  statNodesFor, forteStatTotals});`);
 
 let pass = 0, fail = 0;
 const canon = v => (v && typeof v === 'object' && !Array.isArray(v))
@@ -601,6 +602,89 @@ eq('stripCE never mutates its input', (() => {
     });
     eq('every seeded family shortens to a shared label', bad, []);
   }
+}
+
+// ═══ forte stat-bonus nodes (datamined, ConfigDB/SkillTree.json) ═══
+{
+  // symmetric layout: cols 0 & 4 = outer stat, 1 & 3 = inner, 2 = inherent (null)
+  const jh = statNodesFor('jinhsi');
+  eq('jinhsi node stats: 5 columns', jh.length, 5);
+  eq('jinhsi cols 0 & 4 are the outer stat (crit rate)',
+     [jh[0].key, jh[4].key], ['critRate', 'critRate']);
+  eq('jinhsi cols 1 & 3 are the inner stat (ATK)',
+     [jh[1].key, jh[3].key], ['atk', 'atk']);
+  eq('jinhsi column 2 is inherent — no stat node', jh[2], null);
+  eq('crit rate node values (minor/major)', [jh[0].minor, jh[0].major], [1.2, 2.8]);
+  eq('ATK node values (minor/major)', [jh[1].minor, jh[1].major], [1.8, 4.2]);
+  eq('a stat carries its display label', jh[0].label, 'Crit. Rate');
+
+  // total forte crit rate = 2 columns × (minor + major) — community anchor 8%
+  eq('total forte crit rate is 8%', 2 * (jh[0].minor + jh[0].major), 8);
+  const cd = statNodesFor('xiangliYao');
+  eq('total forte crit dmg is 16%', 2 * (cd[0].minor + cd[0].major), 16);
+
+  // non-ATK inner stats and off-crit outer stats
+  eq('shorekeeper is healing (outer) + HP (inner)',
+     [statNodesFor('shorekeeper')[0].key, statNodesFor('shorekeeper')[1].key], ['healing', 'hp']);
+  eq('mornye is healing (outer) + DEF (inner)',
+     [statNodesFor('mornye')[0].key, statNodesFor('mornye')[1].key], ['healing', 'def']);
+  eq('cartethyia is crit rate (outer) + HP (inner)',
+     [statNodesFor('cartethyia')[0].key, statNodesFor('cartethyia')[1].key], ['critRate', 'hp']);
+  eq('lingyang is Glacio DMG (outer) + ATK (inner)',
+     [statNodesFor('lingyang')[0].key, statNodesFor('lingyang')[1].key], ['glacioDmg', 'atk']);
+  eq('DEF node values differ from ATK', [statNodesFor('mornye')[1].minor, statNodesFor('mornye')[1].major], [2.28, 5.32]);
+
+  // coverage / integrity
+  eq('a post-3.1 character (no datamine data) returns null', statNodesFor('suisui'), null);
+  eq('an unknown id returns null', statNodesFor('nobody'), null);
+  const keys = Object.keys(GAME.charStatNodes);
+  eq('35 characters have node data', keys.length, 35);
+  eq('every keyed character exists and is 5★',
+     keys.filter(k => (GAME.characters[k] || {}).rarity !== 5), []);
+  eq('every named stat exists in the shared value table',
+     keys.flatMap(k => GAME.charStatNodes[k]).filter(s => !GAME.nodeStats[s]), []);
+}
+
+// ═══ forteStatTotals: sum a build's forte stat bonuses ═══
+{
+  const g = (nodes, char = 'jinhsi') => ({char, cur:{}, tgt:{}, nodes});
+  const all = v => [[v,v,v,v,v],[v,v,v,v,v]];   // 2×5 matrix filled with v
+
+  // a fully-owned Jinhsi tree: crit rate 8% (2 cols × [1.2+2.8]), ATK 18.4% (2 × [1.8+4.2])
+  eq('full owned build totals both stats, outer stat first',
+     forteStatTotals(g(all(2)), 'cur'),
+     [{key:'critRate', label:'Crit. Rate', pct:8}, {key:'atk', label:'ATK', pct:12}]);
+  eq('full planned build, same totals under the tgt side', forteStatTotals(g(all(1)), 'tgt'),
+     [{key:'critRate', label:'Crit. Rate', pct:8}, {key:'atk', label:'ATK', pct:12}]);
+
+  // side matters: planned-only nodes count for tgt, not cur
+  eq('planned nodes do not count toward the owned (cur) total', forteStatTotals(g(all(1)), 'cur'), []);
+  eq('a skipped build grants nothing', forteStatTotals(g(all(0)), 'tgt'), []);
+
+  // partial: own only the two lower ATK nodes (cols 1 & 3, row 0) → ATK 3.6%
+  eq('owning just the two minor ATK nodes → 1.8 × 2', (() => {
+    const m = all(0); m[0][1] = 2; m[0][3] = 2; return forteStatTotals(g(m), 'cur');
+  })(), [{key:'atk', label:'ATK', pct:3.6}]);
+
+  // one lower + one upper crit column: 1.2 + 2.8 = 4 (float-clean)
+  eq('a single owned crit column totals 4%', (() => {
+    const m = all(0); m[0][0] = 2; m[1][0] = 2; return forteStatTotals(g(m), 'cur');
+  })(), [{key:'critRate', label:'Crit. Rate', pct:4}]);
+
+  // the center (inherent) column never contributes a stat
+  eq('the inherent column is ignored', (() => {
+    const m = all(0); m[0][2] = 2; m[1][2] = 2; return forteStatTotals(g(m), 'cur');
+  })(), []);
+
+  // DEF rounds cleanly (2.28 + 5.32) × 2 columns = 15.2
+  eq('mornye DEF totals 15.2% with no float noise',
+     forteStatTotals(g(all(2), 'mornye'), 'cur').find(s => s.key === 'def').pct, 15.2);
+
+  // guards: weapons and data-less characters and null goals
+  eq('a weapon goal has no forte stats', forteStatTotals({weapon:'stonard', nodes:undefined}, 'tgt'), null);
+  eq('a post-3.1 character returns null even with a full tree', forteStatTotals(g(all(2), 'suisui'), 'cur'), null);
+  eq('a nodeless goal returns null', forteStatTotals({char:'jinhsi'}, 'tgt'), null);
+  eq('defaults to the tgt side', forteStatTotals(g(all(1))), forteStatTotals(g(all(1)), 'tgt'));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

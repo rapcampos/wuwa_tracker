@@ -66,6 +66,29 @@ it goes in block 2 with tests; presentation goes in block 3.
   down). The matrix is the source of truth; count fields on `cur`/`tgt`
   (`minor`, `major`, `inh1`, `inh2`) are *derived* via `syncNodeCounts()` for
   the engine, which only ever consumes counts.
+- **Forte stat bonuses:** each character's tree grants two stats, named in
+  `GAME.charStatNodes[charId] = [outer, inner]` (the four stat columns are
+  symmetric — cols 0 & 4 carry the outer stat, 1 & 3 the inner; col 2 is the
+  Circuit/inherent, no stat). Per-stat percentages live in `GAME.nodeStats`
+  (`{minor, major, label}`, shared by all characters like the cost
+  templates; minor = lower node, major = upper). `statNodesFor(charId)`
+  (engine, pure) returns `[outer, inner, null, inner, outer]` indexed to the
+  matrix columns, or `null` when the character has no datamined node data.
+  `forteStatTotals(goal, side)` (engine, pure) sums a build's grant across
+  its owned stat nodes: `side='cur'` counts only OWNED (===2), `'tgt'`
+  (default) counts PLANNED-or-owned (≥1); returns an ordered
+  `[{key,label,pct}]` (outer stat first, float-clean), `[]` for a zeroed
+  build, `null` for weapons / data-less characters. Values datamined from
+  ConfigDB/SkillTree.json (Dimbreath ≤3.1) — anchors: total forte crit rate
+  8%, crit dmg 16%. **Coverage: 35 of the 5★ roster; NOT yet keyed** (return
+  null) are 8 post-3.1 5★ (denia, hiyuki, lucilla, lucy, rebecca, sigrika,
+  suisui, xuanling) and ALL 4★ — add from Game8/wiki as verified, keeping
+  the engine test's "every keyed character is 5★" invariant in mind.
+  Surfaced **only** in the edit pop-up: `forteStatLine(g)` renders a
+  target-build "Forte grants +8% Crit Rate · +12% ATK" line under the forte
+  grid (`.fstat`), re-rendered live as nodes toggle, empty-state text rather
+  than vanishing, nothing at all for data-less characters. Deliberately NOT
+  on goal cards (user choice, Jul 2026).
 - **Default goal targets** are per-rarity templates in `state.defaults[4|5]`
   (a tgt-shaped state: ord/skills/inh/minor/major). New character goals start
   from them (`newGoal` takes the map as a parameter — it runs before `state`

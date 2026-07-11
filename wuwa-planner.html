@@ -141,6 +141,10 @@ label.chk{display:inline-flex; gap:6px; align-items:center; cursor:pointer; colo
 .node.own{background:var(--acc,var(--gold)); border-color:var(--acc,var(--gold)); color:#0A0E16;
   box-shadow:0 0 8px color-mix(in srgb, var(--acc,var(--gold)) 45%, transparent)}
 .ftree-legend{font-size:11.5px; color:var(--faint); margin:8px 0 2px}
+/* forte stat payoff line (edit pop-up) */
+.fstat{margin-top:12px; font-size:12.5px; color:var(--mut)}
+.fstat b{color:var(--ink); font-variant-numeric:tabular-nums; font-weight:600}
+.fstat .muted{color:var(--faint)}
 .lg{display:inline-block; width:10px; height:10px; border-radius:50%; border:1.5px solid var(--line2); vertical-align:-1px}
 .lg.plan{border-color:var(--acc,var(--cyan)); box-shadow:0 0 5px color-mix(in srgb, var(--acc,var(--cyan)) 40%, transparent)}
 .lg.own{background:var(--acc,var(--gold)); border-color:var(--acc,var(--gold))}
@@ -758,6 +762,76 @@ const GAME = {
       boss:'Blighted Crown of Puppet King', spec:'Pecok Flower', weekly:'Curse of the Abyss', beta:false, energy:2},
   },
 
+  /* Forte stat-bonus nodes — which two stats a character's tree grants.
+     A branch's minor + major node always grant the SAME stat, and the
+     four stat columns are symmetric: columns 0 & 4 share the OUTER stat,
+     columns 1 & 3 the INNER (center column 2 is the Forte Circuit — no
+     stat node). The PERCENTAGES are shared per stat (nodeStats below), so
+     an entry only names its two stats: [outer, inner]. Datamined from
+     ConfigDB/SkillTree.json (Dimbreath, ≤3.1) and cross-checked: node
+     costs matched minorNode/majorNode (50k/100k) exactly, and total crit
+     rate 8% / crit dmg 16% match community figures. Names for the 19
+     ambiguous codenames were wiki-verified via Chinese-name match.
+     35 of the datamined 5★ are here; these 8 post-3.1 5★ have no
+     datamine node data yet (add from Game8/wiki as verified):
+       denia, hiyuki, lucilla, lucy, rebecca, sigrika, suisui,
+       xuanling */
+  charStatNodes: {
+    jinhsi:       ['critRate', 'atk'],
+    jiyan:        ['critRate', 'atk'],
+    yinlin:       ['critRate', 'atk'],
+    jianxin:      ['critRate', 'atk'],
+    calcharo:     ['critDmg', 'atk'],
+    encore:       ['fusionDmg', 'atk'],
+    verina:       ['healing', 'atk'],
+    lingyang:     ['glacioDmg', 'atk'],
+    changli:      ['critRate', 'atk'],
+    zhezhi:       ['critRate', 'atk'],
+    xiangliYao:   ['critDmg', 'atk'],
+    shorekeeper:  ['healing', 'hp'],
+    camellya:     ['critDmg', 'atk'],
+    carlotta:     ['critRate', 'atk'],
+    roccia:       ['critDmg', 'atk'],
+    phoebe:       ['critDmg', 'atk'],
+    brant:        ['critRate', 'atk'],
+    cantarella:   ['critRate', 'atk'],
+    zani:         ['critRate', 'atk'],
+    ciaccona:     ['critDmg', 'atk'],
+    cartethyia:   ['critRate', 'hp'],
+    lupa:         ['critRate', 'atk'],
+    phrolova:     ['critRate', 'atk'],
+    augusta:      ['critRate', 'atk'],
+    iuno:         ['critRate', 'atk'],
+    galbrena:     ['critDmg', 'atk'],
+    chisa:        ['critRate', 'atk'],
+    qiuyuan:      ['critRate', 'atk'],
+    mornye:       ['healing', 'def'],
+    aemeath:      ['critRate', 'atk'],
+    lynae:        ['critRate', 'atk'],
+    luukHerssen:  ['critRate', 'atk'],
+    roverSpectro: ['spectroDmg', 'atk'],
+    roverHavoc:   ['havocDmg', 'atk'],
+    roverAero:    ['healing', 'atk'],
+  },
+
+  /* Per-stat node values (percent) — minor = lower node, major = upper.
+     Shared by every character, like the cost templates. label is for the
+     future build-preview UI; icons are deferred (post-3.1 icon pass). */
+  nodeStats: {
+    atk:        {minor:1.8, major:4.2, label:'ATK'},
+    hp:         {minor:1.8, major:4.2, label:'HP'},
+    def:        {minor:2.28, major:5.32, label:'DEF'},
+    critRate:   {minor:1.2, major:2.8, label:'Crit. Rate'},
+    critDmg:    {minor:2.4, major:5.6, label:'Crit. DMG'},
+    healing:    {minor:1.8, major:4.2, label:'Healing Bonus'},
+    glacioDmg:  {minor:1.8, major:4.2, label:'Glacio DMG'},
+    fusionDmg:  {minor:1.8, major:4.2, label:'Fusion DMG'},
+    electroDmg: {minor:1.8, major:4.2, label:'Electro DMG'},
+    aeroDmg:    {minor:1.8, major:4.2, label:'Aero DMG'},
+    spectroDmg: {minor:1.8, major:4.2, label:'Spectro DMG'},
+    havocDmg:   {minor:1.8, major:4.2, label:'Havoc DMG'},
+  },
+
   /* Weapon templates — level+ascension only, no forte tree.
      wpnExpCum: 5★ cumulative weapon EXP; wpnCreditPerExp = 0.4.
      asc5w: cost paid at Lv20/40/50/60/70/80; f=[forgeTier,qty], cm=[commonTier,qty] */
@@ -1095,6 +1169,47 @@ const nodeShortfall = (cur, tpl) => ({
   inh1:  Math.max(0, (tpl.inh1  || 0) - (cur.inh1  || 0)),
   inh2:  Math.max(0, (tpl.inh2  || 0) - (cur.inh2  || 0)),
 });
+
+/* Stat-bonus nodes a character's forte tree grants, indexed by the SAME
+   stat columns the node matrix uses (0,1,3,4; index 2 = inherent, null).
+   Columns 0 & 4 carry the outer stat, 1 & 3 the inner (charStatNodes gives
+   [outer, inner]); each entry is {key, minor, major, label} from nodeStats.
+   Returns null when the character has no datamined node data (post-3.1).
+   Pure — the future build-preview tab multiplies these by owned counts. */
+function statNodesFor(charId){
+  const pair = GAME.charStatNodes[charId];
+  if(!pair) return null;
+  const stat = k => Object.assign({key:k}, GAME.nodeStats[k]);
+  const [outer, inner] = pair.map(stat);
+  return [outer, inner, null, inner, outer];
+}
+
+/* Total forte stat bonus a build grants, summed across its stat nodes.
+   `side` picks which nodes count against the matrix (0 skip / 1 planned /
+   2 owned): 'cur' counts only OWNED (===2, the build you have now), 'tgt'
+   counts PLANNED-or-owned (>=1, the build you are aiming at). Each owned
+   lower node adds its stat's `minor`, each owned upper node its `major`;
+   the four stat columns pair up (0&4 outer, 1&3 inner) so a stat lands at
+   most twice per row. Returns an ordered list [{key, label, pct}] with the
+   two stats the character grants (outer before inner), pct rounded to kill
+   float noise; [] for a zero build, null when the character has no node
+   data or the goal has no forte tree (weapons). Pure. */
+function forteStatTotals(goal, side = 'tgt'){
+  if(!goal || goal.weapon !== undefined || !goal.nodes) return null;
+  const cols = statNodesFor(goal.char);
+  if(!cols) return null;
+  const owns = v => side === 'cur' ? v === 2 : v >= 1;
+  const sum = {};                              // stat key → percent
+  const order = [], seen = new Set();          // character's outer-then-inner order
+  cols.forEach((s, c) => {                      // index 2 is the inherent column: null
+    if(!s) return;
+    if(!seen.has(s.key)){ seen.add(s.key); order.push(s); }
+    if(owns(goal.nodes[0][c])) sum[s.key] = (sum[s.key] || 0) + s.minor;
+    if(owns(goal.nodes[1][c])) sum[s.key] = (sum[s.key] || 0) + s.major;
+  });
+  return order.filter(s => sum[s.key] > 0)
+    .map(s => ({key: s.key, label: s.label, pct: Math.round(sum[s.key] * 100) / 100}));
+}
 
 /* ── core: materials to move one goal from `cur` to `tgt` ──
    Character goal = {char, cur, tgt}; state = {ord, skills[5], inh1/2, minor, major}.
@@ -2817,6 +2932,19 @@ function renderSummary(){
 let editIdx = null;
 let editTpl = null;                          // 4 | 5 → pop-up edits state.defaults[editTpl]
 function closeEdit(){ editIdx = null; editTpl = null; renderModal(); }
+/* the forte grid's stat payoff, for the edit pop-up only (character goals).
+   Shows the TARGET build's grant (planned-or-owned nodes) and re-renders
+   live with the grid as nodes toggle. Renders an empty-state line rather
+   than vanishing so the layout doesn't jump mid-edit; nothing at all when
+   the character has no datamined node data (statNodesFor → null). */
+function forteStatLine(g){
+  if(!statNodesFor(g.char)) return '';
+  const t = forteStatTotals(g, 'tgt');
+  const body = t.length
+    ? t.map(s => `<b>+${s.pct}%</b> ${esc(s.label)}`).join(' · ')
+    : '<span class="muted">no stat nodes planned</span>';
+  return `<div class="fstat">Forte grants ${body}</div>`;
+}
 function renderModal(){
   const wrap = $('#modalWrap');
   if(editTpl !== null){ renderTplModal(wrap); return; }
@@ -2864,6 +2992,7 @@ function renderModal(){
         sel(i, 'tgt', 's'+c, skOpts, g.tgt.skills[c]) +
         skpm(c, 'tgt') +
       `</div>`).join('') + gutter('+', '+1') + `</div>`;
+    html += forteStatLine(g);
   }
   html += `<div style="display:flex; gap:8px; margin-top:16px; flex-wrap:wrap">
     <button class="tiny" data-max title="Target → Lv 90${isW ? '' : ', all skills 10, every node &amp; passive planned'}">⤒ Max target</button>

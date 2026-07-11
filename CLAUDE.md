@@ -159,9 +159,11 @@ it goes in block 2 with tests; presentation goes in block 3.
 - **Save format** lives in localStorage key `wuwa-planner-v1`. `sanitize()`
   migrates all older generations (v1 counts → v2 `{minor,major,inh}` arrays →
   current matrix) and repairs illegal states. Later-added top-level fields:
-  `done` (completed goals), `hideUn` (Inventory-tab filter), `skipCE`
+  `done` (completed goals), `hideUn` (legacy — the Hide-un-needed filter it
+  drove is gone; still sanitized so old saves don't error), `skipCE`
   ("Ignore credits & EXP"), and `teams` (Teams page) — all default safely
-  when absent. Never break old-save loading; add migrations instead.
+  when absent. A saved `tab:'left'` (the removed Inventory tab) migrates to
+  Total. Never break old-save loading; add migrations instead.
   Storage is normalized (rewritten) once at boot.
 
 ## Game data provenance (do not silently change numbers)
@@ -340,8 +342,7 @@ visual aid, not a test — still be careful with CSS-only changes.
   gives the text, so the title string is unchanged) — then "· click to log
   drops": **clicking any `.tile` opens the farm pop-up on that material's
   family** (`bindTileClicks` recovers the id from the tooltip's leading
-  display name — data attributes must not carry ids). The Inventory tab's
-  row icons (`td.matcell`) are the same door.
+  display name — data attributes must not carry ids).
 - **Hover popover** (`#tipPop`, `showTip`/`hideTip`): hovering any `.tile`
   opens a small floating card (position:fixed, z-index 80, pointer-events
   none) showing the tooltip text header PLUS the needers as **avatar chips**
@@ -352,20 +353,14 @@ visual aid, not a test — still be careful with CSS-only changes.
   for stale-popover cleanup) restores it. Only ONE tile is hovered at a
   time (`tipTile`). The click handler reads the stashed title when the
   clicked tile is the hovered one. Scoped to `.tile` (cards, Total, Farm
-  next); the stock grid (`.itile`) and Inventory rows keep plain `title`s.
+  next); the inventory pop-up grid (`.itile`) keeps plain name `title`s.
   **exp/wexp tiles show a top-tier item count, not raw EXP** (`expTopTier`/
   `wexpTopTier`, pure/engine: ceil ÷ 20k — "366", not "7.31M"; `tileQty`
   routes it), and the registry marks exp/wexp `r:5` so the ground matches
   the Premium potion/core icon the tile carries; exact EXP stays in the
-  tooltip, and the Inventory tab's pooled rows still use raw EXP numbers
-  (they sit next to per-tier inputs). The
-  **Inventory tab keeps its table** (Need/Have/Left + inventory inputs) and
-  lists EVERY registry material — un-needed rows show '—' and no Left cell,
-  so stock can be logged ahead of goals; it renders even with an empty queue
-  (tab key in saves is still `left`). A "Hide un-needed" checkbox
-  (`state.hideUn`, persisted) collapses it to the needed set — row
-  visibility may depend on goals + that toggle but NEVER on inventory
-  (the `updateLeft` in-place patch relies on this).
+  tooltip. **There is no Inventory tab** — resource management is the
+  Inventory pop-up (see below); old saves with `tab:'left'` migrate to Total
+  in `sanitize`.
 - **Tiles show the deficit after inventory** (`deficitTiles`): goal cards
   allocate the pool in queue order (renderGoals runs `farmNextWalk`, so the
   first card that needs a material eats the stock and later cards see the
@@ -413,29 +408,22 @@ visual aid, not a test — still be careful with CSS-only changes.
   upper node is offered only once its lower node is OWNED (Ⅱ only after
   Ⅰ). The plain cur/tgt selects stay free bookkeeping — they never touch
   inventory.
-- Rendering is "state changes → full re-render" via `render()` — EXCEPT
-  inventory/synth edits, which patch the Inventory tab's computed cells in
-  place (`updateLeft`: Left cells via `data-l`, pooled-EXP Have via `data-h`,
-  potion/core plan rows via `data-p`). Rebuilding the table there would
-  destroy the input the user is tabbing into and dump focus to the top of
-  the page, so keep row structure dependent on goals only, never on
-  inventory. The goals grid catches up on **blur** of an inventory input
-  (`invDirty` flag → `renderGoals()` — safe because only `#goals` is
-  rebuilt, focus lives in the summary table; multiple edits to one field
-  coalesce into one refresh). Event handlers bind after each render; data
-  attributes carry indices, never material ids (apostrophes in names).
-- **Inventory pop-up** (`#invWrap`, toolbar "☷ Stock" or Ctrl/Cmd+I): the
-  fast bulk-entry surface — every registry item as a rarity tile (icon +
-  quantity input; name and need/left in the hover title; potions/cores are
-  plain items here, no pooled rows) in category sections, with the same
-  persisted synth/hide-un-needed toggles as the tab. Within each section
-  tiles sort **rarity high → low** (then family, then name) to mirror the
-  in-game inventory — deliberately NOT `sortMatIds`, which stays
-  low→high for the planning views. `IGRID` carries ids by index. The grid builds once per open and is NOT re-rendered on input
-  (focus safety); CLOSING it (Esc/backdrop/✕, priority palette → reorder →
-  stock → editor; Ctrl+K/P close it too) runs the full `render()`, which
-  is the "apply everywhere when done" step. The Inventory tab stays as the
-  Need/Have/Left report.
+- Rendering is "state changes → full re-render" via `render()`. Event
+  handlers bind after each render; data attributes carry indices, never
+  material ids (apostrophes in names).
+- **Inventory pop-up** (`#invWrap`, toolbar "☷ Inventory" or Ctrl/Cmd+I):
+  the ONLY resource-management surface — a pure "what I have" list, every
+  registry item as a rarity tile (icon + quantity input, **name-only** hover
+  title) in category sections. NO deficit info lives here — no need/left, no
+  "covered" dimming, no Craft-3→1 or Hide-un-needed toggles — because that's
+  shown across the rest of the UI (cards, Total, Farm next). Within each
+  section tiles sort **rarity high → low** (then family, then name) to
+  mirror the in-game inventory — deliberately NOT `sortMatIds`, which stays
+  low→high for the planning views. `IGRID` carries ids by index. The grid
+  builds once per open and is NOT re-rendered on input (focus safety);
+  CLOSING it (Esc/backdrop/✕, priority palette → reorder → inventory →
+  editor; Ctrl+K/P close it too) runs the full `render()`, the "apply
+  everywhere when done" step. Writes go through the shared `setStock`.
   A **fuzzy filter box** (`#invFind`, transient `invFilter`, reuses
   `fuzzyScore` — so "lfhow" finds LF Howler Core) is the way in: `openInv()`
   focuses it, and it rebuilds the grid per keystroke *safely* because the
@@ -445,8 +433,8 @@ visual aid, not a test — still be careful with CSS-only changes.
   surface, and per-family nudging belongs to the farm pop-up.
 - **Farm pop-up** (`#farmWrap`, `openFarm(id)`): the after-a-run surface.
   Opened by clicking any material icon on the Ledger page (goal-card tiles,
-  Total, Farm next, Inventory rows) and layered above every other pop-up
-  (z-index 55; Esc order is palette → reorder → **farm** → stock → editor).
+  Total, Farm next) and layered above every other pop-up (z-index 55; Esc
+  order is palette → reorder → **farm** → inventory → editor).
   It shows ONLY the clicked material's family — `familyIds` (pure/engine):
   a family's four tiers low→high, the potion or core ladder for anything in
   an EXP pool, otherwise the material alone (boss/specialty/weekly/credits
@@ -469,13 +457,13 @@ visual aid, not a test — still be careful with CSS-only changes.
   `renderOrder()` (no-op when closed). Ctrl+K/`openPal` closes it; Esc
   priority is palette → reorder → editor. (The old card `dragIdx`/`bindDnD`
   HTML5 DnD is gone; `.grip` CSS now serves the pop-up rows only.)
-- Summary tabs: Total (aggregate deficit + waveplate line + the global
-  "Ignore credits & EXP" toggle) / Inventory (inline inventory + 3→1
-  synthesis toggle + hide-un-needed toggle) / Farm next (sequential
-  allocation; crafting follows the synthesis toggle with reserved-tier
-  protection — see the deficit-tiles bullet; the in-app note states which
-  mode is active) / Completed (finished goals; tab label carries a count
-  when non-empty).
+- Summary tabs (three now — Inventory tab removed): Total (aggregate deficit
+  + waveplate line + the two global toggles: "Ignore credits & EXP" and
+  "Craft 3→1", the latter `#synthChk` moved here from the old tab, both
+  `save(); render()`) / Farm next (sequential allocation; crafting follows
+  the synth toggle with reserved-tier protection — see the deficit-tiles
+  bullet; the in-app note states which mode is active) / Completed (finished
+  goals; tab label carries a count when non-empty).
 - **Today's plan** (`dailyPlan`, pure/engine; `todayBox` renders it at the
   top of Farm next): splits one day's 240⚡ into WHOLE runs. It takes the
   walk's per-goal remainders in queue order, books each material to the
@@ -492,10 +480,9 @@ visual aid, not a test — still be careful with CSS-only changes.
   a VIEW-level filter — `stripCE(bag)` (pure/engine) drops `credits`/`exp`/
   `wexp` before tiles, readiness bars, waveplate estimates, the Total
   aggregate, and Farm next's missing lists + READY flags. It never touches
-  the truth: `costForGoal` output, the finished/✓-mark check (a goal
+  the truth: `costForGoal` output and the finished/✓-mark check (a goal
   needing only credits can't be marked complete by the toggle — cards say
-  "Only credits & EXP left — ignored"), and the Inventory tab (stock
-  logging keeps the real Need/Left numbers).
+  "Only credits & EXP left — ignored").
 - **Readiness bars**: every unfinished goal card carries a thin waveplate
   progress bar under its header (`readyBar`: full requirement vs the
   queue-order-allocated remainder — same `farmNextWalk` data as the tiles),

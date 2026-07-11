@@ -101,24 +101,6 @@ ok('tiles carry rarity grounds', d.querySelector('#summary .tile.r5') !== null &
   w.eval(`delete state.inv['boss:Elegy Tacet Core']; save(); render();`);
 }
 
-// ── inventory edits refresh the goals grid on blur, not per change ──
-{
-  fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Inventory'), 'click');
-  const row = [...d.querySelectorAll('#summary table.mats tr')].find(r => r.textContent.includes('Elegy Tacet Core'));
-  const inp = row.querySelector('.invIn');
-  const fill = () => d.querySelector('.goal[data-g="0"] .ready-fill').getAttribute('style');
-  ok('inventory rows name their needers on hover',
-     (row.querySelector('td').getAttribute('title') || '').includes('needed by'));
-  inp.value = '21'; fire(inp, 'change');
-  ok('a committed change alone leaves the goals grid untouched', fill().includes('width:0%'));
-  fire(inp, 'blur');
-  ok('leaving the field refreshes the goals grid', !fill().includes('width:0%'));
-  ok('the inventory input survives the refresh (only #goals rebuilt)', inp.isConnected);
-  inp.value = ''; fire(inp, 'change'); fire(inp, 'blur');
-  ok('clearing + blur restores the bar', fill().includes('width:0%'));
-  fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Total'), 'click');
-}
-
 // ── "Ignore credits & EXP" toggle: strips both pools from every planning view ──
 {
   const titles = () => [...d.querySelectorAll('#summary .tile')].map(t => t.getAttribute('title') || '');
@@ -158,23 +140,20 @@ ok('tiles carry rarity grounds', d.querySelector('#summary .tile.r5') !== null &
      !tileBy('Elegy Tacet Core').getAttribute('title').includes('Phoebe'));
 }
 
-// ── crafting applies to the cards (synth toggle), reserved tiers kept ──
+// ── crafting applies to the cards (Total-tab synth toggle), reserved tiers kept ──
 {
-  w.eval(`state.inv.howler0 = 99999; save(); render();`);
+  w.eval(`state.inv.howler0 = 99999; save(); render();`);   // on the Total tab
   const cardTile = pre => [...d.querySelectorAll('.goal[data-g="0"] .tile')]
     .find(t => (t.getAttribute('title') || '').startsWith(pre));
   ok('card crafts higher tiers out of tier-0 surplus',
      cardTile('FF Howler Core').classList.contains('done') &&
      cardTile('FF Howler Core').getAttribute('title').includes('covered'));
-  fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Inventory'), 'click');
-  const chk = d.querySelector('#synthChk');
-  chk.checked = false; fire(chk, 'change');
+  const chk = () => d.querySelector('#synthChk');   // lives on the Total tab now
+  chk().checked = false; fire(chk(), 'change');
   ok('synth off: the card shows the raw deficit again',
      !cardTile('FF Howler Core').classList.contains('done'));
-  const chk2 = d.querySelector('#synthChk');
-  chk2.checked = true; fire(chk2, 'change');
+  chk().checked = true; fire(chk(), 'change');
   ok('synth back on restores the crafted view', cardTile('FF Howler Core').classList.contains('done'));
-  fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Total'), 'click');
   w.eval(`delete state.inv.howler0; save(); render();`);
 }
 
@@ -333,65 +312,39 @@ const palAdd = q => {
   p.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Enter', bubbles:true}));
 };
 
-// ── Inventory tab (renamed from Remaining): inventory + synthesis ──
-ok('tab is named Inventory, not Remaining',
-   [...d.querySelectorAll('#tabs button')].some(b => b.textContent === 'Inventory') &&
-   ![...d.querySelectorAll('#tabs button')].some(b => b.textContent === 'Remaining'));
-fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Inventory'), 'click');
-ok('inventory tab has inventory inputs', d.querySelectorAll('#summary .invIn').length > 10);
-ok('synth toggle present & on', d.querySelector('#synthChk').checked === true);
+// ── inventory lives ONLY in the pop-up now; the Inventory tab is gone ──
+{
+  ok('no Inventory tab — Total / Farm next / Completed only',
+     [...d.querySelectorAll('#tabs button')].map(b => b.textContent.replace(/ \(\d+\)$/, '')).join(',') ===
+       'Total,Farm next,Completed');
+  w.eval('openInv()');
+  const invTile = name => [...d.querySelectorAll('#invGrid .itile')]
+    .find(t => (t.getAttribute('title') || '') === name);
+  ok('the pop-up lists the full catalog as quantity tiles',
+     d.querySelectorAll('#invGrid .iqty').length > 60 &&
+     invTile('Roaring Rock Fist') !== undefined && invTile('Premium Resonance Potion') !== undefined);
+  ok('pop-up tiles carry the plain name only — no need/left/covered text',
+     invTile('Elegy Tacet Core').getAttribute('title') === 'Elegy Tacet Core' &&
+     !/needed|missing|covered|not needed/.test(invTile('Cleansing Conch').getAttribute('title')));
+  ok('the pop-up has no Craft 3→1 or Hide un-needed toggles',
+     d.querySelector('#invWrap #isynthChk') === null && d.querySelector('#invWrap #ihideChk') === null);
+  // stock 100 premium potions → exp4 = 100 (feeds the Resonator EXP pool)
+  const prem = invTile('Premium Resonance Potion').querySelector('.iqty');
+  prem.value = '100'; fire(prem, 'change');
+  ok('typing a count on a tile saves it immediately', w.eval('state.inv.exp4') === 100);
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));   // close → apply everywhere
+  ok('closing the pop-up returns to the summary', d.querySelector('#invWrap').hidden === true);
+}
 
-// every material is listed, even ones no queued goal needs ('—' need, no Left cell)
-const rrfRow = [...d.querySelectorAll('#summary table.mats tr')].find(r => r.textContent.includes('Roaring Rock Fist'));
-ok('un-needed materials get inventory rows too',
-   rrfRow && rrfRow.querySelector('.invIn') !== null &&
-   rrfRow.textContent.includes('—') && rrfRow.querySelector('td[data-l]') === null);
-ok('full-catalog listing dwarfs the needed set', d.querySelectorAll('#summary .invIn').length > 60);
-
-// give 100 premium potions → EXP "have" reflects 2,000,000
-const rows = [...d.querySelectorAll('#summary table.mats tr')];
-const premRow = rows.find(r => r.textContent.includes('Premium Resonance Potion'));
-const premIn = premRow.querySelector('.invIn');
-premIn.value = '100'; fire(premIn, 'change');
-ok('potion pool counts toward EXP', d.querySelector('#summary').textContent.includes('2,000,000'));
-// edits patch computed cells in place — the table (and the input the user is
-// tabbing into) must survive, or focus falls back to the top of the page
-ok('inventory edit keeps the table DOM alive (Tab focus can move on)',
-   premIn.isConnected && d.querySelector('#summary .invIn') !== null);
-
-// boss mats fully covered show ✓
-const bossRow = [...d.querySelectorAll('#summary table.mats tr')].find(r => r.textContent.includes('Cleansing Conch'));
-const bossIn = bossRow.querySelector('.invIn');
-bossIn.value = '46'; fire(bossIn, 'change');
-const bossRow2 = [...d.querySelectorAll('#summary table.mats tr')].find(r => r.textContent.includes('Cleansing Conch'));
-ok('covered material shows ✓ (row patched in place, not rebuilt)',
-   bossRow2.textContent.includes('✓') && bossRow2 === bossRow);
-
-// synthesis visibly changes a deficit: 100 spare LF Whisperin → crafts up
-const lfRow = [...d.querySelectorAll('#summary table.mats tr')].find(r => r.textContent.includes('LF Whisperin Core'));
-const lfIn = lfRow.querySelector('.invIn');
-lfIn.value = '1000'; fire(lfIn, 'change');
-const mfLeftOn = [...d.querySelectorAll('#summary table.mats tr')].find(r => r.textContent.includes('MF Whisperin Core')).textContent;
-const synthChk = d.querySelector('#synthChk');
-synthChk.checked = false; fire(synthChk, 'change');
-const mfLeftOff = [...d.querySelectorAll('#summary table.mats tr')].find(r => r.textContent.includes('MF Whisperin Core')).textContent;
-ok('synthesis toggle changes MF deficit', mfLeftOn.includes('✓') && !mfLeftOff.includes('✓'));
-
-// hide un-needed: collapses the catalog to the needed set (incl. energy cores — no weapon goals yet)
-const allCount = d.querySelectorAll('#summary .invIn').length;
-const hideChk = d.querySelector('#hideChk');
-hideChk.checked = true; fire(hideChk, 'change');
-ok('hide un-needed removes catalog-only rows',
-   d.querySelectorAll('#summary .invIn').length < allCount &&
-   ![...d.querySelectorAll('#summary table.mats tr')].some(r => r.textContent.includes('Roaring Rock Fist')) &&
-   !d.querySelector('#summary').textContent.includes('Energy Core'));
-ok('needed rows survive the hide toggle',
-   [...d.querySelectorAll('#summary table.mats tr')].some(r => r.textContent.includes('Cleansing Conch')) &&
-   [...d.querySelectorAll('#summary table.mats tr')].some(r => r.textContent.includes('Premium Resonance Potion')));
-ok('hide preference persisted', JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).hideUn === true);
-const hideChk2 = d.querySelector('#hideChk');   // re-render replaced the node
-hideChk2.checked = false; fire(hideChk2, 'change');
-ok('untick restores the full catalog', d.querySelectorAll('#summary .invIn').length === allCount);
+// the Craft 3→1 toggle moved to the Total tab (beside Ignore credits & EXP)
+{
+  const synth = () => d.querySelector('#synthChk');
+  ok('Craft 3→1 toggle now lives on the Total tab, on by default',
+     synth() !== null && synth().checked === true);
+  synth().checked = false; fire(synth(), 'change');
+  ok('turning synth off persists to the save',
+     JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).synth === false);
+}
 
 // ── Farm next tab ──
 fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Farm next'), 'click');
@@ -741,15 +694,17 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok('beta weapon carries the badge', d.querySelector('.goal[data-g="4"] .badge') !== null);
   fire(d.querySelector('button[data-act="del"][data-g="4"]'), 'click');
 
-  // Inventory tab: Weapon EXP pool with energy-core inputs, separate from potions
-  fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Inventory'), 'click');
   const sumEl = () => d.querySelector('#summary');
-  ok('weapon EXP row present', sumEl().textContent.includes('Weapon EXP') && sumEl().textContent.includes('2,692,400'));
-  const coreRow = [...d.querySelectorAll('#summary table.mats tr')].find(r => r.textContent.includes('Premium Energy Core'));
-  ok('energy core inventory input present', coreRow && coreRow.querySelector('.invIn') !== null);
-  const coreIn = coreRow.querySelector('.invIn');
+  // energy cores feed the Weapon EXP pool (separate from potions) — log via the pop-up
+  w.eval('openInv()');
+  const coreTile = [...d.querySelectorAll('#invGrid .itile')]
+    .find(t => (t.getAttribute('title') || '') === 'Premium Energy Core');
+  ok('energy cores appear in the inventory pop-up', coreTile !== undefined);
+  const coreIn = coreTile.querySelector('.iqty');
   coreIn.value = '100'; fire(coreIn, 'change');       // 100×20k = 2,000,000 wexp
-  ok('core pool counts toward weapon EXP only', sumEl().textContent.includes('692,400'));
+  ok('core count saves to the wexp pool (its own key, no potions set)',
+     w.eval('state.inv.wexp4') === 100 && w.eval('state.inv.exp4 === undefined'));
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
 
   // Farm next walks weapon goals too
   fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Farm next'), 'click');
@@ -774,20 +729,22 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
      JSON.parse(domW.window.localStorage.getItem('wuwa-planner-v1')).inv.wexp2 === 3);
 }
 
-// ── Inventory tab is a full stock editor even with an empty queue ──
+// ── inventory pop-up works with an empty queue; old tab:"left" saves migrate ──
 {
   const domE = new JSDOM(html, {runScripts:'outside-only', url:'https://localhost/'});
   domE.window.localStorage.setItem('wuwa-planner-v1', '{"goals":[],"inv":{"exp4":5},"tab":"left"}');
   domE.window.eval([...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).join('\n;\n'));
   const dE = domE.window.document;
-  ok('inventory tab lists every material with no goals queued',
-     dE.querySelectorAll('#summary .invIn').length > 60);
-  ok('stock loads into the inputs with no goals queued',
-     [...dE.querySelectorAll('#summary .invIn')].some(i => i.value === '5'));
-  const totBtn = [...dE.querySelectorAll('#tabs button')].find(b => b.textContent === 'Total');
-  totBtn.dispatchEvent(new domE.window.Event('click', {bubbles:true}));
-  ok('other tabs keep the empty-queue note',
+  ok('an old tab:"left" (Inventory tab) save migrates to Total',
+     JSON.parse(domE.window.localStorage.getItem('wuwa-planner-v1')).tab === 'total');
+  ok('empty queue shows the "add a goal" note on Total',
      dE.querySelector('#summary .empty') !== null);
+  domE.window.eval('openInv()');
+  ok('the inventory pop-up lists every material with no goals queued',
+     dE.querySelectorAll('#invGrid .iqty').length > 60);
+  ok('stock loads into the tiles with no goals queued',
+     [...dE.querySelectorAll('#invGrid .iqty')].some(i => i.value === '5'));
+  domE.window.eval('closeInv()');
   dE.querySelector('#btnOrder').dispatchEvent(new domE.window.Event('click', {bubbles:true}));
   ok('reorder pop-up on an empty queue shows a note, not rows',
      dE.querySelector('#ordWrap').hidden === false &&
@@ -1207,9 +1164,9 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
      d.querySelectorAll('#invGrid .iqty').length === d.querySelectorAll('#invGrid .itile').length);
   const tileOf = name => [...d.querySelectorAll('#invGrid .itile')]
     .find(t => (t.getAttribute('title') || '').startsWith(name));
-  ok('tiles carry name + need in the hover title',
-     tileOf('Elegy Tacet Core') !== undefined && tileOf('Premium Resonance Potion') !== undefined &&
-     tileOf('Premium Resonance Potion').getAttribute('title').includes('EXP pool'));
+  ok('tiles carry the plain material name as their title (no need info)',
+     tileOf('Elegy Tacet Core').getAttribute('title') === 'Elegy Tacet Core' &&
+     tileOf('Premium Resonance Potion').getAttribute('title') === 'Premium Resonance Potion');
   // game-style sort: rarity descends within each section (gold first)
   {
     const section = label => [...d.querySelectorAll('#invGrid .cat')]
@@ -1222,8 +1179,6 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
        forge[0].classList.contains('r5') && forge[forge.length - 1].classList.contains('r2') &&
        forge.every((t, i) => i === 0 || +forge[i - 1].className.match(/r(\d)/)[1] >= +t.className.match(/r(\d)/)[1]));
   }
-  ok('grid tooltips name the goals that need an item',
-     [...d.querySelectorAll('#invGrid .itile')].some(t => (t.getAttribute('title') || '').includes('needed by')));
   const q = tileOf('Elegy Tacet Core').querySelector('.iqty');
   q.value = '7'; fire(q, 'change');
   ok('typing a quantity saves it immediately',
@@ -1261,16 +1216,8 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
        find.value === '' && w.eval('invFilter') === '' && tiles() > 100 &&
        d.activeElement === find);
   }
-  // hide un-needed filters the grid (same persisted state.hideUn as the tab)
-  const nAll = d.querySelectorAll('#invGrid .itile').length;
-  const hid = d.querySelector('#ihideChk');
-  hid.checked = true; fire(hid, 'change');
-  ok('hide un-needed shrinks the grid and persists',
-     d.querySelectorAll('#invGrid .itile').length < nAll &&
-     JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).hideUn === true);
-  const hid2 = d.querySelector('#ihideChk');
-  hid2.checked = false; fire(hid2, 'change');
-  ok('untick restores the catalog', d.querySelectorAll('#invGrid .itile').length === nAll);
+  ok('the pop-up has no Craft 3→1 / Hide un-needed toggles (pure quantities)',
+     d.querySelector('#invWrap #isynthChk') === null && d.querySelector('#invWrap #ihideChk') === null);
   // closing applies everywhere: give credits (every unfinished goal wants them)
   const cq = tileOf('Shell Credit').querySelector('.iqty');
   cq.value = '999999'; fire(cq, 'change');
@@ -1450,19 +1397,6 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
        rows().length === 1 && names()[0] === nm &&
        d.querySelector('#farmTitle').textContent === nm);
     d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
-  }
-
-  // the Inventory tab's row icons are the same door
-  {
-    fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Inventory'), 'click');
-    const cell = d.querySelector('#summary td.matcell');
-    ok('inventory rows advertise the click', /click to log drops/.test(cell.getAttribute('title')));
-    const nm = cell.getAttribute('title').split(' · ')[0];
-    fire(cell, 'click');
-    ok('an inventory row icon opens the farm pop-up', farm().hidden === false);
-    ok('…on the clicked material’s family', names().includes(nm));
-    d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
-    fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Total'), 'click');
   }
 
   // Ctrl+I still reaches the stock grid, and it now lands on the filter

@@ -339,9 +339,6 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
 .dot{display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:8px; vertical-align:0;
   box-shadow:0 0 6px currentColor}
 .cat{font-size:10.5px; text-transform:uppercase; letter-spacing:.16em; color:var(--faint); padding-top:12px !important}
-td.inv{width:96px; text-align:right}
-td.matcell{cursor:pointer}
-td.matcell:hover{color:var(--cyan)}
 .tabs{display:flex; gap:4px; padding:10px 16px 0}
 .tabs button{border-radius:7px 7px 0 0; border-bottom:none; background:transparent; border-color:transparent; color:var(--mut)}
 .tabs button.on{background:var(--panel2); border-color:var(--line); color:var(--ink)}
@@ -419,7 +416,7 @@ td.matcell:hover{color:var(--cyan)}
     <button class="search" id="btnAdd" title="Fuzzy-search characters and weapons (Ctrl+K)">⌕ Add goal…<kbd>Ctrl K</kbd></button>
     <button class="ghost" id="btnTpl" title="Edit the default goal templates for new 4★/5★ characters">Templates</button>
     <button class="ghost" id="btnOrder" title="Reorder the priority queue in a compact drag list (Ctrl+P)">⇅ Reorder</button>
-    <button class="ghost" id="btnInv" title="Quick stock entry — every material as a grid of icon + quantity (Ctrl+I)">☷ Stock</button>
+    <button class="ghost" id="btnInv" title="Your materials — every item as a grid of icon + quantity (Ctrl+I)">☷ Inventory</button>
     <span class="spacer"></span>
     <button class="ghost" id="btnExport">Export JSON</button>
     <button class="ghost" id="btnImport">Import JSON</button>
@@ -477,13 +474,11 @@ td.matcell:hover{color:var(--cyan)}
 
 <div id="invWrap" hidden>
   <div class="palette inv-pop" role="dialog" aria-modal="true" aria-label="Inventory">
-    <div class="ord-h">Stock
+    <div class="ord-h">Inventory
       <input id="invFind" class="find" type="text" placeholder="Filter…" autocomplete="off" spellcheck="false"
              title="Fuzzy filter by material name — 'lfh' finds LF Howler Core">
-      <label class="chk"><input type="checkbox" id="isynthChk"> Craft 3→1</label>
-      <label class="chk"><input type="checkbox" id="ihideChk"> Hide un-needed</label>
       <button class="tiny close" id="invClose" title="Close (Esc)">✕</button>
-      <span class="sub">hover a tile for its name · +1/+5 log a farm session (Shift subtracts) · closing applies everywhere</span></div>
+      <span class="sub">what you have · type in a tile to set a count · closing applies everywhere</span></div>
     <div id="invGrid"></div>
   </div>
 </div>
@@ -1828,7 +1823,8 @@ const defaultState = () => ({
 function sanitize(raw){
   const st = {goals:[], done:[], inv:{}, synth: raw ? !!raw.synth : true,
               hideUn: !!(raw && raw.hideUn), skipCE: !!(raw && raw.skipCE),
-              tab: ['total','left','next','done'].includes(raw && raw.tab) ? raw.tab : 'total'};
+              // the old 'left' (Inventory) tab is gone — fold it into Total
+              tab: ['total','next','done'].includes(raw && raw.tab) ? raw.tab : 'total'};
   const fix = x => {
     const o = freshState();
     if(x && typeof x === 'object'){
@@ -1970,7 +1966,6 @@ const costText = bag => sortMatIds(Object.keys(bag)).map(id =>
   : id === 'wexp' ? fmt(bag.wexp) + ' Weapon EXP'
   : bag[id] + '× ' + MATS[id].name).join(' · ');
 const coreText   = plan => planText(plan, GAME.wpnExpItems);
-function catRow(cat, span){ return `<tr><td class="cat" colspan="${span}">${cat}</td></tr>`; }
 
 /* icon-tile grid: rarity-tinted ground, abbreviated qty; the name (and the
    exact number, plus the potion/core plan for EXP) lives in the hover title */
@@ -2544,25 +2539,11 @@ function closeInv(){
   $('#invFind').value = '';
   render();
 }
+/* The inventory grid is a pure "what I have" surface: every material as a
+   rarity tile with a quantity input, name on hover. No need/deficit info —
+   that lives across the rest of the UI (cards, Total, Farm next). */
 function renderInvGrid(){
-  buildNeeders();
   const box = $('#invGrid');
-  const need = totalBag(state.goals);
-  const res = remainingBag(need, state.inv, state.synth);
-  $('#isynthChk').checked = state.synth;
-  $('#ihideChk').checked = state.hideUn;
-  // potions/cores have no direct need — they count as needed while their pool is
-  const isNeeded = id => id.startsWith('exp') ? !!need.exp
-                       : id.startsWith('wexp') ? !!need.wexp
-                       : !!need[id];
-  const tip = id => {
-    const m = MATS[id];
-    if(id.startsWith('exp'))  return `${m.name} — feeds the Resonator EXP pool (${fmt(GAME.expItems.find(x => x.id === id).exp)} EXP each)${neededBy('exp')}`;
-    if(id.startsWith('wexp')) return `${m.name} — feeds the Weapon EXP pool (${fmt(GAME.wpnExpItems.find(x => x.id === id).exp)} EXP each)${neededBy('wexp')}`;
-    if(!need[id]) return `${m.name} — not needed by the current queue`;
-    return `${m.name} — ${res.rem[id] ? fmt(res.rem[id]) + ' still missing of ' + fmt(need[id]) + ' needed'
-                                      : 'covered · needs ' + fmt(need[id])}${neededBy(id)}`;
-  };
   IGRID = [];
   const ids = Object.keys(MATS).filter(id => id !== 'exp' && id !== 'wexp');
   // game-style order inside each section: rarity high → low (gold first),
@@ -2573,14 +2554,14 @@ function renderInvGrid(){
     if((A.family || '') !== (B.family || '')) return (A.family || '') < (B.family || '') ? -1 : 1;
     return A.name < B.name ? -1 : 1;
   });
-  const shown = id => (!state.hideUn || isNeeded(id)) && fuzzyScore(invFilter, MATS[id].name) >= 0;
+  const shown = id => fuzzyScore(invFilter, MATS[id].name) >= 0;
   let html = '';
   for(const cat of CATEGORY_ORDER){
     const catIds = gameSort(ids.filter(id => MATS[id].cat === cat && shown(id)));
     if(!catIds.length) continue;
     html += `<span class="cat">${cat}</span><div class="igrid">` + catIds.map(id => {
       const i = IGRID.push(id) - 1;
-      return `<div class="itile r${MATS[id].r}${need[id] && !res.rem[id] ? ' done' : ''}" title="${esc(tip(id))}">` +
+      return `<div class="itile r${MATS[id].r}" title="${esc(MATS[id].name)}">` +
         matIco(id) +
         `<input type="number" min="0" step="1" class="iqty" data-i="${i}" value="${state.inv[id] ?? ''}" placeholder="0">` +
       `</div>`;
@@ -2588,7 +2569,7 @@ function renderInvGrid(){
   }
   box.innerHTML = html || `<div class="empty">${invFilter
     ? 'No material matches “' + esc(invFilter) + '”.'
-    : 'Nothing needed right now — untick “Hide un-needed” to log stock for later.'}</div>`;
+    : 'No materials.'}</div>`;
   box.querySelectorAll('.iqty').forEach(inp => inp.addEventListener('change', e => {
     const t = e.currentTarget;
     setStock(IGRID[+t.dataset.i], Math.max(0, Math.floor(+t.value || 0)), t);
@@ -2606,8 +2587,6 @@ $('#invFind').addEventListener('keydown', e => {
   const inp = $('#invGrid').querySelector('.iqty[data-i="0"]');
   if(inp){ inp.focus(); if(inp.select) inp.select(); }
 });
-$('#isynthChk').addEventListener('change', e => { state.synth = e.currentTarget.checked; save(); renderInvGrid(); });
-$('#ihideChk').addEventListener('change', e => { state.hideUn = e.currentTarget.checked; save(); renderInvGrid(); });
 
 /* ── farm pop-up: log one family's drops right after a run ──
    Opened by clicking any material icon on the Ledger page. Shows only that
@@ -2684,46 +2663,7 @@ $('#farmClose').addEventListener('click', closeFarm);
 $('#farmWrap').addEventListener('click', e => { if(e.target === e.currentTarget) closeFarm(); });
 
 /* ── summary panel ── */
-let INVROWS = [];
-const TABS = [['total','Total'], ['left','Inventory'], ['next','Farm next'], ['done','Completed']];
-
-function invRow(id, needTxt, left){
-  const i = INVROWS.push(id) - 1;
-  const leftCell = left === undefined ? '<td class="qty"></td>'
-    : `<td class="qty ${left ? 'short' : 'ok'}" data-l="${i}">${left ? fmt(left) : '✓'}</td>`;
-  return `<tr><td class="matcell" data-i="${i}" title="${esc(MATS[id].name + neededBy(id))} · click to log drops">${matIco(id)}${esc(MATS[id].name)}</td>` +
-         `<td class="qty">${needTxt}</td>` +
-         `<td class="inv"><input type="number" min="0" step="1" class="invIn" data-i="${i}" value="${state.inv[id] ?? ''}" placeholder="0"></td>` +
-         leftCell + '</tr>';
-}
-
-/* Inventory edits patch the computed cells in place instead of rebuilding the
-   table — a full re-render would destroy the input the user is tabbing into
-   and dump focus back to the top of the page. Row structure only depends on
-   goals, never on inventory, so the patch set is fixed: Left cells (data-l,
-   keyed by INVROWS index or 'exp'/'wexp'), pooled-EXP Have cells (data-h),
-   and the potion/core plan rows (data-p). */
-let invDirty = false;    // inventory edited since the goals grid last refreshed
-function updateLeft(){
-  const res = remainingBag(totalBag(state.goals), state.inv, state.synth);
-  const leftOf = k => k === 'exp' ? (res.rem.exp || 0)
-                    : k === 'wexp' ? (res.rem.wexp || 0)
-                    : (res.rem[INVROWS[+k]] || 0);
-  const el = $('#summary');
-  el.querySelectorAll('td[data-l]').forEach(td => {
-    const left = leftOf(td.dataset.l);
-    td.className = `qty ${left ? 'short' : 'ok'}`;
-    td.textContent = left ? fmt(left) : '✓';
-  });
-  const have = {exp: fmt(res.invExp), wexp: fmt(res.invWexp)};
-  el.querySelectorAll('td[data-h]').forEach(td => td.textContent = have[td.dataset.h]);
-  const plans = {exp: potionText(res.potionPlan), wexp: coreText(res.corePlan)};
-  el.querySelectorAll('tr[data-p]').forEach(tr => {
-    const on = leftOf(tr.dataset.p) > 0;
-    tr.style.display = on ? '' : 'none';
-    tr.firstElementChild.textContent = on ? plans[tr.dataset.p] : '';
-  });
-}
+const TABS = [['total','Total'], ['next','Farm next'], ['done','Completed']];
 
 /* ── today's plan (Farm next) ──
    dailyPlan does the allocation; this only phrases it. Run rows carry the
@@ -2821,7 +2761,7 @@ function renderSummary(){
   }
 
   // the Inventory tab is a full stock editor, so it renders even with no goals
-  if(!state.goals.length && state.tab !== 'left'){ el.innerHTML = '<div class="empty">Add a goal to see totals.</div>'; return; }
+  if(!state.goals.length){ el.innerHTML = '<div class="empty">Add a goal to see totals.</div>'; return; }
   const need = totalBag(state.goals);
 
   if(state.tab === 'total'){
@@ -2837,94 +2777,17 @@ function renderSummary(){
       ? '<div class="empty">Only credits & EXP left — ignored by the toggle above.</div>'
       : '<div class="empty">All targets already met.</div>';
     el.innerHTML =
-      `<label class="chk" style="margin-bottom:8px" title="Applies everywhere: goal cards, this tab, Farm next, and the waveplate estimates. The Inventory tab keeps them so stock can still be logged.">` +
+      `<label class="chk" style="margin-bottom:8px" title="Applies everywhere: goal cards, this tab, Farm next, and the waveplate estimates.">` +
         `<input type="checkbox" id="ceChk"${state.skipCE ? ' checked' : ''}> Ignore credits &amp; EXP</label>` +
+      `<label class="chk" style="margin-bottom:8px;margin-left:14px" title="Craft surplus lower-tier materials up 3→1 within a family when covering a deficit — applies to the cards, this tab, and Farm next.">` +
+        `<input type="checkbox" id="synthChk"${state.synth ? ' checked' : ''}> Craft 3→1</label>` +
       wpLine +
       `<div class="gmeta" style="margin-bottom:8px">Everything still needed for ${state.goals.length} goal${state.goals.length > 1 ? 's' : ''} after inventory — ordered by queue priority. Hover a tile for exact amounts.</div>` +
       (deficitTiles(needV, res.rem, priorityMatIds(state.goals)) || emptyMsg);
-    $('#ceChk').addEventListener('change', e => {
-      state.skipCE = e.currentTarget.checked;
-      save(); render();
-    });
+    $('#ceChk').addEventListener('change', e => { state.skipCE = e.currentTarget.checked; save(); render(); });
+    $('#synthChk').addEventListener('change', e => { state.synth = e.currentTarget.checked; save(); render(); });
     bindIcons(el);
     bindTileClicks(el);
-    return;
-  }
-
-  if(state.tab === 'left'){
-    const res = remainingBag(need, state.inv, state.synth);
-    INVROWS = [];
-    const head = `<label class="chk" style="margin-bottom:8px"><input type="checkbox" id="synthChk"${state.synth ? ' checked' : ''}> Craft surplus 3→1 within material families</label>` +
-      `<label class="chk" style="margin-bottom:8px;margin-left:14px"><input type="checkbox" id="hideChk"${state.hideUn ? ' checked' : ''}> Hide un-needed</label>`;
-    let html = `<table class="mats"><tr>
-      <td style="color:var(--faint)">Material</td><td class="qty" style="color:var(--faint)">Need</td>
-      <td class="inv" style="color:var(--faint)">Have</td><td class="qty" style="color:var(--faint)">Left</td></tr>`;
-    // every material is listed (not just needed ones) so stock can be logged
-    // ahead of goals; un-needed rows show '—' and no Left cell. "Hide
-    // un-needed" collapses the catalog to the needed set — row visibility
-    // still depends only on goals + the toggle, never on inventory, so
-    // updateLeft() can keep patching in place.
-    const poolRow = (dotColor, label, needQty, haveQty, left, key, plan) =>
-      `<tr><td><span class="dot" style="color:${dotColor}"></span>${label}</td>` +
-      `<td class="qty">${fmt(needQty)}</td><td class="inv" style="color:var(--faint);padding-right:8px" data-h="${key}">${fmt(haveQty)}</td>` +
-      `<td class="qty ${left ? 'short' : 'ok'}" data-l="${key}">${left ? fmt(left) : '✓'}</td></tr>` +
-      `<tr data-p="${key}"${left ? '' : ' style="display:none"'}><td colspan="4" style="color:var(--faint);font-size:12px;padding-left:16px">${left ? plan : ''}</td></tr>`;
-    const allIds = sortMatIds(Object.keys(MATS));
-    for(const cat of CATEGORY_ORDER){
-      if(cat === 'EXP'){
-        const showPot = !state.hideUn || !!need.exp, showCore = !state.hideUn || !!need.wexp;
-        if(!showPot && !showCore) continue;
-        html += catRow(cat, 4);
-        if(showPot){
-          for(const it of [...GAME.expItems].reverse()) html += invRow(it.id, '—');
-          if(need.exp) html += poolRow('var(--cyan)', 'Resonator EXP', need.exp, res.invExp,
-                                       res.rem.exp || 0, 'exp', potionText(res.potionPlan));
-        }
-        if(showCore){
-          for(const it of [...GAME.wpnExpItems].reverse()) html += invRow(it.id, '—');
-          if(need.wexp) html += poolRow('var(--vio)', 'Weapon EXP', need.wexp, res.invWexp,
-                                        res.rem.wexp || 0, 'wexp', coreText(res.corePlan));
-        }
-        continue;
-      }
-      const ids = allIds.filter(id => MATS[id].cat === cat && (!state.hideUn || need[id]));
-      if(!ids.length) continue;
-      html += catRow(cat, 4);
-      for(const id of ids)
-        html += need[id] ? invRow(id, fmt(need[id]), res.rem[id] || 0) : invRow(id, '—');
-    }
-    html += '</table>';
-    el.innerHTML = head + (INVROWS.length ? html
-      : '<div class="empty">Nothing needed right now — untick “Hide un-needed” to log stock for later.</div>');
-    el.querySelectorAll('.matcell').forEach(td =>       // same click as a tile
-      td.addEventListener('click', () => openFarm(INVROWS[+td.dataset.i])));
-    el.querySelectorAll('.invIn').forEach(inp => {
-      inp.addEventListener('change', e => {
-        const id = INVROWS[+e.currentTarget.dataset.i];
-        const v = Math.max(0, Math.floor(+e.currentTarget.value || 0));
-        if(v) state.inv[id] = v; else delete state.inv[id];
-        e.currentTarget.value = v || '';
-        invDirty = true;
-        save(); updateLeft();
-      });
-      // the goals grid refreshes when focus LEAVES a field, not per change —
-      // spinner clicks / retypes on one count coalesce into one re-render.
-      // Safe: focus lives in this table, and only #goals is rebuilt.
-      inp.addEventListener('blur', () => {
-        if(!invDirty) return;
-        invDirty = false;
-        renderGoals();
-      });
-    });
-    const chk = $('#synthChk');
-    if(chk) chk.addEventListener('change', e => {
-      state.synth = e.currentTarget.checked;
-      save(); updateLeft(); renderGoals();     // cards craft too now — keep them in step
-    });
-    // hiding changes row structure, so this one is a real re-render
-    const hid = $('#hideChk');
-    if(hid) hid.addEventListener('change', e => { state.hideUn = e.currentTarget.checked; save(); renderSummary(); });
-    bindIcons(el);
     return;
   }
 

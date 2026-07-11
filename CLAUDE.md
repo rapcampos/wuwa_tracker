@@ -318,12 +318,25 @@ are no screenshot tests — be extra careful with CSS-only changes.
   on the tile (`fmtShort`, pure/engine: 3 sig figs, K/M from 10,000 up),
   name + exact amounts + potion/core plan in the hover `title`, and every
   material tooltip (tiles, Inventory rows, stock grid) ends with
-  "· needed by <goal names>" — the `NEEDERS` map, rebuilt once per render
-  pass by `buildNeeders()` (tests must match tile titles by prefix, not
-  equality) — then "· click to log drops": **clicking any `.tile` opens the
-  farm pop-up on that material's family** (`bindTileClicks` recovers the id
-  from the tooltip's leading display name — data attributes must not carry
-  ids). The Inventory tab's row icons (`td.matcell`) are the same door.
+  "· needed by <goal names>" — the `NEEDERS` map (`{id: [{name, kind}]}`,
+  kind = char|weapon), rebuilt once per render pass by `buildNeeders()`
+  (tests must match tile titles by prefix, not equality; `neederNames(id)`
+  gives the text, so the title string is unchanged) — then "· click to log
+  drops": **clicking any `.tile` opens the farm pop-up on that material's
+  family** (`bindTileClicks` recovers the id from the tooltip's leading
+  display name — data attributes must not carry ids). The Inventory tab's
+  row icons (`td.matcell`) are the same door.
+- **Hover popover** (`#tipPop`, `showTip`/`hideTip`): hovering any `.tile`
+  opens a small floating card (position:fixed, z-index 80, pointer-events
+  none) showing the tooltip text header PLUS the needers as **avatar chips**
+  (`.tip-chip` with an `icoImg` face, char or weapon folder by `kind`) —
+  native `title` can't carry images. While it's up the tile's own `title`
+  is stashed (`tipTitle`) and removed so the browser doesn't also pop its
+  default tooltip; `hideTip` (on mouseleave, and at the top of `render()`
+  for stale-popover cleanup) restores it. Only ONE tile is hovered at a
+  time (`tipTile`). The click handler reads the stashed title when the
+  clicked tile is the hovered one. Scoped to `.tile` (cards, Total, Farm
+  next); the stock grid (`.itile`) and Inventory rows keep plain `title`s.
   **exp/wexp tiles show a top-tier item count, not raw EXP** (`expTopTier`/
   `wexpTopTier`, pure/engine: ceil ÷ 20k — "366", not "7.31M"; `tileQty`
   routes it), and the registry marks exp/wexp `r:5` so the ground matches

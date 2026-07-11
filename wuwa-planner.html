@@ -287,6 +287,17 @@ button.search kbd{margin-left:auto; font-family:inherit; font-size:10px; color:v
   font-variant-numeric:tabular-nums}
 .frow .fneed.short{color:var(--red)} .frow .fneed.ok{color:var(--green)}
 
+/* ── material hover popover: the tooltip text plus who needs it, with faces ── */
+#tipPop{position:fixed; z-index:80; max-width:280px; pointer-events:none;
+  background:var(--panel); border:1px solid var(--line2); border-radius:10px;
+  padding:9px 11px; box-shadow:0 12px 34px rgba(0,0,0,.55); font-size:12px; color:var(--ink)}
+#tipPop .tip-h{color:var(--mut); line-height:1.4}
+#tipPop .tip-need{display:flex; flex-wrap:wrap; gap:5px; align-items:center; margin-top:8px}
+#tipPop .tip-lbl{flex-basis:100%; font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint)}
+.tip-chip{display:inline-flex; align-items:center; gap:5px; padding:2px 8px 2px 2px;
+  border:1px solid var(--line2); border-radius:20px; font-size:11.5px; white-space:nowrap}
+.tip-chip .tip-av{width:22px; height:22px; border-radius:50%; object-fit:cover; flex:none}
+
 /* ── editor upgrade rows (spend inventory) ── */
 .upg{margin-top:14px; border-top:1px solid var(--line); padding-top:10px}
 .upg-h{font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--faint); margin-bottom:6px}
@@ -481,6 +492,8 @@ td.matcell:hover{color:var(--cyan)}
     <div id="farmList"></div>
   </div>
 </div>
+
+<div id="tipPop" hidden role="tooltip"></div>
 </div>
 <script>
 /* ═══════════════════════════════════════════════════════════════════
@@ -1964,11 +1977,15 @@ let NEEDERS = {};
 function buildNeeders(){
   NEEDERS = {};
   for(const g of state.goals){
-    const nm = g.weapon !== undefined ? GAME.weapons[g.weapon].name : GAME.characters[g.char].name;
-    for(const id of Object.keys(costForGoal(g))) (NEEDERS[id] = NEEDERS[id] || []).push(nm);
+    const isW = g.weapon !== undefined;
+    // {name, kind} — kind drives the avatar's icon folder in the hover popover
+    const needer = {name: (isW ? GAME.weapons[g.weapon] : GAME.characters[g.char]).name,
+                    kind: isW ? 'weapon' : 'char'};
+    for(const id of Object.keys(costForGoal(g))) (NEEDERS[id] = NEEDERS[id] || []).push(needer);
   }
 }
-const neededBy = id => NEEDERS[id] && NEEDERS[id].length ? ' · needed by ' + NEEDERS[id].join(', ') : '';
+const neederNames = id => (NEEDERS[id] || []).map(n => n.name);
+const neededBy = id => neederNames(id).length ? ' · needed by ' + neederNames(id).join(', ') : '';
 
 function tileTip(id, qty){
   let tip = MATS[id].name + ' — ' + fmt(qty);
@@ -2505,11 +2522,49 @@ const MAT_ID_BY_NAME = (() => {
   for(const [id, x] of Object.entries(MATS)) m[x.name] = id;
   return m;
 })();
+/* material hover popover: a small floating card showing the same tooltip
+   text PLUS the characters/weapons that need the material as avatar chips
+   (native title attributes can't carry images). We suppress the tile's own
+   `title` while the popover is up and restore it on leave, so the browser
+   doesn't also pop its default tooltip — the attribute stays in the DOM for
+   accessibility and for the tests. One popover, one hovered tile at a time. */
+let tipTile = null, tipTitle = null;
+function showTip(t){
+  const title = t.getAttribute('title');
+  if(title == null) return;
+  const id = MAT_ID_BY_NAME[title.split(' — ')[0]];
+  const needers = (id && NEEDERS[id]) || [];
+  const header = title.split(' · needed by ')[0].split(' · click to log drops')[0];
+  let html = `<div class="tip-h">${esc(header)}</div>`;
+  if(needers.length)
+    html += `<div class="tip-need"><span class="tip-lbl">Needed by</span>` +
+      needers.map(n => `<span class="tip-chip">${icoImg(n.name, n.kind, 'tip-av')}<span>${esc(n.name)}</span></span>`).join('') +
+      `</div>`;
+  const pop = $('#tipPop');
+  pop.innerHTML = html;
+  bindIcons(pop);
+  pop.hidden = false;
+  const r = t.getBoundingClientRect();
+  pop.style.left = Math.max(8, Math.min(r.left, window.innerWidth - pop.offsetWidth - 8)) + 'px';
+  const above = r.top - pop.offsetHeight - 8;
+  pop.style.top = (above < 8 ? r.bottom + 8 : above) + 'px';
+  tipTile = t; tipTitle = title; t.removeAttribute('title');   // suppress the native tooltip
+}
+function hideTip(){
+  $('#tipPop').hidden = true;
+  if(tipTile){ if(tipTitle != null) tipTile.setAttribute('title', tipTitle); tipTile = null; tipTitle = null; }
+}
 function bindTileClicks(root){
-  root.querySelectorAll('.tile').forEach(t => t.addEventListener('click', () => {
-    const id = MAT_ID_BY_NAME[(t.getAttribute('title') || '').split(' — ')[0]];
-    if(id) openFarm(id);
-  }));
+  root.querySelectorAll('.tile').forEach(t => {
+    t.addEventListener('click', () => {
+      const title = t.getAttribute('title') || (tipTile === t ? tipTitle : '') || '';
+      hideTip();
+      const id = MAT_ID_BY_NAME[title.split(' — ')[0]];
+      if(id) openFarm(id);
+    });
+    t.addEventListener('mouseenter', () => showTip(t));
+    t.addEventListener('mouseleave', hideTip);
+  });
 }
 function closeInv(){
   if($('#invWrap').hidden) return;
@@ -3323,7 +3378,7 @@ function renderFooter(){
     'energy budget capping how many teams they can join: 1 by default, 2 for the seeded supports ' +
     '(Verina, Shorekeeper, Suisui, Chisa, Mornye, Buling) — tweak the <b>energy</b> field on a GAME entry to adjust.';
 }
-function render(){ buildNeeders(); renderGoals(); renderSummary(); renderFooter(); renderModal(); renderOrder(); renderTeams(); }
+function render(){ hideTip(); buildNeeders(); renderGoals(); renderSummary(); renderFooter(); renderModal(); renderOrder(); renderTeams(); }
 render();
 showPage(curPage());
 if(storageOK){

@@ -597,6 +597,64 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
 }
 
+// ── material hover popover: needers shown as avatar chips ──
+{
+  reset();
+  fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Total'), 'click');
+  const pop = () => d.querySelector('#tipPop');
+  const tileBy = pre => [...d.querySelectorAll('#summary .tile')]
+    .find(t => (t.getAttribute('title') || '').startsWith(pre));
+  ok('the popover is hidden until a tile is hovered', pop().hidden === true);
+
+  // a shared material: both needers as chips with their avatars
+  const dagger = tileBy("Sentinel's Dagger");   // Jinhsi + Phoebe weekly
+  const heldTitle = dagger.getAttribute('title');
+  fire(dagger, 'mouseenter');
+  ok('hover opens the popover', pop().hidden === false);
+  ok('it is a real fixed overlay', w.getComputedStyle(pop()).position === 'fixed');
+  ok('the header carries the material text (name + amount), minus the meta suffixes',
+     /^Sentinel's Dagger — /.test(pop().querySelector('.tip-h').textContent) &&
+     !pop().querySelector('.tip-h').textContent.includes('needed by') &&
+     !pop().querySelector('.tip-h').textContent.includes('click to log'));
+  ok('one chip per needer, in queue order, each with a name',
+     [...pop().querySelectorAll('.tip-chip')].map(c => c.textContent.trim()).join(',') === 'Jinhsi,Phoebe');
+  ok('each chip carries the character’s avatar image (not just text)',
+     [...pop().querySelectorAll('.tip-chip .tip-av')].map(im => im.getAttribute('src')).join(',') ===
+       'images/characters/jinhsi_icon.png,images/characters/phoebe_icon.png');
+  ok('the native title is suppressed while the popover is up (no double tooltip)',
+     dagger.getAttribute('title') === null);
+  fire(dagger, 'mouseleave');
+  ok('leaving hides the popover and restores the native title',
+     pop().hidden === true && dagger.getAttribute('title') === heldTitle);
+
+  // a single-needer material shows just its one chip. Capture the element
+  // first: mouseenter suppresses the title, so it can't be re-found by title.
+  const elegy = tileBy('Elegy Tacet Core');         // Jinhsi only
+  fire(elegy, 'mouseenter');
+  ok('a single-user material shows one chip',
+     pop().querySelectorAll('.tip-chip').length === 1 &&
+     pop().querySelector('.tip-chip').textContent.trim() === 'Jinhsi');
+  fire(elegy, 'mouseleave');
+
+  // a weapon needer renders its avatar from the weapons folder
+  w.eval(`state.goals.push(newWpnGoal('agesOfHarvest', false)); save(); render();`);
+  fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Total'), 'click');
+  const credit = tileBy('Shell Credit');        // needed by every goal, incl. the weapon
+  fire(credit, 'mouseenter');
+  ok('a weapon needer shows a weapon-folder avatar chip',
+     [...pop().querySelectorAll('.tip-chip .tip-av')]
+       .some(im => im.getAttribute('src').startsWith('images/weapons/')));
+  ok('…and the weapon appears alongside the character needers',
+     [...pop().querySelectorAll('.tip-chip')].some(c => c.textContent.includes('Ages of Harvest')) &&
+     pop().querySelectorAll('.tip-chip').length >= 4);
+  fire(credit, 'mouseleave');
+
+  // re-render clears any stale popover
+  fire(tileBy('Shell Credit'), 'mouseenter');
+  w.eval('render()');
+  ok('a re-render hides a lingering popover', pop().hidden === true);
+}
+
 // ── save migrations → matrix ──
 {
   const run = payload => {

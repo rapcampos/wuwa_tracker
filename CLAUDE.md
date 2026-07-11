@@ -245,6 +245,22 @@ Two Node suites live next to the HTML and **eval the shipping file itself**
   icon fallback chain, save/reload round-trips, corrupt-save recovery, and
   every migration generation. Object comparisons must be key-order-
   insensitive (`canon()` helper).
+  **Per-block isolation:** the first ~400 lines are ONE deliberate
+  integration narrative (boot → edit → reorder → remove/re-add → inventory
+  accumulates → a persistence round-trip that asserts that exact accrued
+  state) — do not `reset()` inside it. EVERYTHING below the round-trip is an
+  independent feature block that calls the `reset()` helper first: it
+  rebuilds the default Jinhsi/Phoebe/Suisui queue from STANDARD templates,
+  clears inventory/done/teams/undo, closes every pop-up, and returns to the
+  Ledger page's Total tab. A block needing more (stock, a completed goal, a
+  weapon at index 3) sets it up explicitly right after resetting, so no
+  block's preconditions depend on run order — a leaked toggle or a drained
+  queue in one block can't corrupt the next (a hostile-leak injection test
+  proved every downstream block survives). Blocks that spin their own
+  throwaway `JSDOM` (migrations, weapon corrupt-saves, empty-queue, backup
+  staleness, teams hash-boot) are already isolated and skip `reset()`. When
+  a block mutates a GLOBAL (`GAME.icons.overrides`), undo it in the block —
+  `reset()` only restores `state`, not `GAME`.
 
 Run both after **any** change: `node test-engine.js && node test-ui.js`.
 Every new feature ships with tests in the same turn. jsdom is installed via
@@ -458,15 +474,13 @@ are no screenshot tests — be extra careful with CSS-only changes.
    are dropped from file names.) The 2026-07-10 launch checkpoint is done —
    see the provenance section. Note: the Dimbreath/WutheringData datamine
    is abandoned at 3.1.0 — verify post-3.1 data via Game8/prydwen instead.
-2. Backlog (user-approved ideas, unscheduled): Echo XP/tuners as a separate
-   section (Tacet Field, 60⚡ ≈24k echo XP at endgame), "buy all affordable
-   steps" in the goal editor, Teams rename/reorder + "prioritize this team"
-   queue reordering, per-block `resetState()` isolation in `test-ui.js` (the
-   suite is one long stateful story and a leaked `state.synth` has broken a
-   later block twice), `iconSlug` duplicated between the app and
-   `fetch-icons.js`, legacy unused `goal.open`; per-character stat labels on
-   tree nodes (declined for now — cosmetic). No farming-schedule/day-of-week
-   features — WuWa domains are always open (user-confirmed).
+2. Backlog (user-approved ideas, unscheduled): "buy all affordable steps"
+   in the goal editor, Teams rename/reorder + "prioritize this team" queue
+   reordering, `iconSlug` duplicated between the app and `fetch-icons.js`,
+   legacy unused `goal.open`. **Not doing:** Echo XP / tuners (user declined,
+   Jul 2026). No farming-schedule/day-of-week features — WuWa domains are
+   always open (user-confirmed). Per-block test isolation via `reset()` is
+   DONE (see Testing).
 
 ## Working agreements with this user
 

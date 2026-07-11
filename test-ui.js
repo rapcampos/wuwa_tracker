@@ -12,6 +12,31 @@ const ok = (label, cond) => { (cond ? pass++ : fail++); console.log((cond ? 'PAS
 const fire = (el, type) => el.dispatchEvent(new w.Event(type, {bubbles:true}));
 const texts = sel => [...d.querySelectorAll(sel)].map(e => e.textContent);
 
+// ── per-block isolation ──
+// The suite runs against one shared jsdom. Everything below the persistence
+// round-trip is an independent feature block; each calls reset() first so a
+// leak in one (a left-on toggle, an undeleted goal, an open pop-up, an
+// edited template) can't corrupt the next. reset() rebuilds the default
+// queue (Jinhsi/Phoebe/Suisui) from STANDARD templates, clears inventory /
+// done / teams / undo, closes every pop-up, and returns to the Ledger page's
+// Total tab — the same state a fresh boot produces. A block that needs more
+// (inventory, a completed goal, an extra goal) sets it up explicitly after
+// resetting, so its preconditions never depend on run order.
+const reset = () => w.eval(`
+  const D = {4: defaultGoalTgt(4), 5: defaultGoalTgt(5)};
+  state = {goals: ['jinhsi','phoebe','suisui'].map(c => newGoal(c, false, D)),
+           done: [], inv: {}, synth: true, hideUn: false, skipCE: false,
+           tab: 'total', teams: [], defaults: D};
+  undoStack.length = 0; clearTimeout(undoTimer);
+  editIdx = null; editTpl = null; palPick = null; palSel = 0;
+  farmId = null; dragIdx = null; ordDrag = null; invFilter = ''; invDirty = false;
+  for(const s of ['#modalWrap','#palWrap','#ordWrap','#invWrap','#farmWrap','#undoBar'])
+    $(s).hidden = true;
+  if(location.hash) location.hash = '';
+  showPage('ledger');
+  save(); render();
+`);
+
 // ── initial render: summary left, read-only status cards right ──
 ok('3 goal cards rendered', d.querySelectorAll('.goal').length === 3);
 ok('priority order J/P/S', texts('.gname').join(',').startsWith('Jinhsi,Phoebe,Suisui'));
@@ -413,9 +438,10 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
 
 // ── icons ──
 {
+  reset();
   // convention: character avatar + material rows resolve to slugged filenames
   const av = d.querySelector('.goal[data-g="0"] .avatar img.__ico');
-  ok('avatar icon uses slug (phoebe first after reorder)', av && av.getAttribute('src') === 'images/characters/phoebe_icon.png');
+  ok('avatar icon uses slug (Jinhsi leads the default queue)', av && av.getAttribute('src') === 'images/characters/jinhsi_icon.png');
   const srcs = [...d.querySelectorAll('#summary .ico-wrap img.__ico')].map(im => im.getAttribute('src'));
   ok('material icons rendered in summary', srcs.length > 0 && srcs.every(s => s.startsWith('images/materials/') && s.includes('_icon.')));
   ok("apostrophes dropped in slugs (Sentinel's Dagger)",
@@ -434,10 +460,12 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   w.eval("GAME.icons.overrides['Shell Credit'] = 'credits'; render();");
   ok('override filename respected',
      [...d.querySelectorAll('img.__ico')].some(x => x.getAttribute('src') === 'images/materials/credits.png'));
+  w.eval("delete GAME.icons.overrides['Shell Credit']; render();");   // GAME is shared — undo the mutation
 }
 
 // ── drag & drop ──
 {
+  reset();                                   // baseline order Jin,Pho,Sui
   ok('grips are draggable', [...d.querySelectorAll('.grip')].every(g => g.getAttribute('draggable') === 'true'));
   const order0 = texts('.gname').map(t => t.slice(0,3)).join(',');
   // drag last card (index 2) and drop on first card → moves to top (jsdom rects are 0 ⇒ "before")
@@ -445,19 +473,20 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok('dragging class applied', d.querySelector('.goal[data-g="2"]').classList.contains('dragging'));
   fire(d.querySelector('.goal[data-g="0"]'), 'drop');
   const order1 = texts('.gname').map(t => t.slice(0,3)).join(',');
-  ok('drop moves goal to top', order0 === 'Pho,Jin,Sui' && order1 === 'Sui,Pho,Jin');
+  ok('drop moves goal to top', order0 === 'Jin,Pho,Sui' && order1 === 'Sui,Jin,Pho');
   // no-op drop: drag card 1 onto itself
   fire(d.querySelector('.grip[data-g="1"]'), 'dragstart');
   fire(d.querySelector('.goal[data-g="1"]'), 'drop');
-  ok('self-drop is a no-op', texts('.gname').map(t => t.slice(0,3)).join(',') === 'Sui,Pho,Jin');
+  ok('self-drop is a no-op', texts('.gname').map(t => t.slice(0,3)).join(',') === 'Sui,Jin,Pho');
   // ▲▼ buttons still route correctly through moveGoal
   fire(d.querySelector('button[data-act="down"][data-g="0"]'), 'click');
-  ok('▼ still works after unification', texts('.gname').map(t => t.slice(0,3)).join(',') === 'Pho,Sui,Jin');
-  ok('drag order persisted', JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).goals.map(g => g.char).join(',') === 'phoebe,suisui,jinhsi');
+  ok('▼ still works after unification', texts('.gname').map(t => t.slice(0,3)).join(',') === 'Jin,Sui,Pho');
+  ok('drag order persisted', JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).goals.map(g => g.char).join(',') === 'jinhsi,suisui,phoebe');
 }
 
 // ── forte node grid in the pop-up (2×5 matrix with column dependencies) ──
 {
+  reset();                                   // goal[1] = Phoebe, fresh→maxed default
   fire(d.querySelector('button[data-act="edit"][data-g="1"]'), 'click');
   const tree = mbox().querySelector('.ftree');
   ok('pop-up game view: 5 skill columns (+2 gutters) × (2 nodes + 2 selects)', tree &&
@@ -548,7 +577,7 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
 
 // ── weapon goals ──
 {
-  // add via the palette (queue is Pho,Sui,Jin at this point)
+  reset();                                   // queue Jinhsi/Phoebe/Suisui; weapon appends at index 3
   palAdd('ages of harvest');
   ok('weapon goal appended via Enter', texts('.gname')[3] === 'Ages of Harvest');
   const card = d.querySelector('.goal[data-g="3"]');
@@ -642,6 +671,8 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
 
 // ── per-rarity default goals + Max button ──
 {
+  reset();
+  palAdd('ages of harvest');                 // weapon at index 3 (this block edits it below)
   // 4★ default template: Lv80, forte 6, all 8 nodes + both passives planned
   palAdd('sanhua');
   const sCard = () => d.querySelector('.goal[data-g="4"]');
@@ -695,7 +726,9 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
 
 // ── bulk skill ±1 buttons ──
 {
-  fire(d.querySelector('button[data-act="edit"][data-g="1"]'), 'click');   // Suisui: cur 1s, tgt 6s
+  reset();
+  palAdd('ages of harvest');                 // weapon at index 3 (checked for no bulk buttons below)
+  fire(d.querySelector('button[data-act="edit"][data-g="1"]'), 'click');   // Phoebe: cur 1s, tgt 6s
   const val = (side, f) => mbox().querySelector(`select[data-side="${side}"][data-f="${f}"]`).value;
   const SK = ['s0','s1','s2','s3','s4'];
   ok('±1 gutters flank the grid (first and last columns)', (() => {
@@ -736,6 +769,7 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
 
 // ── template editor from the toolbar ──
 {
+  reset();
   fire(d.querySelector('#btnTpl'), 'click');
   ok('templates pop-up opens on 5★', mbox().textContent.includes('5★ default goal'));
   fire(mbox().querySelector('[data-tplswitch]'), 'click');
@@ -766,30 +800,32 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
 
 // ── inventory deduction: cards allocate in priority order, Total nets ──
 {
-  // give exactly Phoebe's Sentinel's Dagger share (6); Jinhsi (P3) shares the weekly
-  w.eval(`state.inv["wk:Sentinel's Dagger"] = 6; save(); render();`);
+  reset();                                   // queue Jinhsi (P1) / Phoebe (P2) / Suisui (P3)
+  // Sentinel's Dagger (weekly) is shared by Jinhsi + Phoebe, 6 each. Give one
+  // goal's share so the first card that needs it (P1 Jinhsi) eats the pool and
+  // P2 Phoebe sees the leftover. Cleansing Conch fully stocked shows a covered ✓.
+  w.eval(`state.inv["wk:Sentinel's Dagger"] = 6; state.inv["boss:Cleansing Conch"] = 46; save(); render();`);
   const tileIn = (sel, name) => [...d.querySelectorAll(sel + ' .tile')]
     .find(t => (t.getAttribute('title') || '').includes(name));
-  const pho = tileIn('.goal[data-g="0"]', "Sentinel's Dagger");
-  const jin = tileIn('.goal[data-g="2"]', "Sentinel's Dagger");
+  const first = tileIn('.goal[data-g="0"]', "Sentinel's Dagger");   // Jinhsi
+  const second = tileIn('.goal[data-g="1"]', "Sentinel's Dagger");  // Phoebe
   ok('P1 card: weekly covered — ✓, dimmed, tooltip says covered',
-     pho.textContent.includes('✓') && pho.classList.contains('done') &&
-     pho.getAttribute('title').includes('covered'));
-  ok('P3 card: pool already consumed by the first card that needed it',
-     jin.textContent.trim().endsWith('6') && !jin.classList.contains('done'));
+     first.textContent.includes('✓') && first.classList.contains('done') &&
+     first.getAttribute('title').includes('covered'));
+  ok('P2 card: pool already consumed by the first card that needed it',
+     second.textContent.trim().endsWith('6') && !second.classList.contains('done'));
   // Total tab nets the aggregate: 12 needed − 6 held = 6
   fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Total'), 'click');
   const tot = tileIn('#summary', "Sentinel's Dagger");
   ok('Total tab deducts inventory with both numbers in the tooltip',
      tot.getAttribute('title').startsWith("Sentinel's Dagger — 6 needed of 12 total"));
-  // a fully covered material (Cleansing Conch 46 from earlier input) reads ✓ in Total
   const conch = tileIn('#summary', 'Cleansing Conch');
   ok('fully covered material shows ✓ in Total', conch.textContent.includes('✓') && conch.classList.contains('done'));
-  w.eval(`delete state.inv["wk:Sentinel's Dagger"]; save(); render();`);
 }
 
 // ── mark as completed: ✓ on finished cards, Completed summary tab ──
 {
+  reset();
   ok('unfinished cards have no ✓ button', d.querySelector('#goals [data-act="done"]') === null);
   // finish Phoebe: current = target, every planned node owned
   w.eval(`{ const g = state.goals.find(x => x.char === 'phoebe');
@@ -854,6 +890,7 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
 
 // ── reorder pop-up (Ctrl+P): compact drag list, live apply ──
 {
+  reset();
   const wrapO = () => d.querySelector('#ordWrap');
   const rows = () => [...d.querySelectorAll('#ordList .ord-item')];
   const onames = () => [...d.querySelectorAll('#ordList .oname')].map(e2 => e2.textContent);
@@ -943,6 +980,7 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
 
 // ── Teams page: matrix team builder behind the header nav ──
 {
+  reset();                                   // roster = Jinhsi/Phoebe/Suisui, no teams
   const nav = p => [...d.querySelectorAll('.pagenav button')].find(b => b.dataset.page === p);
   ok('pagenav present, Ledger page on by default',
      nav('ledger') !== null && nav('ledger').classList.contains('on') &&
@@ -1016,6 +1054,7 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
 
 // ── inventory pop-up (Ctrl+I): stock grid of icon + quantity tiles ──
 {
+  reset();
   const wrapI = () => d.querySelector('#invWrap');
   ok('stock pop-up hidden until opened', wrapI().hidden === true);
   d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'i', ctrlKey:true, bubbles:true}));
@@ -1122,16 +1161,16 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   fire(d.querySelector('#btnInv'), 'click');
   fire(wrapI(), 'click');
   ok('backdrop click closes it', wrapI().hidden === true);
-  w.eval(`delete state.inv['boss:Elegy Tacet Core']; delete state.inv.credits; save(); render();`);
 }
 
 // ── upgrade transactions: editor buttons spend inventory, one Ctrl+Z away ──
 {
+  reset();
+  // Phoebe (index 1, not the top of the queue) at Lv20, empty stock
   w.eval(`Object.keys(state.inv).forEach(k => delete state.inv[k]);
-    state.goals.push(newGoal('phoebe', false, state.defaults));
-    state.goals[state.goals.length - 1].cur.ord = 1;
+    state.goals.find(x => x.char === 'phoebe').cur.ord = 1;
     save(); render();`);
-  const gi = w.eval('state.goals.length - 1');
+  const gi = w.eval(`state.goals.findIndex(x => x.char === 'phoebe')`);
   fire(d.querySelector(`button[data-act="edit"][data-g="${gi}"]`), 'click');
   const rows = () => [...mbox().querySelectorAll('.upg-row')];
   ok('editor grows an upgrade section; next level step leads',
@@ -1149,7 +1188,7 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   // fund the ascension exactly (anchor: 4× LF Whisperin Core + 5,000 credits)
   w.eval(`state.inv.whisperin0 = 4; state.inv.credits = 5000; save(); render();`);
   ok('funded step enables', rows()[0].querySelector('[data-upg]').disabled === false);
-  ok('queue priority never gates spending — this goal is last in a longer queue', gi > 0);
+  ok('queue priority never gates spending — this goal is not at the top of the queue', gi > 0);
   fire(rows()[0].querySelector('[data-upg]'), 'click');
   ok('purchase advances current and drains the exact cost',
      w.eval(`state.goals[${gi}].cur.ord`) === 2 &&
@@ -1175,9 +1214,8 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
      rows().some(r => r.textContent.includes('Inherent Ⅱ')));
 
   // crafting-aware spending: hold a tier-1 line ONLY as tier-0 ×3
-  // (an earlier block leaves the synth toggle off — turn it on explicitly)
   w.eval(`{ Object.keys(state.inv).forEach(k => delete state.inv[k]);
-    state.synth = true;
+    state.synth = true;                               // reset() leaves it on; be explicit anyway
     const g = state.goals[${gi}];
     g.cur.ord = 3;                                    // next step: rank-2 ascension
     const cost = costForGoal({char:'phoebe', cur:g.cur, tgt:{...g.cur, ord:4, skills:[...g.cur.skills]}});
@@ -1205,6 +1243,7 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
 
 // ── clicking a material icon opens the farm pop-up on its family ──
 {
+  reset();
   const farm = () => d.querySelector('#farmWrap');
   const rows = () => [...d.querySelectorAll('#farmList .frow')];
   const names = () => rows().map(r => r.querySelector('.fname').textContent);
@@ -1312,9 +1351,8 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
 
 // ── multi-level undo: toast + Ctrl+Z walk back through the snapshot stack ──
 {
+  reset();                                   // clean queue + empty undo stack
   const bar = () => d.querySelector('#undoBar');
-  // earlier blocks' deletions armed the stack and left the toast up
-  w.eval(`undoStack.length = 0; $('#undoBar').hidden = true;`);
   const before = texts('.gname');
   fire(d.querySelector('button[data-act="del"][data-g="0"]'), 'click');
   ok('deleting a goal shows the undo toast naming it',
@@ -1343,8 +1381,8 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   fire(d.querySelector('[data-rmteam="0"]'), 'click');        // leave no teams behind
   fire([...d.querySelectorAll('.pagenav button')].find(b => b.dataset.page === 'ledger'), 'click');
 
-  // depth: three wrapped mutations, three undos, back to the starting value.
-  // (a stock number rather than the queue — earlier blocks left it too short)
+  // depth: three wrapped mutations, three undos, back to the starting value
+  // (a stock number keeps the assertions independent of the queue length)
   const stock = () => w.eval('state.inv.howler0 || 0');
   w.eval(`undoStack.length = 0; delete state.inv.howler0; save();
           for(const k of [1, 2, 3]) withUndo('set ' + k, () => state.inv.howler0 = k);`);

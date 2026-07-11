@@ -53,6 +53,13 @@ ok('breakdown accordion gone', d.querySelector('details.brk') === null);
 ok('summary shows totals as tile grid', d.querySelectorAll('#summary .tiles .tile').length > 10 &&
    d.querySelector('#summary table.mats') === null);
 ok('storage detected (jsdom has localStorage)', /Autosaves/.test(d.querySelector('#storageNote').textContent));
+ok('queue subtitle no longer hardcodes a per-row count',
+   !/per row/.test([...d.querySelectorAll('.panel-h .sub')].map(e => e.textContent).join(' ')));
+ok('footer keeps its pills but collapses the help into a closed <details>',
+   d.querySelectorAll('#footer .pill').length === 3 &&
+   d.querySelector('#footer details.foot-help') !== null &&
+   d.querySelector('#footer details.foot-help').open === false &&
+   /How this works/.test(d.querySelector('#footer summary').textContent));
 
 // grand total sanity: 3 default-target builds (Lv90 · forte 6 · all nodes) →
 // credits 3 × 1,803,300 = 5,409,900; Sentinel's Dagger = 6+6 = 12

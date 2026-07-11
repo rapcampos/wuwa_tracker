@@ -349,6 +349,10 @@ td.matcell:hover{color:var(--cyan)}
 .footer{margin-top:26px; color:var(--faint); font-size:11.5px; line-height:1.7}
 .footer b{color:var(--mut)}
 .pill{display:inline-block; border:1px solid var(--line2); border-radius:20px; padding:2px 10px; font-size:11px; color:var(--mut); margin-right:6px}
+.foot-help{margin-top:12px}
+.foot-help summary{cursor:pointer; color:var(--mut); font-size:11.5px; width:fit-content; list-style:revert}
+.foot-help summary:hover{color:var(--ink)}
+.foot-help p{margin-top:8px; max-width:70ch}
 .goalstat{display:flex; align-items:center; gap:8px; padding:7px 10px; border:1px solid var(--line); border-radius:8px; margin-bottom:8px; font-size:13px}
 .goalstat .st{margin-left:auto; font-family:'Chakra Petch'; font-size:11.5px; font-weight:600; letter-spacing:.06em}
 
@@ -436,7 +440,7 @@ td.matcell:hover{color:var(--cyan)}
   </aside>
 
   <section class="panel">
-    <div class="panel-h"><h2>Priority queue</h2><span class="sub">first = farm first · 2 per row</span></div>
+    <div class="panel-h"><h2>Priority queue</h2><span class="sub">first = farm first</span></div>
     <div class="panel-b" id="goals"></div>
   </section>
 </div>
@@ -3362,21 +3366,24 @@ if(FS_OK){
 
 /* ── footer & boot ── */
 function renderFooter(){
-  $('#footer').innerHTML =
+  const pills =
     '<span class="pill">cost tables · verified through 3.5</span>' +
     '<span class="pill">Suisui · releases 2026-07-30</span>' +
-    `<span class="pill">${storageOK ? 'autosaves · this browser' : 'preview · no autosave'}</span><br>` +
+    `<span class="pill">${storageOK ? 'autosaves · this browser' : 'preview · no autosave'}</span>`;
+  const help =
     'To add a new patch character or weapon, edit the <b>GAME.characters</b> / <b>GAME.weapons</b> blocks near ' +
     'the top of this file — one small entry each; the shared cost templates do the rest. ' +
     'Weekly-boss materials can’t be crafted, so plan those runs first. ' +
     '<b>Icons:</b> place an “images” folder (with characters/, materials/, weapons/ subfolders) next to this ' +
     'file, files named like <b>lf_howler_core_icon.png</b> — see the GAME.icons comment for the full convention; anything missing ' +
     'falls back to the colored markers. Click ✎ on a card to edit levels, skills, and forte nodes in a pop-up; ' +
-    'cards themselves are read-only status views. Drag the ⠿ grip to reorder goals (▲▼ still work, and are the way to go on touch screens), ' +
-    'or press <b>Ctrl+P</b> (“⇅ Reorder”) for a compact drag list of the whole queue. ' +
+    'cards themselves are read-only status views. Reorder with the ▲▼ buttons on a card, or press <b>Ctrl+P</b> ' +
+    '(“⇅ Reorder”) for a compact drag list of the whole queue. ' +
     'The <b>Teams</b> page (header nav) builds 3-person teams from your roster — each character has an ' +
     'energy budget capping how many teams they can join: 1 by default, 2 for the seeded supports ' +
     '(Verina, Shorekeeper, Suisui, Chisa, Mornye, Buling) — tweak the <b>energy</b> field on a GAME entry to adjust.';
+  $('#footer').innerHTML = pills +
+    `<details class="foot-help"><summary>How this works</summary><p>${help}</p></details>`;
 }
 function render(){ hideTip(); buildNeeders(); renderGoals(); renderSummary(); renderFooter(); renderModal(); renderOrder(); renderTeams(); }
 render();

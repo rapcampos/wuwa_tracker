@@ -258,11 +258,28 @@ button.search kbd{margin-left:auto; font-family:inherit; font-size:10px; color:v
   padding:2px 1px; -moz-appearance:textfield}
 .itile input::-webkit-outer-spin-button, .itile input::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
 .itile.done{opacity:.55}
-.itile .isteps{display:flex; width:100%; border-top:1px solid var(--line2)}
-.itile .isteps button{flex:1; min-width:0; border:none; border-radius:0; background:transparent;
-  color:var(--faint); font:inherit; font-size:9.5px; letter-spacing:0; line-height:1; padding:3px 0; cursor:pointer}
-.itile .isteps button + button{border-left:1px solid var(--line2)}
-.itile .isteps button:hover{background:var(--line); color:var(--ink)}
+
+/* ── farm pop-up: one material family, fast +1/+5 entry ── */
+#farmWrap{position:fixed; inset:0; z-index:55; background:rgba(6,9,16,.55);
+  display:flex; justify-content:center; align-items:flex-start; padding:14vh 16px 16px}
+.farm-pop{width:min(430px,94vw)}
+.farm-pop .ord-h{flex-wrap:wrap}
+.farm-pop .ord-h .sub{flex-basis:100%}
+#farmList{padding:8px}
+.frow{display:flex; align-items:center; gap:8px; padding:5px 8px; margin-bottom:6px;
+  border:1px solid var(--line2); border-radius:8px; font-size:12.5px}
+.frow:last-child{margin-bottom:0}
+.frow .ico-wrap{width:28px; height:28px; margin:0; flex:none}
+.frow .ico-wrap img{width:28px; height:28px; border-radius:4px}
+.frow .fname{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0}
+.frow .fqty{width:58px; flex:none; padding:3px 4px; font-size:12px; text-align:center;
+  font-variant-numeric:tabular-nums; -moz-appearance:textfield}
+.frow .fqty::-webkit-outer-spin-button, .frow .fqty::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
+.frow .fstep{flex:none; padding:3px 7px; font-size:11px; letter-spacing:0; color:var(--mut)}
+.frow .fstep:hover{color:var(--ink)}
+.frow .fneed{flex:none; width:74px; text-align:right; font-size:10.5px; color:var(--faint);
+  font-variant-numeric:tabular-nums}
+.frow .fneed.short{color:var(--red)} .frow .fneed.ok{color:var(--green)}
 
 /* ── editor upgrade rows (spend inventory) ── */
 .upg{margin-top:14px; border-top:1px solid var(--line); padding-top:10px}
@@ -272,7 +289,7 @@ button.search kbd{margin-left:auto; font-family:inherit; font-size:10px; color:v
 .upg-lbl{white-space:nowrap}
 .upg-cost{margin-left:auto; color:var(--mut); font-size:11px; text-align:right; max-width:55%}
 
-/* ── undo toast (single-level, Ctrl+Z) ── */
+/* ── undo toast (Ctrl+Z) ── */
 #undoBar{position:fixed; left:50%; bottom:18px; transform:translateX(-50%); z-index:70;
   display:flex; align-items:center; gap:12px; background:var(--panel); border:1px solid var(--line2);
   border-radius:9px; padding:8px 14px; font-size:12.5px; box-shadow:0 10px 30px rgba(0,0,0,.5)}
@@ -286,12 +303,12 @@ button.search kbd{margin-left:auto; font-family:inherit; font-size:10px; color:v
 .tile .ico-wrap img{width:30px; height:30px; border-radius:4px}
 .tile .qty{display:block; width:100%; text-align:center; font-size:10.5px; font-weight:600;
   padding:1px 2px 2px; background:rgba(6,9,16,.5); color:var(--ink); white-space:nowrap}
-.tile.r1, .itile.r1{background:rgba(155,166,188,.10); border-color:rgba(155,166,188,.35)}
-.tile.r2, .itile.r2{background:rgba(105,184,118,.16); border-color:rgba(105,184,118,.45)}
-.tile.r3, .itile.r3{background:rgba(92,168,222,.16);  border-color:rgba(92,168,222,.45)}
-.tile.r4, .itile.r4{background:rgba(166,127,224,.18); border-color:rgba(166,127,224,.5)}
-.tile.r5, .itile.r5{background:rgba(229,181,102,.18); border-color:rgba(229,181,102,.5)}
-.tile.r0, .itile.r0{background:rgba(95,217,228,.08);  border-color:rgba(95,217,228,.3)}
+.tile.r1, .itile.r1, .frow.r1{background:rgba(155,166,188,.10); border-color:rgba(155,166,188,.35)}
+.tile.r2, .itile.r2, .frow.r2{background:rgba(105,184,118,.16); border-color:rgba(105,184,118,.45)}
+.tile.r3, .itile.r3, .frow.r3{background:rgba(92,168,222,.16);  border-color:rgba(92,168,222,.45)}
+.tile.r4, .itile.r4, .frow.r4{background:rgba(166,127,224,.18); border-color:rgba(166,127,224,.5)}
+.tile.r5, .itile.r5, .frow.r5{background:rgba(229,181,102,.18); border-color:rgba(229,181,102,.5)}
+.tile.r0, .itile.r0, .frow.r0{background:rgba(95,217,228,.08);  border-color:rgba(95,217,228,.3)}
 .tile.done{opacity:.5}
 .tile.done .qty{color:var(--green)}
 .mats-note{color:var(--faint); font-size:12px; padding:6px 0}
@@ -306,6 +323,8 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
   box-shadow:0 0 6px currentColor}
 .cat{font-size:10.5px; text-transform:uppercase; letter-spacing:.16em; color:var(--faint); padding-top:12px !important}
 td.inv{width:96px; text-align:right}
+td.matcell{cursor:pointer}
+td.matcell:hover{color:var(--cyan)}
 .tabs{display:flex; gap:4px; padding:10px 16px 0}
 .tabs button{border-radius:7px 7px 0 0; border-bottom:none; background:transparent; border-color:transparent; color:var(--mut)}
 .tabs button.on{background:var(--panel2); border-color:var(--line); color:var(--ink)}
@@ -445,6 +464,15 @@ td.inv{width:96px; text-align:right}
       <button class="tiny close" id="invClose" title="Close (Esc)">✕</button>
       <span class="sub">hover a tile for its name · +1/+5 log a farm session (Shift subtracts) · closing applies everywhere</span></div>
     <div id="invGrid"></div>
+  </div>
+</div>
+
+<div id="farmWrap" hidden>
+  <div class="palette farm-pop" role="dialog" aria-modal="true" aria-label="Log farmed materials">
+    <div class="ord-h"><span id="farmTitle"></span>
+      <button class="tiny close" id="farmClose" title="Close (Esc)">✕</button>
+      <span class="sub">+1 / +5 log a farm session · Shift subtracts · closing applies everywhere</span></div>
+    <div id="farmList"></div>
   </div>
 </div>
 </div>
@@ -1503,6 +1531,34 @@ function sortMatIds(ids){
   });
 }
 
+/* ── material families (the farm pop-up's contents) ──
+   The tier ladder a material belongs to, low → high: a family's four tiers,
+   the potion or core ladder for anything in an EXP pool, otherwise the
+   material alone (boss drops, specialty mats, weeklies and credits are
+   singletons — a boss run still drops one of them by the handful). */
+function familyIds(id){
+  if(id === 'wexp' || id.startsWith('wexp')) return GAME.wpnExpItems.map(x => x.id);
+  if(id === 'exp'  || id.startsWith('exp'))  return GAME.expItems.map(x => x.id);
+  const m = MATS[id];
+  return m && m.family ? [0,1,2,3].map(t => m.family + t) : [id];
+}
+/* A family's shared name, taken as the longest run of words its members
+   agree on at one end — a suffix for "LF/MF/HF/FF Howler Core" or
+   "Crude/Basic/… Ring", a prefix for "Waveworn Residue 210/226/…". Falls
+   back to the first member's full name (singletons, or no agreement). */
+function famLabel(ids){
+  const w = ids.map(i => MATS[i].name.split(' '));
+  const run = at => {
+    let k = 0;
+    while(w.every(x => k < x.length && x[at(x, k)] === w[0][at(w[0], k)])) k++;
+    return k;
+  };
+  const pre = run((x, k) => k), suf = run((x, k) => x.length - 1 - k);
+  if(pre >= suf && pre) return w[0].slice(0, pre).join(' ');
+  if(suf) return w[0].slice(w[0].length - suf).join(' ');
+  return MATS[ids[0]].name;
+}
+
 /* ── teams (matrix team builder, Teams page) ──
    A team is {name?, chars:[charId|null ×3]}. Each character has an energy
    budget (`energy` on the GAME entry, default 1) = how many teams they may
@@ -1796,7 +1852,7 @@ function tileTip(id, qty){
   let tip = MATS[id].name + ' — ' + fmt(qty);
   if(id === 'exp'){ const p = potionText(expToPotions(qty)); if(p) tip += ' · ' + p; }
   if(id === 'wexp'){ const p = coreText(wexpToCores(qty)); if(p) tip += ' · ' + p; }
-  return tip + neededBy(id) + ' · click to edit stock';
+  return tip + neededBy(id) + ' · click to log drops';
 }
 /* exp/wexp tiles carry the top-tier item's icon, so their qty is that item
    count (expTopTier), not raw EXP — "×12" premium potions, not "240K" */
@@ -1873,7 +1929,7 @@ function deficitTip(id, needQty, left){
     : 'covered by inventory · needs ' + fmt(needQty));
   if(id === 'exp' && left){ const p = potionText(expToPotions(left)); if(p) tip += ' · ' + p; }
   if(id === 'wexp' && left){ const p = coreText(wexpToCores(left)); if(p) tip += ' · ' + p; }
-  return tip + neededBy(id) + ' · click to edit stock';
+  return tip + neededBy(id) + ' · click to log drops';
 }
 function deficitTiles(need, rem, order){
   const ids = order ? order.filter(id => id in need) : sortMatIds(Object.keys(need));
@@ -2105,7 +2161,7 @@ function paletteEntries(q){
   return out.sort((a,b) => grp(a) - grp(b) || a.score - b.score || (a.name < b.name ? -1 : 1));
 }
 function openPal(pick){
-  closeEdit(); closeOrd(); closeInv();
+  closeEdit(); closeOrd(); closeInv(); closeFarm();
   palPick = pick || null;
   $('#palIn').placeholder = pick ? `Pick a member — Team ${pick.t + 1}` : 'Add a character or weapon…';
   $('#palWrap').hidden = false; palSel = 0; renderPal(); $('#palIn').focus();
@@ -2173,7 +2229,7 @@ $('#palIn').addEventListener('keydown', e => {
    the overlay. render() re-renders the open list in place. */
 let ordDrag = null;
 const ordIsOpen = () => !$('#ordWrap').hidden;
-function openOrd(){ closeEdit(); closePal(); closeInv(); $('#ordWrap').hidden = false; renderOrder(); }
+function openOrd(){ closeEdit(); closePal(); closeInv(); closeFarm(); $('#ordWrap').hidden = false; renderOrder(); }
 function closeOrd(){ $('#ordWrap').hidden = true; }
 function renderOrder(){
   if(!ordIsOpen()) return;
@@ -2309,27 +2365,19 @@ function renderTeams(){
 let IGRID = [];
 let invFilter = '';                            // transient: fuzzy filter, cleared on open/close
 const invIsOpen = () => !$('#invWrap').hidden;
-function openInv(focusId){
-  closeEdit(); closePal(); closeOrd();
-  invFilter = '';                              // a stale filter could hide focusId
+function openInv(){
+  closeEdit(); closePal(); closeOrd(); closeFarm();
+  invFilter = '';
   $('#invFind').value = '';
   $('#invWrap').hidden = false;
   renderInvGrid();
-  if(typeof focusId === 'string'){             // jump straight to one material's input
-    const k = IGRID.indexOf(focusId);
-    const inp = k >= 0 ? $('#invGrid').querySelector(`.iqty[data-i="${k}"]`) : null;
-    if(inp){
-      if(inp.scrollIntoView) inp.scrollIntoView({block: 'center'});
-      inp.focus();
-      if(inp.select) inp.select();
-    }
-  }
-  else $('#invFind').focus();                  // the filter is the way in — start typing
+  $('#invFind').focus();                       // the filter is the way in — start typing
 }
-/* clicking any material tile opens the stock grid focused on that item —
-   the id is recovered from the tooltip's leading display name (data
-   attributes must not carry ids: apostrophes). Pool tiles land on their
-   premium item, since that's the icon they carry. */
+/* Clicking any material icon on the Ledger page — goal-card tiles, the Total
+   and Farm-next tabs, and the Inventory tab's rows — opens the farm pop-up on
+   that material's family. The id is recovered from the tooltip's leading
+   display name (data attributes must not carry ids: apostrophes). Tiles inside
+   the stock grid stay inert: that grid is a typing surface. */
 const MAT_ID_BY_NAME = (() => {
   const m = {};
   for(const [id, x] of Object.entries(MATS)) m[x.name] = id;
@@ -2337,12 +2385,8 @@ const MAT_ID_BY_NAME = (() => {
 })();
 function bindTileClicks(root){
   root.querySelectorAll('.tile').forEach(t => t.addEventListener('click', () => {
-    const name = (t.getAttribute('title') || '').split(' — ')[0];
-    let id = MAT_ID_BY_NAME[name];
-    if(!id) return;
-    if(id === 'exp') id = 'exp4';
-    if(id === 'wexp') id = 'wexp4';
-    openInv(id);
+    const id = MAT_ID_BY_NAME[(t.getAttribute('title') || '').split(' — ')[0]];
+    if(id) openFarm(id);
   }));
 }
 function closeInv(){
@@ -2391,32 +2435,15 @@ function renderInvGrid(){
       return `<div class="itile r${MATS[id].r}${need[id] && !res.rem[id] ? ' done' : ''}" title="${esc(tip(id))}">` +
         matIco(id) +
         `<input type="number" min="0" step="1" class="iqty" data-i="${i}" value="${state.inv[id] ?? ''}" placeholder="0">` +
-        `<div class="isteps">` +
-          `<button class="istep" data-i="${i}" data-d="1" title="Add 1 — hold Shift to subtract">+1</button>` +
-          `<button class="istep" data-i="${i}" data-d="5" title="Add 5 — hold Shift to subtract">+5</button>` +
-        `</div>` +
       `</div>`;
     }).join('') + `</div>`;
   }
   box.innerHTML = html || `<div class="empty">${invFilter
     ? 'No material matches “' + esc(invFilter) + '”.'
     : 'Nothing needed right now — untick “Hide un-needed” to log stock for later.'}</div>`;
-  const setQty = (id, v, inp) => {
-    if(v) state.inv[id] = v; else delete state.inv[id];
-    inp.value = v || '';
-    save();                                    // tints/tooltips refresh on close or next open
-  };
   box.querySelectorAll('.iqty').forEach(inp => inp.addEventListener('change', e => {
     const t = e.currentTarget;
-    setQty(IGRID[+t.dataset.i], Math.max(0, Math.floor(+t.value || 0)), t);
-  }));
-  /* farm-session steppers: nudge one tile without rebuilding the grid
-     (a rebuild would lose the scroll position mid-session) */
-  box.querySelectorAll('.istep').forEach(b => b.addEventListener('click', e => {
-    const t = e.currentTarget, i = +t.dataset.i, id = IGRID[i];
-    const inp = box.querySelector(`.iqty[data-i="${i}"]`);
-    const d = (+t.dataset.d) * (e.shiftKey ? -1 : 1);
-    setQty(id, Math.max(0, Math.floor(+inp.value || 0) + d), inp);
+    setStock(IGRID[+t.dataset.i], Math.max(0, Math.floor(+t.value || 0)), t);
   }));
   bindIcons(box);
 }
@@ -2434,6 +2461,80 @@ $('#invFind').addEventListener('keydown', e => {
 $('#isynthChk').addEventListener('change', e => { state.synth = e.currentTarget.checked; save(); renderInvGrid(); });
 $('#ihideChk').addEventListener('change', e => { state.hideUn = e.currentTarget.checked; save(); renderInvGrid(); });
 
+/* ── farm pop-up: log one family's drops right after a run ──
+   Opened by clicking any material icon on the Ledger page. Shows only that
+   material's family (familyIds — four tiers, a potion/core ladder, or a lone
+   boss/specialty/weekly drop), each row a quantity input plus +1/+5 (Shift
+   subtracts, clamped at zero). Rows are patched in place, never rebuilt, so
+   the input keeps focus and the buttons stay under the cursor; CLOSING runs
+   the full render, the same "apply everywhere when done" rule as the stock
+   grid. FARM carries ids by index. */
+let FARM = [], farmId = null;
+const farmIsOpen = () => !$('#farmWrap').hidden;
+/* the one place stock is written: strips zeros so bags stay clean */
+function setStock(id, v, inp){
+  if(v) state.inv[id] = v; else delete state.inv[id];
+  if(inp) inp.value = v || '';
+  save();
+}
+function openFarm(id){
+  if(!MATS[id]) return;
+  farmId = id;
+  $('#farmWrap').hidden = false;
+  renderFarm();
+}
+function closeFarm(){
+  if($('#farmWrap').hidden) return;
+  $('#farmWrap').hidden = true;
+  farmId = null;
+  render();
+}
+/* need/left for one row: pooled EXP items have no direct need of their own */
+function farmNeed(id, need, rem){
+  if(!need[id]) return ['', ''];
+  return rem[id] ? [`${fmt(rem[id])} left`, 'short'] : ['✓ covered', 'ok'];
+}
+function farmLeft(){                            // in-place patch after every edit
+  const need = totalBag(state.goals);
+  const rem = remainingBag(need, state.inv, state.synth).rem;
+  $('#farmList').querySelectorAll('.fneed').forEach(el => {
+    const [txt, cls] = farmNeed(FARM[+el.dataset.i], need, rem);
+    el.textContent = txt;
+    el.className = 'fneed num' + (cls ? ' ' + cls : '');
+  });
+}
+function renderFarm(){
+  if(!farmId) return;
+  FARM = familyIds(farmId);
+  const need = totalBag(state.goals);
+  const rem = remainingBag(need, state.inv, state.synth).rem;
+  $('#farmTitle').textContent = famLabel(FARM);
+  $('#farmList').innerHTML = FARM.map((id, i) => {
+    const [txt, cls] = farmNeed(id, need, rem);
+    return `<div class="frow r${MATS[id].r}">` + matIco(id) +
+      `<span class="fname" title="${esc(MATS[id].name + neededBy(id))}">${esc(MATS[id].name)}</span>` +
+      `<input type="number" min="0" step="1" class="fqty" data-i="${i}" value="${state.inv[id] ?? ''}" placeholder="0">` +
+      `<button class="tiny fstep" data-i="${i}" data-d="1" title="Add 1 — hold Shift to subtract">+1</button>` +
+      `<button class="tiny fstep" data-i="${i}" data-d="5" title="Add 5 — hold Shift to subtract">+5</button>` +
+      `<span class="fneed num${cls ? ' ' + cls : ''}" data-i="${i}">${txt}</span></div>`;
+  }).join('');
+  const inpOf = i => $('#farmList').querySelector(`.fqty[data-i="${i}"]`);
+  $('#farmList').querySelectorAll('.fqty').forEach(inp => inp.addEventListener('change', e => {
+    const t = e.currentTarget;
+    setStock(FARM[+t.dataset.i], Math.max(0, Math.floor(+t.value || 0)), t);
+    farmLeft();
+  }));
+  $('#farmList').querySelectorAll('.fstep').forEach(b => b.addEventListener('click', e => {
+    const t = e.currentTarget, i = +t.dataset.i, inp = inpOf(i);
+    const d = (+t.dataset.d) * (e.shiftKey ? -1 : 1);
+    setStock(FARM[i], Math.max(0, Math.floor(+inp.value || 0) + d), inp);
+    farmLeft();
+  }));
+  bindIcons($('#farmList'));
+}
+$('#farmClose').addEventListener('click', closeFarm);
+$('#farmWrap').addEventListener('click', e => { if(e.target === e.currentTarget) closeFarm(); });
+
 /* ── summary panel ── */
 let INVROWS = [];
 const TABS = [['total','Total'], ['left','Inventory'], ['next','Farm next'], ['done','Completed']];
@@ -2442,7 +2543,7 @@ function invRow(id, needTxt, left){
   const i = INVROWS.push(id) - 1;
   const leftCell = left === undefined ? '<td class="qty"></td>'
     : `<td class="qty ${left ? 'short' : 'ok'}" data-l="${i}">${left ? fmt(left) : '✓'}</td>`;
-  return `<tr><td title="${esc(MATS[id].name + neededBy(id))}">${matIco(id)}${esc(MATS[id].name)}</td>` +
+  return `<tr><td class="matcell" data-i="${i}" title="${esc(MATS[id].name + neededBy(id))} · click to log drops">${matIco(id)}${esc(MATS[id].name)}</td>` +
          `<td class="qty">${needTxt}</td>` +
          `<td class="inv"><input type="number" min="0" step="1" class="invIn" data-i="${i}" value="${state.inv[id] ?? ''}" placeholder="0"></td>` +
          leftCell + '</tr>';
@@ -2647,6 +2748,8 @@ function renderSummary(){
     html += '</table>';
     el.innerHTML = head + (INVROWS.length ? html
       : '<div class="empty">Nothing needed right now — untick “Hide un-needed” to log stock for later.</div>');
+    el.querySelectorAll('.matcell').forEach(td =>       // same click as a tile
+      td.addEventListener('click', () => openFarm(INVROWS[+td.dataset.i])));
     el.querySelectorAll('.invIn').forEach(inp => {
       inp.addEventListener('change', e => {
         const id = INVROWS[+e.currentTarget.dataset.i];
@@ -2946,6 +3049,7 @@ document.addEventListener('keydown', e => {
   if(e.key === 'Escape'){
     if(palIsOpen()) closePal();
     else if(ordIsOpen()) closeOrd();
+    else if(farmIsOpen()) closeFarm();       // the farm pop-up layers over everything
     else if(invIsOpen()) closeInv();
     else if(editIdx !== null || editTpl !== null) closeEdit();
   }

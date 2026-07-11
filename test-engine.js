@@ -10,7 +10,7 @@ eval(blocks.join('\n;\n') + `
   costForGoal, totalBag, freshState, maxedState, expToPotions, remainingBag, farmNextWalk, sortMatIds,
   freshWpnState, maxedWpnState, wexpToCores, fmtShort, priorityMatIds, defaultGoalTgt, fuzzyScore,
   nodeShortfall, charEnergy, teamUsage, energyLeft, sanitizeTeams, expTopTier, wexpTopTier,
-  waveplateEstimate, stripCE, craftFromPool, affordCost, poolPlan, spendCost, dailyPlan});`);
+  waveplateEstimate, stripCE, craftFromPool, affordCost, poolPlan, spendCost, dailyPlan, familyIds, famLabel});`);
 
 let pass = 0, fail = 0;
 const canon = v => (v && typeof v === 'object' && !Array.isArray(v))
@@ -564,6 +564,42 @@ eq('stripCE never mutates its input', (() => {
     const p = dailyPlan([{[FG]: 9999, [WK]: 3}], 100);
     eq('a weekly claim is scheduled ahead of a far bigger forgery demand',
        p.runs.map(r => [r.key, r.runs]), [['wk:' + WK, 1], ['fg:' + FAM, 1]]);
+  }
+}
+
+// ═══ 22. MATERIAL FAMILIES (the farm pop-up's contents) ═══
+{
+  eq('a family material yields its four tiers, low → high',
+     familyIds('howler2'), ['howler0','howler1','howler2','howler3']);
+  eq('any tier of the family gives the same ladder', familyIds('howler0'), familyIds('howler3'));
+  eq('the resonator EXP pool yields the potion ladder',
+     familyIds('exp'), GAME.expItems.map(x => x.id));
+  eq('a potion item yields the same ladder', familyIds('exp2'), GAME.expItems.map(x => x.id));
+  eq('the weapon EXP pool yields the core ladder — never the potions',
+     familyIds('wexp'), GAME.wpnExpItems.map(x => x.id));
+  eq('a core item yields the cores', familyIds('wexp0'), GAME.wpnExpItems.map(x => x.id));
+  {
+    const boss = Object.keys(MATS).find(id => MATS[id].cat === 'Boss Drops');
+    eq('a boss drop is a singleton', familyIds(boss), [boss]);
+    eq('credits are a singleton', familyIds('credits'), ['credits']);
+  }
+
+  eq('a family label is the words its tiers share at the end',
+     famLabel(familyIds('howler0')), 'Howler Core');
+  eq('…even when only one word is shared', famLabel(familyIds('rings0')), 'Ring');
+  eq('…and the shared words may be a prefix instead',
+     famLabel(familyIds('waveworn0')), 'Waveworn Residue');
+  eq('a parenthesized tier suffix leaves a prefix label',
+     famLabel(familyIds('kernel0')), 'Autopuppet Kernel');
+  eq('the potion ladder shares its tail', famLabel(familyIds('exp')), 'Resonance Potion');
+  eq('a singleton labels itself', famLabel(['credits']), 'Shell Credit');
+  // every family in the data resolves to a non-empty label shorter than a full name
+  {
+    const bad = Object.keys(GAME.families).filter(f => {
+      const l = famLabel(familyIds(f + '0'));
+      return !l || l.length >= MATS[f + '0'].name.length;
+    });
+    eq('every seeded family shortens to a shared label', bad, []);
   }
 }
 

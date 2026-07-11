@@ -272,11 +272,10 @@ are no screenshot tests — be extra careful with CSS-only changes.
   material tooltip (tiles, Inventory rows, stock grid) ends with
   "· needed by <goal names>" — the `NEEDERS` map, rebuilt once per render
   pass by `buildNeeders()` (tests must match tile titles by prefix, not
-  equality) — then "· click to edit stock": **clicking any `.tile` opens
-  the stock grid focused on that material's input** (`bindTileClicks`
-  recovers the id from the tooltip's leading display name — data
-  attributes must not carry ids; `openInv(focusId)` scrolls + focuses;
-  exp/wexp pool tiles land on their premium item).
+  equality) — then "· click to log drops": **clicking any `.tile` opens the
+  farm pop-up on that material's family** (`bindTileClicks` recovers the id
+  from the tooltip's leading display name — data attributes must not carry
+  ids). The Inventory tab's row icons (`td.matcell`) are the same door.
   **exp/wexp tiles show a top-tier item count, not raw EXP** (`expTopTier`/
   `wexpTopTier`, pure/engine: ceil ÷ 20k — "366", not "7.31M"; `tileQty`
   routes it), and the registry marks exp/wexp `r:5` so the ground matches
@@ -355,15 +354,29 @@ are no screenshot tests — be extra careful with CSS-only changes.
   stock → editor; Ctrl+K/P close it too) runs the full `render()`, which
   is the "apply everywhere when done" step. The Inventory tab stays as the
   Need/Have/Left report.
-  Two bulk-entry affordances live here: a **fuzzy filter box** (`#invFind`,
-  transient `invFilter`, reuses `fuzzyScore` — so "lfhow" finds LF Howler
-  Core) that rebuilds the grid per keystroke *safely*, because the input sits
-  in the header OUTSIDE `#invGrid`; `openInv()` focuses it, Enter on a lone match jumps into its
-  quantity input, and `openInv`/`closeInv` clear the filter (a stale one
-  could hide the very tile a `.tile` click asked to focus). And **`+1`/`+5`
-  steppers** (`.istep`) on every tile for logging a farm session, Shift-click
-  subtracts, clamped at zero; they patch one input and `save()` WITHOUT
-  rebuilding the grid, so the scroll position survives a long session.
+  A **fuzzy filter box** (`#invFind`, transient `invFilter`, reuses
+  `fuzzyScore` — so "lfhow" finds LF Howler Core) is the way in: `openInv()`
+  focuses it, and it rebuilds the grid per keystroke *safely* because the
+  input sits in the header OUTSIDE `#invGrid`. Enter on a lone match jumps
+  into its quantity input; `openInv`/`closeInv` clear the filter. Tiles here
+  are **inert** — no click handler, no steppers: this grid is a typing
+  surface, and per-family nudging belongs to the farm pop-up.
+- **Farm pop-up** (`#farmWrap`, `openFarm(id)`): the after-a-run surface.
+  Opened by clicking any material icon on the Ledger page (goal-card tiles,
+  Total, Farm next, Inventory rows) and layered above every other pop-up
+  (z-index 55; Esc order is palette → reorder → **farm** → stock → editor).
+  It shows ONLY the clicked material's family — `familyIds` (pure/engine):
+  a family's four tiers low→high, the potion or core ladder for anything in
+  an EXP pool, otherwise the material alone (boss/specialty/weekly/credits
+  are singletons). `famLabel` (pure/engine) titles it with the words the
+  tiers share at one end — a suffix for "LF/MF/HF/FF Howler Core", a prefix
+  for "Waveworn Residue 210/226/…"; a singleton labels itself. Each row is
+  an input plus **`+1`/`+5`** (`.fstep`, Shift-click subtracts, clamped at
+  zero) and a live need/left cell patched by `farmLeft()` — rows are never
+  rebuilt, so the buttons stay under the cursor. Writes go through the one
+  shared `setStock(id, v, inp)` (strips zeros); CLOSING runs the full
+  `render()`, the same "apply everywhere when done" rule as the stock grid.
+  `FARM` carries ids by index.
 - Reordering: drag the ⠿ grip (HTML5 DnD, `dragIdx` module variable — not
   dataTransfer — carries state) **and** ▲▼ buttons, kept for touch screens.
   Both route through `moveGoal(from, to)` where `to` is the pre-removal

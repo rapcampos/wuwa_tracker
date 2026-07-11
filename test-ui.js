@@ -1020,12 +1020,10 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok('stock pop-up hidden until opened', wrapI().hidden === true);
   d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'i', ctrlKey:true, bubbles:true}));
   ok('Ctrl+I opens the stock grid', wrapI().hidden === false);
-  ok('…with the filter box focused, ready to type',
-     d.activeElement === d.querySelector('#invFind'));
   ok('the wrapper is a real fixed overlay (CSS present, not just unhidden)',
      w.getComputedStyle(wrapI()).position === 'fixed');
   ok('every pop-up wrapper carries the fixed-overlay CSS',
-     ['#modalWrap', '#palWrap', '#ordWrap', '#invWrap', '#undoBar'].every(s =>
+     ['#modalWrap', '#palWrap', '#ordWrap', '#invWrap', '#farmWrap', '#undoBar'].every(s =>
        w.getComputedStyle(d.querySelector(s)).position === 'fixed'));
   // layout: the summary panel is bounded so the goals grid can auto-fill 3–4 cards.
   // A proportional (Nfr) summary column would pin the grid at two, whatever the width.
@@ -1064,27 +1062,6 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok('typing a quantity saves it immediately',
      JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).inv['boss:Elegy Tacet Core'] === 7);
   ok('editing does not rebuild the grid (focus safety)', q.isConnected);
-
-  // farm-session steppers: +1 / +5, Shift subtracts, never below zero
-  {
-    const steps = () => tileOf('Elegy Tacet Core').querySelectorAll('.istep');
-    const qty = () => +tileOf('Elegy Tacet Core').querySelector('.iqty').value;
-    const invOf = () => JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).inv['boss:Elegy Tacet Core'];
-    fire(steps()[0], 'click');
-    ok('+1 bumps the tile and saves', qty() === 8 && invOf() === 8);
-    fire(steps()[1], 'click');
-    ok('+5 logs a farm session', qty() === 13 && invOf() === 13);
-    steps()[1].dispatchEvent(new w.MouseEvent('click', {bubbles:true, shiftKey:true}));
-    ok('Shift+click subtracts', qty() === 8 && invOf() === 8);
-    ok('the steppers do not rebuild the grid either', q.isConnected);
-    const zero = tileOf('Shell Credit').querySelector('.iqty');
-    zero.value = ''; fire(zero, 'change');
-    tileOf('Shell Credit').querySelectorAll('.istep')[0]
-      .dispatchEvent(new w.MouseEvent('click', {bubbles:true, shiftKey:true}));
-    ok('a stepper never drives stock below zero',
-       zero.value === '' && JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).inv.credits === undefined);
-  }
-
   // fuzzy filter box: subsequence match on the material name, live per keystroke
   {
     const find = d.querySelector('#invFind');
@@ -1110,12 +1087,12 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
        d.activeElement === d.querySelector('#invGrid .iqty[data-i="0"]'));
     find.value = ''; fire(find, 'input');
     ok('clearing the filter restores the catalog', tiles() > 100);
-    // a stale filter must never hide the material a tile click asks for
+    // a stale filter must never survive a reopen
     find.value = 'lfhow'; fire(find, 'input');
-    w.eval(`openInv('credits')`);
-    ok('opening on a material clears a stale filter',
-       find.value === '' && w.eval('invFilter') === '' &&
-       w.eval(`MATS[IGRID[+document.activeElement.dataset.i]].name`) === 'Shell Credit');
+    w.eval('openInv()');
+    ok('reopening clears a stale filter and focuses it',
+       find.value === '' && w.eval('invFilter') === '' && tiles() > 100 &&
+       d.activeElement === find);
   }
   // hide un-needed filters the grid (same persisted state.hideUn as the tab)
   const nAll = d.querySelectorAll('#invGrid .itile').length;
@@ -1226,17 +1203,110 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
     Object.keys(state.inv).forEach(k => delete state.inv[k]); save(); render();`);
 }
 
-// ── clicking a material tile jumps into the stock grid on that item ──
+// ── clicking a material icon opens the farm pop-up on its family ──
 {
+  const farm = () => d.querySelector('#farmWrap');
+  const rows = () => [...d.querySelectorAll('#farmList .frow')];
+  const names = () => rows().map(r => r.querySelector('.fname').textContent);
+  const nameOf = el => (el.getAttribute('title') || '').split(' — ')[0];
+  const stockOf = n => w.eval(`state.inv[MAT_ID_BY_NAME[${JSON.stringify(n)}]] || 0`);
+  ok('the farm pop-up is hidden until a material is clicked', farm().hidden === true);
+  ok('it is a real fixed overlay', w.getComputedStyle(farm()).position === 'fixed');
+
   fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Total'), 'click');
   const tileBy = pre => [...d.querySelectorAll('#summary .tile')]
     .find(t => (t.getAttribute('title') || '').startsWith(pre));
-  const someTile = tileBy("Sentinel's Dagger") || tileBy('Shell Credit');
-  const expectName = someTile.getAttribute('title').split(' — ')[0];
-  fire(someTile, 'click');
-  ok('tile click opens the stock grid', d.querySelector('#invWrap').hidden === false);
-  ok('…with that material’s input focused',
-     w.eval('MATS[IGRID[+document.activeElement.dataset.i]].name') === expectName);
+
+  // a family material: four tiers, low → high, under their shared name
+  const fam = [...d.querySelectorAll('#summary .tile')]
+    .find(t => w.eval(`(MATS[MAT_ID_BY_NAME[${JSON.stringify(nameOf(t))}]] || {}).family || ''`) !== '');
+  const famName = nameOf(fam);
+  fire(fam, 'click');
+  ok('a tile click opens the farm pop-up, not the stock grid',
+     farm().hidden === false && d.querySelector('#invWrap').hidden === true);
+  ok('it lists exactly that material’s four tiers', rows().length === 4 &&
+     names().join() === w.eval(
+       `familyIds(MAT_ID_BY_NAME[${JSON.stringify(famName)}]).map(i => MATS[i].name).join()`));
+  ok('the header names the family, not one tier',
+     d.querySelector('#farmTitle').textContent === w.eval('famLabel(FARM)') &&
+     !names().includes(d.querySelector('#farmTitle').textContent));
+
+  // +1 / +5, Shift subtracts, clamped at zero — the tile steppers, relocated
+  {
+    const n0 = names()[0], base = stockOf(n0);
+    const step = (k, shift) => rows()[0].querySelectorAll('.fstep')[k]
+      .dispatchEvent(new w.MouseEvent('click', {bubbles:true, shiftKey:!!shift}));
+    step(0);
+    ok('+1 logs one drop and saves', stockOf(n0) === base + 1 &&
+       JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).inv[w.eval('FARM[0]')] === base + 1);
+    step(1);
+    ok('+5 logs a farm session', stockOf(n0) === base + 6);
+    ok('the input mirrors the new stock', +rows()[0].querySelector('.fqty').value === base + 6);
+    ok('stepping never rebuilds the rows', rows()[0].querySelector('.fqty').isConnected);
+    for(let k = 0; k < 4; k++) step(1, true);            // −20, well past zero
+    ok('a stepper never drives stock below zero', stockOf(n0) === 0 &&
+       w.eval('state.inv[FARM[0]] === undefined') === true);
+    ok('a zeroed row shows an empty input, not a 0', rows()[0].querySelector('.fqty').value === '');
+  }
+
+  // the left/covered column is patched in place as stock changes
+  {
+    const need = w.eval('totalBag(state.goals)[FARM[1]] || 0');
+    const inp = rows()[1].querySelector('.fqty');
+    inp.value = String(need + 5); fire(inp, 'change');
+    ok('typing an exact number saves it', stockOf(names()[1]) === need + 5);
+    ok('covering a tier flips its column to ✓', need === 0 ||
+       rows()[1].querySelector('.fneed').textContent.startsWith('✓'));
+    inp.value = '0'; fire(inp, 'change');
+    ok('emptying it reports what is missing again', need === 0 ||
+       rows()[1].querySelector('.fneed').textContent === `${need.toLocaleString('en-US')} left`);
+  }
+
+  // closing applies everywhere, exactly like the stock grid
+  {
+    const inp = rows()[1].querySelector('.fqty');
+    inp.value = '12'; fire(inp, 'change');
+    const before = d.querySelector('#goals').innerHTML;
+    d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
+    ok('Esc closes the farm pop-up', farm().hidden === true);
+    ok('closing re-renders the goal cards with the new stock',
+       d.querySelector('#goals').innerHTML !== before);
+    w.eval('FARM.forEach(i => delete state.inv[i]); save(); render();');
+  }
+
+  // a singleton (weekly / boss / credits) opens on itself alone
+  {
+    const one = tileBy("Sentinel's Dagger") || tileBy('Shell Credit');
+    const nm = nameOf(one);
+    fire(one, 'click');
+    ok('a material with no family shows only itself',
+       rows().length === 1 && names()[0] === nm &&
+       d.querySelector('#farmTitle').textContent === nm);
+    d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
+  }
+
+  // the Inventory tab's row icons are the same door
+  {
+    fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Inventory'), 'click');
+    const cell = d.querySelector('#summary td.matcell');
+    ok('inventory rows advertise the click', /click to log drops/.test(cell.getAttribute('title')));
+    const nm = cell.getAttribute('title').split(' · ')[0];
+    fire(cell, 'click');
+    ok('an inventory row icon opens the farm pop-up', farm().hidden === false);
+    ok('…on the clicked material’s family', names().includes(nm));
+    d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
+    fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Total'), 'click');
+  }
+
+  // Ctrl+I still reaches the stock grid, and it now lands on the filter
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'i', ctrlKey:true, bubbles:true}));
+  ok('opening the stock grid focuses the filter box',
+     d.activeElement === d.querySelector('#invFind'));
+  ok('stock tiles carry no steppers any more', d.querySelectorAll('#invGrid .istep').length === 0);
+  ok('stock tiles are inert — clicking one opens nothing', (() => {
+    fire(d.querySelector('#invGrid .itile'), 'click');
+    return farm().hidden === true;
+  })());
   d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
 }
 

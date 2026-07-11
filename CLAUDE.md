@@ -440,13 +440,13 @@ visual aid, not a test — still be careful with CSS-only changes.
   an EXP pool, otherwise the material alone (boss/specialty/weekly/credits
   are singletons). `famLabel` (pure/engine) titles it with the words the
   tiers share at one end — a suffix for "LF/MF/HF/FF Howler Core", a prefix
-  for "Waveworn Residue 210/226/…"; a singleton labels itself. Each row is
-  an input plus **`+1`/`+5`** (`.fstep`, Shift-click subtracts, clamped at
-  zero) and a live need/left cell patched by `farmLeft()` — rows are never
-  rebuilt, so the buttons stay under the cursor. Writes go through the one
-  shared `setStock(id, v, inp)` (strips zeros); CLOSING runs the full
-  `render()`, the same "apply everywhere when done" rule as the stock grid.
-  `FARM` carries ids by index.
+  for "Waveworn Residue 210/226/…"; a singleton labels itself. Styled to
+  MATCH the inventory pop-up (`.ftile` mirrors `.itile`: icon + quantity
+  input, name on hover), with **`+1`/`+5`** steppers beneath each tile
+  (`.fstep`, Shift-click subtracts, clamped at zero). Like the inventory it
+  carries NO need/left — just quantities. Writes go through the one shared
+  `setStock(id, v, inp)` (strips zeros); CLOSING runs the full `render()`,
+  the same "apply everywhere when done" rule. `FARM` carries ids by index.
 - Reordering: the **goal cards are NOT draggable** — reorder with the ▲▼
   buttons on each card (work on touch), which route through `moveGoal(from,
   to)` (`to` = pre-removal insertion index). Bulk drag lives only in the

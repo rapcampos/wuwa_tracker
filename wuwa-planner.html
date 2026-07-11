@@ -268,24 +268,24 @@ button.search kbd{margin-left:auto; font-family:inherit; font-size:10px; color:v
 /* ── farm pop-up: one material family, fast +1/+5 entry ── */
 #farmWrap{position:fixed; inset:0; z-index:55; background:rgba(6,9,16,.55);
   display:flex; justify-content:center; align-items:flex-start; padding:14vh 16px 16px}
-.farm-pop{width:min(430px,94vw)}
+.farm-pop{width:fit-content; min-width:min(260px,90vw); max-width:94vw}
 .farm-pop .ord-h{flex-wrap:wrap}
 .farm-pop .ord-h .sub{flex-basis:100%}
-#farmList{padding:8px}
-.frow{display:flex; align-items:center; gap:8px; padding:5px 8px; margin-bottom:6px;
-  border:1px solid var(--line2); border-radius:8px; font-size:12.5px}
-.frow:last-child{margin-bottom:0}
-.frow .ico-wrap{width:28px; height:28px; margin:0; flex:none}
-.frow .ico-wrap img{width:28px; height:28px; border-radius:4px}
-.frow .fname{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0}
-.frow .fqty{width:58px; flex:none; padding:3px 4px; font-size:12px; text-align:center;
-  font-variant-numeric:tabular-nums; -moz-appearance:textfield}
-.frow .fqty::-webkit-outer-spin-button, .frow .fqty::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
-.frow .fstep{flex:none; padding:3px 7px; font-size:11px; letter-spacing:0; color:var(--mut)}
-.frow .fstep:hover{color:var(--ink)}
-.frow .fneed{flex:none; width:74px; text-align:right; font-size:10.5px; color:var(--faint);
-  font-variant-numeric:tabular-nums}
-.frow .fneed.short{color:var(--red)} .frow .fneed.ok{color:var(--green)}
+/* the farm grid mirrors the inventory pop-up's tiles, plus +1/+5 beneath */
+#farmList{display:flex; flex-wrap:wrap; gap:6px; padding:10px 14px 14px}
+.ftile{width:56px; border:1px solid var(--line2); border-radius:8px; overflow:hidden;
+  display:flex; flex-direction:column; align-items:center}
+.ftile .ico-wrap{width:32px; height:32px; margin:5px 0 3px}
+.ftile .ico-wrap img{width:30px; height:30px; border-radius:4px}
+.ftile .fqty{width:100%; border:none; border-top:1px solid var(--line2); border-radius:0;
+  background:rgba(6,9,16,.55); color:var(--ink); font:inherit; font-size:11px; text-align:center;
+  padding:2px 1px; -moz-appearance:textfield}
+.ftile .fqty::-webkit-outer-spin-button, .ftile .fqty::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
+.ftile .fsteps{display:flex; width:100%; border-top:1px solid var(--line2)}
+.ftile .fsteps button{flex:1; min-width:0; border:none; border-radius:0; background:transparent;
+  color:var(--faint); font:inherit; font-size:9.5px; letter-spacing:0; line-height:1; padding:3px 0; cursor:pointer}
+.ftile .fsteps button + button{border-left:1px solid var(--line2)}
+.ftile .fsteps button:hover{background:var(--line); color:var(--ink)}
 
 /* ── material hover popover: the tooltip text plus who needs it, with faces ── */
 #tipPop{position:fixed; z-index:80; max-width:280px; pointer-events:none;
@@ -320,12 +320,12 @@ button.search kbd{margin-left:auto; font-family:inherit; font-size:10px; color:v
 .tile .ico-wrap img{width:30px; height:30px; border-radius:4px}
 .tile .qty{display:block; width:100%; text-align:center; font-size:10.5px; font-weight:600;
   padding:1px 2px 2px; background:rgba(6,9,16,.5); color:var(--ink); white-space:nowrap}
-.tile.r1, .itile.r1, .frow.r1{background:rgba(155,166,188,.10); border-color:rgba(155,166,188,.35)}
-.tile.r2, .itile.r2, .frow.r2{background:rgba(105,184,118,.16); border-color:rgba(105,184,118,.45)}
-.tile.r3, .itile.r3, .frow.r3{background:rgba(92,168,222,.16);  border-color:rgba(92,168,222,.45)}
-.tile.r4, .itile.r4, .frow.r4{background:rgba(166,127,224,.18); border-color:rgba(166,127,224,.5)}
-.tile.r5, .itile.r5, .frow.r5{background:rgba(229,181,102,.18); border-color:rgba(229,181,102,.5)}
-.tile.r0, .itile.r0, .frow.r0{background:rgba(95,217,228,.08);  border-color:rgba(95,217,228,.3)}
+.tile.r1, .itile.r1, .ftile.r1{background:rgba(155,166,188,.10); border-color:rgba(155,166,188,.35)}
+.tile.r2, .itile.r2, .ftile.r2{background:rgba(105,184,118,.16); border-color:rgba(105,184,118,.45)}
+.tile.r3, .itile.r3, .ftile.r3{background:rgba(92,168,222,.16);  border-color:rgba(92,168,222,.45)}
+.tile.r4, .itile.r4, .ftile.r4{background:rgba(166,127,224,.18); border-color:rgba(166,127,224,.5)}
+.tile.r5, .itile.r5, .ftile.r5{background:rgba(229,181,102,.18); border-color:rgba(229,181,102,.5)}
+.tile.r0, .itile.r0, .ftile.r0{background:rgba(95,217,228,.08);  border-color:rgba(95,217,228,.3)}
 .tile.done{opacity:.5}
 .tile.done .qty{color:var(--green)}
 .mats-note{color:var(--faint); font-size:12px; padding:6px 0}
@@ -2616,46 +2616,30 @@ function closeFarm(){
   farmId = null;
   render();
 }
-/* need/left for one row: pooled EXP items have no direct need of their own */
-function farmNeed(id, need, rem){
-  if(!need[id]) return ['', ''];
-  return rem[id] ? [`${fmt(rem[id])} left`, 'short'] : ['✓ covered', 'ok'];
-}
-function farmLeft(){                            // in-place patch after every edit
-  const need = totalBag(state.goals);
-  const rem = remainingBag(need, state.inv, state.synth).rem;
-  $('#farmList').querySelectorAll('.fneed').forEach(el => {
-    const [txt, cls] = farmNeed(FARM[+el.dataset.i], need, rem);
-    el.textContent = txt;
-    el.className = 'fneed num' + (cls ? ' ' + cls : '');
-  });
-}
+/* The farm pop-up mirrors the Inventory pop-up's tiles (icon + quantity,
+   name on hover) with +1/+5 steppers beneath — a fast "just farmed this
+   family" logger. Like the inventory grid it carries no need/left info. */
 function renderFarm(){
   if(!farmId) return;
   FARM = familyIds(farmId);
-  const need = totalBag(state.goals);
-  const rem = remainingBag(need, state.inv, state.synth).rem;
   $('#farmTitle').textContent = famLabel(FARM);
-  $('#farmList').innerHTML = FARM.map((id, i) => {
-    const [txt, cls] = farmNeed(id, need, rem);
-    return `<div class="frow r${MATS[id].r}">` + matIco(id) +
-      `<span class="fname" title="${esc(MATS[id].name + neededBy(id))}">${esc(MATS[id].name)}</span>` +
+  $('#farmList').innerHTML = FARM.map((id, i) =>
+    `<div class="ftile r${MATS[id].r}" title="${esc(MATS[id].name)}">` + matIco(id) +
       `<input type="number" min="0" step="1" class="fqty" data-i="${i}" value="${state.inv[id] ?? ''}" placeholder="0">` +
-      `<button class="tiny fstep" data-i="${i}" data-d="1" title="Add 1 — hold Shift to subtract">+1</button>` +
-      `<button class="tiny fstep" data-i="${i}" data-d="5" title="Add 5 — hold Shift to subtract">+5</button>` +
-      `<span class="fneed num${cls ? ' ' + cls : ''}" data-i="${i}">${txt}</span></div>`;
-  }).join('');
+      `<div class="fsteps">` +
+        `<button class="fstep" data-i="${i}" data-d="1" title="Add 1 — hold Shift to subtract">+1</button>` +
+        `<button class="fstep" data-i="${i}" data-d="5" title="Add 5 — hold Shift to subtract">+5</button>` +
+      `</div>` +
+    `</div>`).join('');
   const inpOf = i => $('#farmList').querySelector(`.fqty[data-i="${i}"]`);
   $('#farmList').querySelectorAll('.fqty').forEach(inp => inp.addEventListener('change', e => {
     const t = e.currentTarget;
     setStock(FARM[+t.dataset.i], Math.max(0, Math.floor(+t.value || 0)), t);
-    farmLeft();
   }));
   $('#farmList').querySelectorAll('.fstep').forEach(b => b.addEventListener('click', e => {
     const t = e.currentTarget, i = +t.dataset.i, inp = inpOf(i);
     const d = (+t.dataset.d) * (e.shiftKey ? -1 : 1);
     setStock(FARM[i], Math.max(0, Math.floor(+inp.value || 0) + d), inp);
-    farmLeft();
   }));
   bindIcons($('#farmList'));
 }

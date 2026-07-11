@@ -1320,8 +1320,9 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
 {
   reset();
   const farm = () => d.querySelector('#farmWrap');
-  const rows = () => [...d.querySelectorAll('#farmList .frow')];
-  const names = () => rows().map(r => r.querySelector('.fname').textContent);
+  // inventory-style tiles: name lives in the title, not a text label
+  const rows = () => [...d.querySelectorAll('#farmList .ftile')];
+  const names = () => rows().map(r => r.getAttribute('title'));
   const nameOf = el => (el.getAttribute('title') || '').split(' — ')[0];
   const stockOf = n => w.eval(`state.inv[MAT_ID_BY_NAME[${JSON.stringify(n)}]] || 0`);
   ok('the farm pop-up is hidden until a material is clicked', farm().hidden === true);
@@ -1363,20 +1364,18 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
     ok('a zeroed row shows an empty input, not a 0', rows()[0].querySelector('.fqty').value === '');
   }
 
-  // the left/covered column is patched in place as stock changes
+  // tiles are inventory-style now: icon + quantity, name on hover, no need/left
   {
-    const need = w.eval('totalBag(state.goals)[FARM[1]] || 0');
+    ok('a farm tile carries only the plain material name (no need/left)',
+       rows()[1].getAttribute('title') === names()[1] &&
+       rows()[1].querySelector('.fneed') === null &&
+       !/left|covered|needed/.test(rows()[1].getAttribute('title')));
     const inp = rows()[1].querySelector('.fqty');
-    inp.value = String(need + 5); fire(inp, 'change');
-    ok('typing an exact number saves it', stockOf(names()[1]) === need + 5);
-    ok('covering a tier flips its column to ✓', need === 0 ||
-       rows()[1].querySelector('.fneed').textContent.startsWith('✓'));
-    inp.value = '0'; fire(inp, 'change');
-    ok('emptying it reports what is missing again', need === 0 ||
-       rows()[1].querySelector('.fneed').textContent === `${need.toLocaleString('en-US')} left`);
+    inp.value = '12'; fire(inp, 'change');
+    ok('typing an exact number saves it', stockOf(names()[1]) === 12);
   }
 
-  // closing applies everywhere, exactly like the stock grid
+  // closing applies everywhere, exactly like the inventory pop-up
   {
     const inp = rows()[1].querySelector('.fqty');
     inp.value = '12'; fire(inp, 'change');

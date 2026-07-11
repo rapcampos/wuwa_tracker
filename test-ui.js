@@ -445,8 +445,9 @@ dom4.window.localStorage.setItem('wuwa-planner-v1', '{"goals":[{"char":"nope"},{
 dom4.window.eval([...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).join('\n;\n'));
 const d4 = dom4.window.document;
 ok('corrupt save: unknown char dropped, valid char kept', d4.querySelectorAll('.goal').length === 1);
-ok('corrupt save: ords clamped, tgt ≥ cur',
-   d4.querySelector('#goals .gmeta').textContent.includes('Lv 90 → Lv 90'));
+ok('corrupt save: ords clamped, tgt ≥ cur (maxed → just the level)',
+   d4.querySelector('#goals .gmeta').textContent.includes('Lv 90') &&
+   !d4.querySelector('#goals .gmeta').textContent.includes('→'));
 const inv4 = JSON.parse(dom4.window.localStorage.getItem('wuwa-planner-v1') || '{}').inv || {};
 ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4) && inv4.credits === 12);
 
@@ -477,25 +478,35 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   w.eval("delete GAME.icons.overrides['Shell Credit']; render();");   // GAME is shared — undo the mutation
 }
 
-// ── drag & drop ──
+// ── card reordering: ▲▼ only; the main grid is no longer draggable ──
 {
   reset();                                   // baseline order Jin,Pho,Sui
-  ok('grips are draggable', [...d.querySelectorAll('.grip')].every(g => g.getAttribute('draggable') === 'true'));
-  const order0 = texts('.gname').map(t => t.slice(0,3)).join(',');
-  // drag last card (index 2) and drop on first card → moves to top (jsdom rects are 0 ⇒ "before")
-  fire(d.querySelector('.grip[data-g="2"]'), 'dragstart');
-  ok('dragging class applied', d.querySelector('.goal[data-g="2"]').classList.contains('dragging'));
-  fire(d.querySelector('.goal[data-g="0"]'), 'drop');
-  const order1 = texts('.gname').map(t => t.slice(0,3)).join(',');
-  ok('drop moves goal to top', order0 === 'Jin,Pho,Sui' && order1 === 'Sui,Jin,Pho');
-  // no-op drop: drag card 1 onto itself
-  fire(d.querySelector('.grip[data-g="1"]'), 'dragstart');
-  fire(d.querySelector('.goal[data-g="1"]'), 'drop');
-  ok('self-drop is a no-op', texts('.gname').map(t => t.slice(0,3)).join(',') === 'Sui,Jin,Pho');
-  // ▲▼ buttons still route correctly through moveGoal
+  const order = () => texts('.gname').map(t => t.slice(0,3)).join(',');
+  ok('goal cards have no drag grip and are not draggable',
+     d.querySelectorAll('#goals .grip').length === 0 &&
+     [...d.querySelectorAll('#goals .goal')].every(c => c.getAttribute('draggable') !== 'true'));
+  ok('baseline order', order() === 'Jin,Pho,Sui');
+  // ▼ on the first card
   fire(d.querySelector('button[data-act="down"][data-g="0"]'), 'click');
-  ok('▼ still works after unification', texts('.gname').map(t => t.slice(0,3)).join(',') === 'Jin,Sui,Pho');
-  ok('drag order persisted', JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).goals.map(g => g.char).join(',') === 'jinhsi,suisui,phoebe');
+  ok('▼ moves the top card down', order() === 'Pho,Jin,Sui');
+  // ▲ on the last card
+  fire(d.querySelector('button[data-act="up"][data-g="2"]'), 'click');
+  ok('▲ moves a card up', order() === 'Pho,Sui,Jin');
+  ok('edge arrows disabled (first ▲, last ▼)',
+     d.querySelector('button[data-act="up"][data-g="0"]').disabled === true &&
+     d.querySelector('button[data-act="down"][data-g="2"]').disabled === true);
+  ok('reordered queue persisted',
+     JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).goals.map(g => g.char).join(',') === 'phoebe,suisui,jinhsi');
+}
+
+// ── level label: "cur → tgt" while building, just the level once maxed ──
+{
+  reset();
+  const meta = i => d.querySelector(`.goal[data-g="${i}"] .gmeta`).textContent;
+  ok('a building goal shows the cur → tgt range', /Lv 1 → Lv 90/.test(meta(0)));
+  w.eval(`state.goals[0].cur.ord = state.goals[0].tgt.ord; save(); render();`);
+  ok('a goal at its target level shows just the level, no arrow',
+     /· Lv 90$/.test(meta(0).trim()) && !meta(0).includes('→'));
 }
 
 // ── forte node grid in the pop-up (2×5 matrix with column dependencies) ──
@@ -756,8 +767,9 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   domW.window.eval([...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).join('\n;\n'));
   const dW = domW.window.document;
   ok('corrupt save: unknown weapon dropped, dup copies kept', dW.querySelectorAll('.goal').length === 2);
-  ok('corrupt save: weapon ords clamped, tgt ≥ cur',
-     dW.querySelector('#goals .gmeta').textContent.includes('Lv 90 → Lv 90'));
+  ok('corrupt save: weapon ords clamped, tgt ≥ cur (maxed → just the level)',
+     dW.querySelector('#goals .gmeta').textContent.includes('Lv 90') &&
+     !dW.querySelector('#goals .gmeta').textContent.includes('→'));
   ok('corrupt save: core inventory floored',
      JSON.parse(domW.window.localStorage.getItem('wuwa-planner-v1')).inv.wexp2 === 3);
 }
@@ -811,7 +823,9 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
 
   // Max goal: current snaps to target, planned nodes become owned
   fire(mbox().querySelector('[data-maxgoal]'), 'click');
-  ok('max goal: current level matches target', sCard().textContent.includes('Lv 90 → Lv 90'));
+  ok('max goal: current level matches target (shows just the level)',
+     sCard().querySelector('.gmeta').textContent.includes('· Lv 90') &&
+     !sCard().querySelector('.gmeta').textContent.includes('→'));
   ok('max goal: current skills match target',
      [...sCard().querySelectorAll('.mini .sk')].every(s => s.textContent === '10→10'));
   ok('max goal: every planned node now owned',

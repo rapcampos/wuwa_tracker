@@ -380,7 +380,12 @@ visual aid, not a test — still be careful with CSS-only changes.
   (synthesis-aware as before). Covered mats stay visible as a dimmed ✓
   (`.tile.done`), with the full requirement in the tooltip. The Inventory
   tab's synth checkbox therefore also refreshes the goals grid.
-- **Cards are read-only status views**: header + mini forte tree (`miniTree`,
+- **Cards are read-only status views**: a header row (`.goal-top`: prio ·
+  avatar · name (grows) · `.gctrl` buttons ✎▲▼✕) with the meta on its OWN
+  full-width row below (`.goal .gmeta`) so the level range never wraps in a
+  narrow 3-col card. Level text is `lvlLabel(g)`: "Lv 1 → Lv 90" while
+  building, just "Lv 90" once `cur.ord === tgt.ord` (no "Lv 90 → Lv 90").
+  Then a mini forte tree (`miniTree`,
   span-based, no handlers) with per-column skill levels cur→tgt + an
   always-visible materials tile grid (`goalMats`). All editing happens in the ✎
   pop-up (`#modalWrap`/`renderModal`): level row plus a game-view forte grid
@@ -454,16 +459,16 @@ visual aid, not a test — still be careful with CSS-only changes.
   shared `setStock(id, v, inp)` (strips zeros); CLOSING runs the full
   `render()`, the same "apply everywhere when done" rule as the stock grid.
   `FARM` carries ids by index.
-- Reordering: drag the ⠿ grip (HTML5 DnD, `dragIdx` module variable — not
-  dataTransfer — carries state) **and** ▲▼ buttons, kept for touch screens.
-  Both route through `moveGoal(from, to)` where `to` is the pre-removal
-  insertion index. There's also a **reorder pop-up** (`#ordWrap`, toolbar
-  "⇅ Reorder" or Ctrl/Cmd+P — preventDefault suppresses browser print): a
-  compact vertical list where whole rows drag (`ordDrag` variable, separate
-  from the cards' `dragIdx`) plus per-row ▲▼; live apply through the same
-  `moveGoal`, and `render()` re-renders the open list via `renderOrder()`
-  (no-op when closed). Ctrl+K/`openPal` closes it; Esc priority is palette →
-  reorder → editor.
+- Reordering: the **goal cards are NOT draggable** — reorder with the ▲▼
+  buttons on each card (work on touch), which route through `moveGoal(from,
+  to)` (`to` = pre-removal insertion index). Bulk drag lives only in the
+  **reorder pop-up** (`#ordWrap`, toolbar "⇅ Reorder" or Ctrl/Cmd+P —
+  preventDefault suppresses browser print): a compact vertical list where
+  whole rows drag (`ordDrag` module variable) plus per-row ▲▼; live apply
+  through the same `moveGoal`, and `render()` re-renders the open list via
+  `renderOrder()` (no-op when closed). Ctrl+K/`openPal` closes it; Esc
+  priority is palette → reorder → editor. (The old card `dragIdx`/`bindDnD`
+  HTML5 DnD is gone; `.grip` CSS now serves the pop-up rows only.)
 - Summary tabs: Total (aggregate deficit + waveplate line + the global
   "Ignore credits & EXP" toggle) / Inventory (inline inventory + 3→1
   synthesis toggle + hide-un-needed toggle) / Farm next (sequential

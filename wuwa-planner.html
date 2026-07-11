@@ -91,12 +91,12 @@ label.chk{display:inline-flex; gap:6px; align-items:center; cursor:pointer; colo
 #goals>.empty{grid-column:1/-1}
 .goal{border:1px solid var(--line); border-radius:10px; background:var(--panel2); overflow:hidden}
 .goal-mats{border-top:1px dashed var(--line); padding:4px 12px 10px}
-.goal.dragging{opacity:.45}
-.goal.drop-before{box-shadow:0 -2px 0 var(--cyan)}
-.goal.drop-after{box-shadow:0 2px 0 var(--cyan)}
+/* .grip lives on the reorder pop-up rows only; goal cards reorder via ▲▼ */
 .grip{cursor:grab; color:var(--faint); font-size:15px; padding:2px 3px; user-select:none; touch-action:none}
 .grip:active{cursor:grabbing}
-.goal-top{display:flex; align-items:center; gap:12px; padding:10px 12px}
+.goal-top{display:flex; align-items:center; gap:12px; padding:10px 12px 2px}
+/* card meta on its own full-width row so the level range never wraps */
+.goal .gmeta{padding:0 12px 8px}
 .prio{font-family:'Chakra Petch'; font-weight:700; font-size:12px; color:var(--acc,var(--cyan)); width:26px; text-align:center}
 .avatar{width:40px; height:40px; border-radius:9px; display:grid; place-items:center;
   font-family:'Chakra Petch'; font-weight:700; font-size:15px; color:#0A0E16; flex:none;
@@ -115,7 +115,7 @@ label.chk{display:inline-flex; gap:6px; align-items:center; cursor:pointer; colo
 .ico-wrap img{width:22px; height:22px; object-fit:contain; border-radius:5px}
 .ico-wrap .dot{margin-right:0}
 #addMenu button img{width:18px; height:18px; vertical-align:-4px; margin-right:6px; border-radius:4px}
-.gname{font-family:'Chakra Petch'; font-weight:600; font-size:15px}
+.gname{font-family:'Chakra Petch'; font-weight:600; font-size:15px; flex:1; min-width:0}
 .gmeta{font-size:11.5px; color:var(--mut)}
 .badge{display:inline-block; font-size:10px; font-weight:700; letter-spacing:.08em; padding:1px 6px;
   border-radius:4px; border:1px solid var(--gold); color:var(--gold); vertical-align:1px; margin-left:6px}
@@ -2132,30 +2132,34 @@ function readyBar(wk){
     `<span class="ready-lbl num">${lbl}</span></div>`;
 }
 
+/* level display: "Lv 1 → Lv 90" while building, but just "Lv 90" once the
+   current level has reached the target (no "Lv 90 → Lv 90") */
+const lvlLabel = g => g.cur.ord === g.tgt.ord
+  ? ORD_LABEL(g.tgt.ord)
+  : `${ORD_LABEL(g.cur.ord)} → ${ORD_LABEL(g.tgt.ord)}`;
+
 function wpnCard(g, i, wk, vw, ceOnly){
   const w = GAME.weapons[g.weapon];
   return `<div class="goal" data-g="${i}" style="--acc:var(--weapon)">
     <div class="goal-top">
-      <span class="grip" draggable="true" data-g="${i}" title="Drag to reorder">⠿</span>
       <span class="prio">P${i+1}</span>
       <span class="avatar" style="background:var(--r${w.rarity})">${w.mono}${icoImg(w.name, 'weapon', 'avatar-img')}</span>
-      <div><div class="gname">${esc(w.name)}${w.beta ? '<span class="badge">3.5 BETA</span>' : ''}</div>
-        <div class="gmeta">${w.rarity}★ ${w.wtype} weapon · ${ORD_LABEL(g.cur.ord)} → ${ORD_LABEL(g.tgt.ord)}</div></div>
+      <div class="gname">${esc(w.name)}${w.beta ? '<span class="badge">3.5 BETA</span>' : ''}</div>
       <div class="gctrl">${goalCtrls(i, !Object.keys(wk.need).length)}</div>
-    </div>${readyBar(vw)}${goalMats(vw, ceOnly)}</div>`;
+    </div>
+    <div class="gmeta">${w.rarity}★ ${w.wtype} weapon · ${lvlLabel(g)}</div>${readyBar(vw)}${goalMats(vw, ceOnly)}</div>`;
 }
 
 function charCard(g, i, wk, vw, ceOnly){
   const ch = GAME.characters[g.char];
   return `<div class="goal" data-g="${i}" style="--acc:${ch.elColor}">
     <div class="goal-top">
-      <span class="grip" draggable="true" data-g="${i}" title="Drag to reorder">⠿</span>
       <span class="prio">P${i+1}</span>
       <span class="avatar" style="background:${ch.elColor}">${ch.mono}${icoImg(ch.name, 'char', 'avatar-img')}</span>
-      <div><div class="gname">${esc(ch.name)}${ch.beta ? '<span class="badge">3.5 BETA</span>' : ''}</div>
-        <div class="gmeta">${ch.rarity}★ ${ch.element} · ${ch.wtype} · ${ORD_LABEL(g.cur.ord)} → ${ORD_LABEL(g.tgt.ord)}</div></div>
+      <div class="gname">${esc(ch.name)}${ch.beta ? '<span class="badge">3.5 BETA</span>' : ''}</div>
       <div class="gctrl">${goalCtrls(i, !Object.keys(wk.need).length)}</div>
-    </div>${readyBar(vw)}${miniTree(g)}${goalMats(vw, ceOnly)}</div>`;
+    </div>
+    <div class="gmeta">${ch.rarity}★ ${ch.element} · ${ch.wtype} · ${lvlLabel(g)}</div>${readyBar(vw)}${miniTree(g)}${goalMats(vw, ceOnly)}</div>`;
 }
 
 function renderGoals(){
@@ -2166,7 +2170,6 @@ function renderGoals(){
     : '<div class="empty">No goals yet — press Ctrl+K (or “⌕ Add goal…”) to queue a character or weapon.</div>';
   box.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', onAct));
   // cards are read-only status views — selects and node buttons live in the modal
-  bindDnD(box);
   bindIcons(box);
   bindTileClicks(box);
 }
@@ -2189,50 +2192,14 @@ function onNode(e){
   save(); render();
 }
 
-/* reorder: `to` is the insertion index in the pre-removal array */
+/* reorder: `to` is the insertion index in the pre-removal array. Cards
+   reorder via the ▲▼ buttons (onAct) and the Reorder pop-up's drag list;
+   the main grid itself is not draggable. */
 function moveGoal(from, to){
-  if(from === to || from + 1 === to){ dragIdx = null; render(); return; }
+  if(from === to || from + 1 === to){ render(); return; }
   const [g] = state.goals.splice(from, 1);
   state.goals.splice(to > from ? to - 1 : to, 0, g);
-  dragIdx = null;
   save(); render();
-}
-
-let dragIdx = null;
-function bindDnD(box){
-  box.querySelectorAll('.goal').forEach(card => {
-    const i = +card.dataset.g;
-    const grip = card.querySelector('.grip');
-    if(grip){
-      grip.addEventListener('dragstart', e => {
-        dragIdx = i;
-        card.classList.add('dragging');
-        if(e.dataTransfer){
-          e.dataTransfer.effectAllowed = 'move';
-          try{ e.dataTransfer.setData('text/plain', String(i)); }catch(_){}
-          if(e.dataTransfer.setDragImage) e.dataTransfer.setDragImage(card, 24, 24);
-        }
-      });
-      grip.addEventListener('dragend', () => { dragIdx = null; render(); });
-    }
-    card.addEventListener('dragover', e => {
-      if(dragIdx === null) return;
-      e.preventDefault();
-      if(e.dataTransfer) e.dataTransfer.dropEffect = 'move';
-      const r = card.getBoundingClientRect();
-      const after = (e.clientY || 0) > r.top + r.height / 2;
-      card.classList.toggle('drop-after', after);
-      card.classList.toggle('drop-before', !after);
-    });
-    card.addEventListener('dragleave', () => card.classList.remove('drop-before','drop-after'));
-    card.addEventListener('drop', e => {
-      e.preventDefault();
-      if(dragIdx === null) return;
-      const r = card.getBoundingClientRect();
-      const after = (e.clientY || 0) > r.top + r.height / 2;
-      moveGoal(dragIdx, i + (after ? 1 : 0));
-    });
-  });
 }
 
 function onAct(e){

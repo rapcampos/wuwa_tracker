@@ -369,6 +369,14 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
 .run .gain{margin-left:auto; color:var(--faint); font-size:11px; white-space:nowrap}
 .run .plates{color:var(--mut); font-variant-numeric:tabular-nums; width:46px; text-align:right; flex:none}
 .today-f{color:var(--faint); font-size:11px; margin-top:6px; line-height:1.5}
+/* a run row is clickable (log what dropped); weekly rows get a ✓ to claim */
+.run{cursor:pointer; border-radius:6px; margin:0 -4px; padding-left:4px; padding-right:4px}
+.run:hover{background:var(--line)}
+.run .run-claim{flex:none; margin-left:8px; padding:1px 7px}
+.run .run-claim-sp{flex:none; margin-left:8px; width:26px}
+.wk-line{margin-top:8px; padding-top:7px; border-top:1px solid var(--line);
+  font-size:11.5px; color:var(--mut)}
+.wk-line b{color:var(--ink)}
 /* Farm next: the no-waveplate materials, grouped by category like the inventory */
 .freefarm{border:1px solid var(--line2); border-radius:10px; background:var(--panel2);
   padding:9px 11px 12px}
@@ -1449,9 +1457,26 @@ function overworldBag(bag){
   return out;
 }
 
+/* ── the game week: resets Monday 04:00 LOCAL time ──
+   Pure w.r.t. its argument (takes `now` in ms, never reads the clock), so
+   tests can pin it. Returns the ms of the most recent Monday-04:00 boundary
+   at or before `nowMs` — the identity of the current game week. The user's
+   system clock is assumed to track their server region (user-confirmed).
+   Uses setDate/setHours so DST shifts follow wall-clock, not fixed offsets. */
+function weekStartMs(nowMs){
+  const d = new Date(nowMs);
+  d.setHours(4, 0, 0, 0);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));      // back to Monday (Mon=0)
+  if(d.getTime() > nowMs) d.setDate(d.getDate() - 7);   // still before Mon 04:00
+  return d.getTime();
+}
+
 /* ── today's plan: spend one waveplate budget on whole runs ──
    `bags` are deficit bags in queue-priority order (the Farm-next walk's
-   remainders). Materials are booked to activities exactly as
+   remainders). `weeklyUsed` is how many weekly-boss claims this game week
+   has already spent — the 3/week cap counts those, so an exhausted week
+   stops the plan suggesting weekly runs at all.
+   Materials are booked to activities exactly as
    waveplateEstimate does, but the budget then buys WHOLE runs: goal 0's
    activities are filled first (a run at a time, largest remaining demand
    first — water-filling), and only once they are covered does goal 1 get
@@ -1462,7 +1487,7 @@ function overworldBag(bag){
    {key, kind, id, runs, cost, yield}, yield in the activity's own unit
    (mats · tier-0 forgery equivalents · EXP · credits). `id` is a material
    id for the icon — forgery families point at their top tier. */
-function dailyPlan(bags, plates = GAME.waveplates.daily){
+function dailyPlan(bags, plates = GAME.waveplates.daily, weeklyUsed = 0){
   const W = GAME.waveplates;
   const YIELD = {boss:W.boss.drops, weekly:W.weekly.drops, forgery:W.forgery.t0Equiv,
                  exp:W.simExp.exp, wexp:W.simWexp.exp, credits:W.simCredit.credits};
@@ -1493,7 +1518,8 @@ function dailyPlan(bags, plates = GAME.waveplates.daily){
     for(let i = 0; i <= p; i++) s += a.dem[i] || 0;
     return Math.ceil(s - EPS);
   };
-  let left = plates, weekly = 0, weeklyCapped = false;
+  // claims already spent this game week count against the 3/week cap
+  let left = plates, weekly = Math.max(0, weeklyUsed), weeklyCapped = false;
   for(let p = 0; p < bags.length && left > 0; p++)
     for(;;){
       const cand = list.filter(a => {
@@ -1835,15 +1861,28 @@ function newGoal(char, open, dflts){
 }
 const newWpnGoal = (weapon, open) => ({weapon, cur:freshWpnState(), tgt:maxedWpnState(), open:!!open});
 
+/* weekly-boss claims spent this game week. `start` is the week's identity
+   (weekStartMs); when the stored week is not the current one the count is
+   stale and resets to 0 — that IS the Monday-04:00 reset. */
+const freshWeek = () => ({start: weekStartMs(Date.now()), used: 0});
+function sanitizeWeek(raw){
+  const now = weekStartMs(Date.now());
+  const used = raw && Number.isFinite(+raw.used) ? Math.floor(+raw.used) : 0;
+  return (raw && +raw.start === now)
+    ? {start: now, used: clamp(used, 0, GAME.waveplates.weekly.perWeek)}
+    : {start: now, used: 0};                  // new week → the 3 claims are back
+}
+
 const defaultState = () => ({
   goals: [newGoal('jinhsi', true), newGoal('phoebe', false), newGoal('suisui', false)],
   done: [], inv:{}, synth:true, hideUn:false, skipCE:false, tab:'total', teams: [],
-  defaults: {4: defaultGoalTgt(4), 5: defaultGoalTgt(5)},
+  defaults: {4: defaultGoalTgt(4), 5: defaultGoalTgt(5)}, week: freshWeek(),
 });
 
 function sanitize(raw){
   const st = {goals:[], done:[], inv:{}, synth: raw ? !!raw.synth : true,
               hideUn: !!(raw && raw.hideUn), skipCE: !!(raw && raw.skipCE),
+              week: sanitizeWeek(raw && raw.week),
               // the old 'left' (Inventory) tab is gone — fold it into Total
               tab: ['total','next','done'].includes(raw && raw.tab) ? raw.tab : 'total'};
   const fix = x => {
@@ -2691,23 +2730,40 @@ const RUN_GAIN = {
   wexp:    r => `≈${fmtShort(r.yield)} weapon EXP`,
   credits: r => `≈${fmtShort(r.yield)} credits`,
 };
+let RUNS = [];                                 // today's runs by index (no ids in data attrs)
 function todayBox(plan){
+  RUNS = plan.runs;
+  const W = GAME.waveplates.weekly;
+  const wkLeft = Math.max(0, W.perWeek - state.week.used);
+  const wkLine = `<div class="wk-line" title="Weekly bosses give ${W.drops} materials a claim, ${W.perWeek} claims a week. Resets Monday 04:00.">` +
+    `Weekly claims <b class="num">${wkLeft} / ${W.perWeek}</b> left this week</div>`;
   const head = `<div class="today-h">Today’s ${fmt(GAME.waveplates.daily)}${wpIco()}` +
     `<span class="budget num">${fmt(plan.used)} / ${fmt(GAME.waveplates.daily)}${wpIco()}</span></div>`;
   if(!plan.runs.length)
     return `<div class="today">${head}<div style="color:var(--faint);font-size:12px">${plan.overworld.length
       ? 'Nothing to spend waveplates on — only overworld pickups are left.'
-      : 'Nothing left to farm.'}</div></div>`;
-  const rows = plan.runs.map(r =>
-    `<div class="run" title="${esc(RUN_NAME[r.kind](r) + ' ×' + r.runs + ' — ' + RUN_GAIN[r.kind](r) + ' for ' + r.cost + ' waveplates')}">` +
+      : 'Nothing left to farm.'}</div>${wkLine}</div>`;
+  const rows = plan.runs.map((r, i) => {
+    // weekly drops are deterministic → a ✓ can credit the exact amount.
+    // Everything else is an average, so the row opens the farm pop-up to log
+    // what really dropped.
+    const wk = r.kind === 'weekly';
+    const tip = RUN_NAME[r.kind](r) + ' ×' + r.runs + ' — ' + RUN_GAIN[r.kind](r) +
+      ' for ' + r.cost + ' waveplates · ' +
+      (wk ? 'click ✓ to claim (always ' + W.drops + ' each)' : 'click to log what dropped');
+    return `<div class="run" data-run="${i}" title="${esc(tip)}">` +
       matIco(r.id) +
       `<span class="rname">${esc(RUN_NAME[r.kind](r))}</span><span class="x num">×${r.runs}</span>` +
-      `<span class="gain">${RUN_GAIN[r.kind](r)}</span><span class="plates num">${fmt(r.cost)}${wpIco()}</span></div>`).join('');
+      `<span class="gain">${RUN_GAIN[r.kind](r)}</span><span class="plates num">${fmt(r.cost)}${wpIco()}</span>` +
+      (wk ? `<button class="tiny good run-claim" data-claim="${i}" title="Claim it: adds exactly ${fmt(r.yield)} ${esc(MATS[r.id].name)} and spends ${r.runs} of your ${W.perWeek} weekly claims">✓</button>`
+          : `<span class="run-claim-sp"></span>`) +
+    `</div>`;
+  }).join('');
   const notes = [];
   if(plan.leftover) notes.push(`${fmt(plan.leftover)}${wpIco()} spare — too little for another run.`);
-  if(plan.weeklyCapped) notes.push('Weekly bosses are capped at 3 claims per week.');
+  if(plan.weeklyCapped) notes.push(`Weekly bosses are capped at ${W.perWeek} claims per week.`);
   if(plan.overworld.length) notes.push('Specialty and enemy mats are overworld pickups — no waveplates.');
-  return `<div class="today">${head}${rows}` +
+  return `<div class="today">${head}${rows}${wkLine}` +
     (notes.length ? `<div class="today-f">${notes.join(' ')}</div>` : '') + `</div>`;
 }
 
@@ -2805,7 +2861,8 @@ function renderSummary(){
   const rem = remainingBag(viewBag(need), state.inv, state.synth).rem;
   const free = overworldBag(rem);                       // costs no waveplates
   const order = priorityMatIds(state.goals);
-  let html = todayBox(dailyPlan(walk.map(w => viewBag(w.rem))));
+  // claims already spent this week shrink the 3/week cap the plan may book
+  let html = todayBox(dailyPlan(walk.map(w => viewBag(w.rem)), GAME.waveplates.daily, state.week.used));
 
   html += `<div class="freefarm"><div class="today-h">No waveplates needed</div>` +
     `<div class="gmeta" style="margin-bottom:2px">Overworld pickups and common enemy drops — farm these any time, whatever your stamina.</div>`;
@@ -2821,6 +2878,28 @@ function renderSummary(){
   html += `</div>`;
 
   el.innerHTML = html;
+  /* Making a run actionable. Yields are crowdsourced AVERAGES for boss /
+     forgery / sims, so we never write those into the inventory — clicking the
+     row opens the farm pop-up on that material instead, and you log what
+     actually dropped (an EXP-sim row opens the potion ladder, which is the
+     only way those runs could be logged at all). The WEEKLY boss is the one
+     activity with a deterministic drop (always `weekly.drops` per claim), so
+     it gets a ✓ that credits the exact amount and spends one of the 3 weekly
+     claims. Both go through withUndo — a misclick is one Ctrl+Z. */
+  el.querySelectorAll('.run[data-run]').forEach(row => row.addEventListener('click', e => {
+    if(e.target.closest('[data-claim]')) return;        // the ✓ has its own handler
+    const r = RUNS[+row.dataset.run];
+    if(r) openFarm(r.id);
+  }));
+  el.querySelectorAll('[data-claim]').forEach(b => b.addEventListener('click', e => {
+    e.stopPropagation();
+    const r = RUNS[+e.currentTarget.dataset.claim];
+    if(!r) return;
+    withUndo(`Claimed ${MATS[r.id].name} ×${fmt(r.yield)}`, () => {
+      state.inv[r.id] = (state.inv[r.id] || 0) + r.yield;
+      state.week.used = clamp(state.week.used + r.runs, 0, GAME.waveplates.weekly.perWeek);
+    });
+  }));
   bindIcons(el);
   bindTileClicks(el);
 }

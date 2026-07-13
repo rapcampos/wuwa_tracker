@@ -11,7 +11,7 @@ eval(blocks.join('\n;\n') + `
   freshWpnState, maxedWpnState, wexpToCores, fmtShort, priorityMatIds, defaultGoalTgt, fuzzyScore,
   nodeShortfall, charEnergy, teamUsage, energyLeft, sanitizeTeams, expTopTier, wexpTopTier,
   waveplateEstimate, stripCE, craftFromPool, affordCost, poolPlan, spendCost, dailyPlan, familyIds, famLabel,
-  statNodesFor, forteStatTotals, overworldBag, isOverworld});`);
+  statNodesFor, forteStatTotals, overworldBag, isOverworld, weekStartMs});`);
 
 let pass = 0, fail = 0;
 const canon = v => (v && typeof v === 'object' && !Array.isArray(v))
@@ -722,6 +722,49 @@ eq('stripCE never mutates its input', (() => {
     eq('overworldBag agrees with waveplateEstimate’s overworld list',
        Object.keys(overworldBag(full)).sort(),
        waveplateEstimate(full).overworld.slice().sort());
+  }
+}
+
+// ═══ 24. GAME WEEK (Monday 04:00 local) + the 3/week cap ═══
+{
+  const DAY = 86400000, HOUR = 3600000;
+  // TZ-independent: assert the shape of the boundary, never a hard-coded ms
+  const samples = [Date.UTC(2026,6,13,12), Date.UTC(2026,6,15,3), Date.UTC(2026,6,19,23),
+                   Date.UTC(2026,0,1,0), Date.UTC(2026,11,31,18)];
+  for(const t of samples){
+    const ws = weekStartMs(t);
+    const d = new Date(ws);
+    eq(`weekStart(${new Date(t).toISOString()}) lands on a Monday`, d.getDay(), 1);
+    eq('…at 04:00 local', [d.getHours(), d.getMinutes(), d.getSeconds()], [4, 0, 0]);
+    eq('…at or before the instant asked about', ws <= t, true);
+    eq('…and less than a week before it', t - ws < 7 * DAY + HOUR, true);
+  }
+  eq('weekStartMs is idempotent (a week start is its own week)',
+     weekStartMs(weekStartMs(samples[0])), weekStartMs(samples[0]));
+  {
+    const ws = weekStartMs(samples[0]);
+    eq('one ms before the boundary belongs to the previous week', weekStartMs(ws - 1) < ws, true);
+    eq('the boundary instant itself starts the new week', weekStartMs(ws), ws);
+  }
+
+  // the cap: claims already spent this week shrink what the plan may book
+  const WK = Object.keys(MATS).find(id => MATS[id].cat === 'Weekly Boss');
+  const wkRuns = p => (p.runs.find(r => r.kind === 'weekly') || {runs: 0}).runs;
+  const bags = [{[WK]: 30}];                       // demand far past the cap
+  eq('a fresh week books the full 3 claims', wkRuns(dailyPlan(bags, 600, 0)), 3);
+  eq('one claim spent → only 2 more', wkRuns(dailyPlan(bags, 600, 1)), 2);
+  eq('two spent → only 1 more', wkRuns(dailyPlan(bags, 600, 2)), 1);
+  eq('an exhausted week books no weekly runs at all', dailyPlan(bags, 600, 3).runs, []);
+  eq('…and says so', dailyPlan(bags, 600, 3).weeklyCapped, true);
+  eq('an over-count never goes negative', dailyPlan(bags, 600, 99).runs, []);
+  eq('weeklyUsed defaults to 0 (unchanged behaviour)',
+     wkRuns(dailyPlan(bags, 600)), 3);
+  // the cap must not steal budget from other activities
+  {
+    const BOSS = Object.keys(MATS).find(id => MATS[id].cat === 'Boss Drops');
+    const p = dailyPlan([{[WK]: 30, [BOSS]: 9}], 240, 3);
+    eq('with weeklies exhausted the budget goes to the boss instead',
+       p.runs.map(r => r.kind), ['boss']);
   }
 }
 

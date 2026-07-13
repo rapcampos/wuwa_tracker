@@ -161,9 +161,10 @@ it goes in block 2 with tests; presentation goes in block 3.
   current matrix) and repairs illegal states. Later-added top-level fields:
   `done` (completed goals), `hideUn` (legacy — the Hide-un-needed filter it
   drove is gone; still sanitized so old saves don't error), `skipCE`
-  ("Ignore credits & EXP"), and `teams` (Teams page) — all default safely
-  when absent. A saved `tab:'left'` (the removed Inventory tab) migrates to
-  Total. Never break old-save loading; add migrations instead.
+  ("Ignore credits & EXP"), `teams` (Teams page), and `week`
+  (`{start, used}` — weekly-boss claims spent this game week) — all default
+  safely when absent. A saved `tab:'left'` (the removed Inventory tab)
+  migrates to Total. Never break old-save loading; add migrations instead.
   Storage is normalized (rewritten) once at boot.
 
 ## Game data provenance (do not silently change numbers)
@@ -489,6 +490,25 @@ visual aid, not a test — still be careful with CSS-only changes.
   is use-it-or-lose-it, and a big forgery demand would otherwise crowd the
   claim out of the budget for good. Respects `skipCE` (it plans `viewBag`
   remainders). Overworld mats yield no runs and are named in the footnote.
+- **Acting on a run** (the plan's whole point — otherwise you can't log a
+  sim's yield at all, since `state.inv` has no raw-EXP slot, only potions):
+  - **Yields are crowdsourced AVERAGES** for boss / forgery / sims, so the app
+    NEVER writes them into the inventory. Clicking such a row opens the **farm
+    pop-up** on that material and you log what actually dropped (an EXP-sim row
+    opens the potion ladder, a forgery row its family).
+  - The **weekly boss is the one deterministic drop** (always `weekly.drops`
+    per claim — user-confirmed), so its row gets a **✓** that credits the exact
+    amount AND spends that many weekly claims. Both paths run through
+    `withUndo`.
+- **The game week** (`state.week = {start, used}`, `weekStartMs(nowMs)` in the
+  engine — pure, takes the clock as an argument so tests can pin it): `start`
+  is the most recent **Monday 04:00 LOCAL** boundary and identifies the week;
+  `sanitizeWeek` resets `used` to 0 whenever the stored week isn't the current
+  one — that IS the weekly reset (the user's system clock is assumed to track
+  their server region, user-confirmed). `used` feeds `dailyPlan(bags, plates,
+  weeklyUsed)`, which counts it against the 3/week cap, so an exhausted week
+  stops the plan proposing weekly runs. Farm next shows "Weekly claims N/3
+  left this week".
 - **"Ignore credits & EXP"** (`state.skipCE`, checkbox on the Total tab):
   a VIEW-level filter — `stripCE(bag)` (pure/engine) drops `credits`/`exp`/
   `wexp` before tiles, readiness bars, waveplate estimates, the Total

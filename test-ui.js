@@ -26,10 +26,10 @@ const reset = () => w.eval(`
   const D = {4: defaultGoalTgt(4), 5: defaultGoalTgt(5)};
   state = {goals: ['jinhsi','phoebe','suisui'].map(c => newGoal(c, false, D)),
            done: [], inv: {}, synth: true, hideUn: false, skipCE: false,
-           tab: 'total', teams: [], defaults: D};
+           tab: 'total', teams: [], defaults: D, week: freshWeek()};
   undoStack.length = 0; clearTimeout(undoTimer);
   editIdx = null; editTpl = null; palPick = null; palSel = 0;
-  farmId = null; dragIdx = null; ordDrag = null; invFilter = ''; invDirty = false;
+  farmId = null; ordDrag = null; invFilter = '';
   for(const s of ['#modalWrap','#palWrap','#ordWrap','#invWrap','#farmWrap','#undoBar'])
     $(s).hidden = true;
   if(location.hash) location.hash = '';
@@ -474,6 +474,64 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   w.eval(`state.goals[0].cur.ord = state.goals[0].tgt.ord; save(); render();`);
   ok('a goal at its target level shows just the level, no arrow',
      /· Lv 90$/.test(meta(0).trim()) && !meta(0).includes('→'));
+}
+
+// ── acting on today's plan: click a run to log drops; ✓ claims the weekly ──
+{
+  reset();
+  const farmNext = () => fire([...d.querySelectorAll('#tabs button')]
+    .find(b => b.textContent === 'Farm next'), 'click');
+  farmNext();
+  const runs = () => [...d.querySelectorAll('#summary .today .run')];
+  const runOf = kind => runs().find(r => w.eval(`RUNS[${+r.dataset.run}].kind`) === kind);
+  const wkLine = () => d.querySelector('#summary .wk-line').textContent;
+
+  ok('a fresh week shows all 3 weekly claims left', /3 \/ 3 left this week/.test(wkLine()));
+  ok('only the weekly run carries a ✓ (its drop is deterministic)',
+     runOf('weekly').querySelector('[data-claim]') !== null &&
+     runs().filter(r => r.querySelector('[data-claim]')).length === 1);
+  ok('the EXP-sim run has no ✓ (its yield is only an average)',
+     runOf('exp') !== undefined && runOf('exp').querySelector('[data-claim]') === null);
+
+  // (A) clicking a non-weekly run opens the farm pop-up so you log REAL drops.
+  // The EXP sim opens the potion ladder — the only way those runs can be logged.
+  fire(runOf('exp'), 'click');
+  ok('clicking the EXP-sim run opens the farm pop-up on the potion ladder',
+     d.querySelector('#farmWrap').hidden === false &&
+     w.eval('JSON.stringify(FARM) === JSON.stringify(GAME.expItems.map(x => x.id))'));
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
+
+  // (B) the weekly ✓ credits the exact yield and spends the claims
+  farmNext();
+  const wkRun = runOf('weekly');
+  const rd = f => w.eval(`RUNS[${+wkRun.dataset.run}].${f}`);
+  const wkId = rd('id'), wkYield = rd('yield'), wkCount = rd('runs');
+  const held = w.eval(`state.inv[${JSON.stringify(wkId)}] || 0`);
+  fire(wkRun.querySelector('[data-claim]'), 'click');
+  ok('✓ credits exactly the weekly yield (deterministic, not an estimate)',
+     w.eval(`state.inv[${JSON.stringify(wkId)}]`) === held + wkYield &&
+     wkYield === wkCount * w.eval('GAME.waveplates.weekly.drops'));
+  ok('…and spends that many of the 3 weekly claims',
+     w.eval('state.week.used') === wkCount &&
+     new RegExp(`${3 - wkCount} / 3 left this week`).test(wkLine()));
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'z', ctrlKey:true, bubbles:true}));
+  ok('claiming is undoable (materials and the claim count both roll back)',
+     w.eval('state.week.used') === 0 &&
+     w.eval(`(state.inv[${JSON.stringify(wkId)}] || 0)`) === held);
+
+  // an exhausted week stops the plan suggesting weekly runs at all
+  w.eval('state.week.used = 3; save(); render();');
+  farmNext();
+  ok('with all 3 claims spent, no weekly run is planned',
+     runOf('weekly') === undefined && /0 \/ 3 left this week/.test(wkLine()));
+  ok('…and the budget still books other activities', runs().length > 0);
+
+  // the week auto-resets at the Monday-04:00 boundary
+  ok('a stale week resets the claim count (Monday 04:00 rollover)', w.eval(`
+    const stale = sanitizeWeek({start: weekStartMs(Date.now()) - 7 * 86400000, used: 3});
+    stale.used === 0 && stale.start === weekStartMs(Date.now());`));
+  ok('a current week keeps its count', w.eval(
+    'sanitizeWeek({start: weekStartMs(Date.now()), used: 2}).used === 2'));
 }
 
 // ── forte node grid in the pop-up (2×5 matrix with column dependencies) ──

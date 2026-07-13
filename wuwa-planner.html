@@ -297,6 +297,7 @@ button.search kbd{margin-left:auto; font-family:inherit; font-size:10px; color:v
 .tip-chip{display:inline-flex; align-items:center; gap:5px; padding:2px 8px 2px 2px;
   border:1px solid var(--line2); border-radius:20px; font-size:11.5px; white-space:nowrap}
 .tip-chip .tip-av{width:22px; height:22px; border-radius:50%; object-fit:cover; flex:none}
+.tip-chip .tip-q{color:var(--ink); font-weight:600; padding-left:2px}
 
 /* ── editor upgrade rows (spend inventory) ── */
 .upg{margin-top:14px; border-top:1px solid var(--line); padding-top:10px}
@@ -1977,10 +1978,12 @@ function buildNeeders(){
   NEEDERS = {};
   for(const g of state.goals){
     const isW = g.weapon !== undefined;
-    // {name, kind} — kind drives the avatar's icon folder in the hover popover
-    const needer = {name: (isW ? GAME.weapons[g.weapon] : GAME.characters[g.char]).name,
-                    kind: isW ? 'weapon' : 'char'};
-    for(const id of Object.keys(costForGoal(g))) (NEEDERS[id] = NEEDERS[id] || []).push(needer);
+    // {name, kind, qty} — kind drives the avatar's icon folder in the hover
+    // popover, qty is how much THIS goal needs of THIS material
+    const name = (isW ? GAME.weapons[g.weapon] : GAME.characters[g.char]).name;
+    const kind = isW ? 'weapon' : 'char';
+    for(const [id, qty] of Object.entries(costForGoal(g)))
+      (NEEDERS[id] = NEEDERS[id] || []).push({name, kind, qty});
   }
 }
 const neederNames = id => (NEEDERS[id] || []).map(n => n.name);
@@ -2504,7 +2507,8 @@ function showTip(t){
   let html = `<div class="tip-h">${esc(header)}</div>`;
   if(needers.length)
     html += `<div class="tip-need"><span class="tip-lbl">Needed by</span>` +
-      needers.map(n => `<span class="tip-chip">${icoImg(n.name, n.kind, 'tip-av')}<span>${esc(n.name)}</span></span>`).join('') +
+      needers.map(n => `<span class="tip-chip">${icoImg(n.name, n.kind, 'tip-av')}` +
+        `<span>${esc(n.name)}</span><b class="tip-q num">${fmt(n.qty)}</b></span>`).join('') +
       `</div>`;
   const pop = $('#tipPop');
   pop.innerHTML = html;

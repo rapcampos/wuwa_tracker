@@ -587,8 +587,15 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
      /^Sentinel's Dagger — /.test(pop().querySelector('.tip-h').textContent) &&
      !pop().querySelector('.tip-h').textContent.includes('needed by') &&
      !pop().querySelector('.tip-h').textContent.includes('click to log'));
+  const chips = () => [...pop().querySelectorAll('.tip-chip')].map(c => ({
+    name: c.querySelector('span').textContent,
+    qty: c.querySelector('.tip-q').textContent,
+  }));
   ok('one chip per needer, in queue order, each with a name',
-     [...pop().querySelectorAll('.tip-chip')].map(c => c.textContent.trim()).join(',') === 'Jinhsi,Phoebe');
+     chips().map(c => c.name).join(',') === 'Jinhsi,Phoebe');
+  ok('each chip shows how much THAT goal needs, and they sum to the header total',
+     chips().map(c => c.qty).join(',') === '6,6' &&
+     pop().querySelector('.tip-h').textContent.includes('12 needed'));
   ok('each chip carries the character’s avatar image (not just text)',
      [...pop().querySelectorAll('.tip-chip .tip-av')].map(im => im.getAttribute('src')).join(',') ===
        'images/characters/jinhsi_icon.png,images/characters/phoebe_icon.png');
@@ -602,9 +609,10 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   // first: mouseenter suppresses the title, so it can't be re-found by title.
   const elegy = tileBy('Elegy Tacet Core');         // Jinhsi only
   fire(elegy, 'mouseenter');
-  ok('a single-user material shows one chip',
+  ok('a single-user material shows one chip, with its quantity',
      pop().querySelectorAll('.tip-chip').length === 1 &&
-     pop().querySelector('.tip-chip').textContent.trim() === 'Jinhsi');
+     pop().querySelector('.tip-chip span').textContent === 'Jinhsi' &&
+     pop().querySelector('.tip-chip .tip-q').textContent === '46');
   fire(elegy, 'mouseleave');
 
   // a weapon needer renders its avatar from the weapons folder

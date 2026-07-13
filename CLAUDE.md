@@ -346,9 +346,14 @@ visual aid, not a test — still be careful with CSS-only changes.
   display name — data attributes must not carry ids).
 - **Hover popover** (`#tipPop`, `showTip`/`hideTip`): hovering any `.tile`
   opens a small floating card (position:fixed, z-index 80, pointer-events
-  none) showing the tooltip text header PLUS the needers as **avatar chips**
-  (`.tip-chip` with an `icoImg` face, char or weapon folder by `kind`) —
-  native `title` can't carry images. While it's up the tile's own `title`
+  none). Header is **"Name — own/needed"** summed across the queue; below it
+  the needers as **avatar chips** (`.tip-chip` with an `icoImg` face, char or
+  weapon folder by `kind`), each showing **that goal's own/needed** — or a
+  **✓** (`.tip-chip.ok`) once its share is covered. `own` comes from
+  `buildNeeders`, which walks `farmNextWalk`, so the popover uses the SAME
+  queue-order allocation as the goal cards (P1 eats the stock first) — it must
+  never invent a different one. Native `title` can't carry images. While it's
+  up the tile's own `title`
   is stashed (`tipTitle`) and removed so the browser doesn't also pop its
   default tooltip; `hideTip` (on mouseleave, and at the top of `render()`
   for stale-popover cleanup) restores it. Only ONE tile is hovered at a

@@ -298,6 +298,11 @@ button.search kbd{margin-left:auto; font-family:inherit; font-size:10px; color:v
   border:1px solid var(--line2); border-radius:20px; font-size:11.5px; white-space:nowrap}
 .tip-chip .tip-av{width:22px; height:22px; border-radius:50%; object-fit:cover; flex:none}
 .tip-chip .tip-q{color:var(--ink); font-weight:600; padding-left:2px}
+/* a needer whose share is fully covered reads as done */
+.tip-chip.ok{border-color:rgba(123,216,143,.5); background:rgba(123,216,143,.10)}
+.tip-chip.ok .tip-q{color:var(--green)}
+#tipPop .tip-h b.num{color:var(--ink)}
+#tipPop .tip-h b.num.ok{color:var(--green)}
 
 /* ── editor upgrade rows (spend inventory) ── */
 .upg{margin-top:14px; border-top:1px solid var(--line); padding-top:10px}
@@ -2029,20 +2034,23 @@ const coreText   = plan => planText(plan, GAME.wpnExpItems);
 
 /* icon-tile grid: rarity-tinted ground, abbreviated qty; the name (and the
    exact number, plus the potion/core plan for EXP) lives in the hover title */
-/* who needs a material: queue-order goal names per mat id, appended to every
-   material tooltip ("needed by …"). Rebuilt once per render pass (and on
-   opening the stock grid) — goals can't change between rebuilds. */
+/* who needs a material, and how they're doing on it. Per mat id, in queue
+   order: {name, kind, need, own} — `need` is what that ONE goal's cost asks
+   for, `own` how much of it the inventory already covers FOR THAT GOAL. The
+   coverage comes from farmNextWalk, so it uses the same queue-order rule as
+   the goal cards (P1 eats the stock first, later goals see the leftovers) —
+   the hover popover must not invent a different allocation. `kind` drives the
+   avatar's icon folder. Rebuilt once per render pass. */
 let NEEDERS = {};
 function buildNeeders(){
   NEEDERS = {};
-  for(const g of state.goals){
-    const isW = g.weapon !== undefined;
-    // {name, kind, qty} — kind drives the avatar's icon folder in the hover
-    // popover, qty is how much THIS goal needs of THIS material
+  for(const w of farmNextWalk(state.goals, state.inv, state.synth)){
+    const g = w.goal, isW = g.weapon !== undefined;
     const name = (isW ? GAME.weapons[g.weapon] : GAME.characters[g.char]).name;
     const kind = isW ? 'weapon' : 'char';
-    for(const [id, qty] of Object.entries(costForGoal(g)))
-      (NEEDERS[id] = NEEDERS[id] || []).push({name, kind, qty});
+    for(const [id, need] of Object.entries(w.need))
+      (NEEDERS[id] = NEEDERS[id] || []).push(
+        {name, kind, need, own: Math.max(0, need - (w.rem[id] || 0))});
   }
 }
 const neederNames = id => (NEEDERS[id] || []).map(n => n.name);
@@ -2562,13 +2570,25 @@ function showTip(t){
   if(title == null) return;
   const id = MAT_ID_BY_NAME[title.split(' — ')[0]];
   const needers = (id && NEEDERS[id]) || [];
-  const header = title.split(' · needed by ')[0].split(' · click to log drops')[0];
-  let html = `<div class="tip-h">${esc(header)}</div>`;
-  if(needers.length)
-    html += `<div class="tip-need"><span class="tip-lbl">Needed by</span>` +
-      needers.map(n => `<span class="tip-chip">${icoImg(n.name, n.kind, 'tip-av')}` +
-        `<span>${esc(n.name)}</span><b class="tip-q num">${fmt(n.qty)}</b></span>`).join('') +
-      `</div>`;
+  /* header is "Name — own/needed" summed across the queue; each chip is that
+     goal's own share, or a ✓ once its share is fully covered. Falls back to
+     the tile's own tooltip text when a material has no needers. */
+  let html;
+  if(needers.length){
+    const own = needers.reduce((s, n) => s + n.own, 0);
+    const need = needers.reduce((s, n) => s + n.need, 0);
+    html = `<div class="tip-h">${esc(MATS[id].name)} — ` +
+      `<b class="num${own >= need ? ' ok' : ''}">${fmt(own)}/${fmt(need)}</b></div>` +
+      `<div class="tip-need"><span class="tip-lbl">Needed by</span>` +
+      needers.map(n => {
+        const done = n.own >= n.need;
+        return `<span class="tip-chip${done ? ' ok' : ''}">${icoImg(n.name, n.kind, 'tip-av')}` +
+          `<span>${esc(n.name)}</span>` +
+          `<b class="tip-q num">${done ? '✓' : fmt(n.own) + '/' + fmt(n.need)}</b></span>`;
+      }).join('') + `</div>`;
+  } else {
+    html = `<div class="tip-h">${esc(title.split(' · needed by ')[0].split(' · click to log drops')[0])}</div>`;
+  }
   const pop = $('#tipPop');
   pop.innerHTML = html;
   bindIcons(pop);

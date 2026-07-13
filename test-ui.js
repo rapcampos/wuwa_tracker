@@ -651,40 +651,57 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
 
   // a shared material: both needers as chips with their avatars
   const dagger = tileBy("Sentinel's Dagger");   // Jinhsi + Phoebe weekly
-  const heldTitle = dagger.getAttribute('title');
   fire(dagger, 'mouseenter');
   ok('hover opens the popover', pop().hidden === false);
   ok('it is a real fixed overlay', w.getComputedStyle(pop()).position === 'fixed');
-  ok('the header carries the material text (name + amount), minus the meta suffixes',
-     /^Sentinel's Dagger — /.test(pop().querySelector('.tip-h').textContent) &&
-     !pop().querySelector('.tip-h').textContent.includes('needed by') &&
-     !pop().querySelector('.tip-h').textContent.includes('click to log'));
+  const head = () => pop().querySelector('.tip-h').textContent;
+  ok('the header reads "Name — own/needed", not the raw tooltip text',
+     head() === "Sentinel's Dagger — 0/12" &&
+     !head().includes('needed by') && !head().includes('click to log'));
   const chips = () => [...pop().querySelectorAll('.tip-chip')].map(c => ({
     name: c.querySelector('span').textContent,
     qty: c.querySelector('.tip-q').textContent,
+    ok: c.classList.contains('ok'),
   }));
   ok('one chip per needer, in queue order, each with a name',
      chips().map(c => c.name).join(',') === 'Jinhsi,Phoebe');
-  ok('each chip shows how much THAT goal needs, and they sum to the header total',
-     chips().map(c => c.qty).join(',') === '6,6' &&
-     pop().querySelector('.tip-h').textContent.includes('12 needed'));
+  ok('with nothing stocked, each chip shows own/needed for THAT goal',
+     chips().map(c => c.qty).join(',') === '0/6,0/6' && chips().every(c => !c.ok));
+
+  // stock 6 → the walk gives them all to P1 (queue order), so Jinhsi is covered
+  // and Phoebe still needs its full share. Same allocation the cards use.
+  fire(dagger, 'mouseleave');
+  w.eval(`state.inv["wk:Sentinel's Dagger"] = 6; save(); render();`);
+  const dagger2 = tileBy("Sentinel's Dagger");
+  fire(dagger2, 'mouseenter');
+  ok('a fully-covered needer shows a ✓ instead of a ratio',
+     chips()[0].qty === '✓' && chips()[0].ok === true);
+  ok('…while the next goal in the queue still shows its shortfall',
+     chips()[1].qty === '0/6' && chips()[1].ok === false);
+  ok('the header sums own/needed across the queue', head() === "Sentinel's Dagger — 6/12");
+  fire(dagger2, 'mouseleave');
+  w.eval(`delete state.inv["wk:Sentinel's Dagger"]; save(); render();`);
+  // re-renders rebuilt the tiles, so grab a live node for the rest
+  const dagger3 = tileBy("Sentinel's Dagger");
+  const heldTitle = dagger3.getAttribute('title');
+  fire(dagger3, 'mouseenter');
   ok('each chip carries the character’s avatar image (not just text)',
      [...pop().querySelectorAll('.tip-chip .tip-av')].map(im => im.getAttribute('src')).join(',') ===
        'images/characters/jinhsi_icon.png,images/characters/phoebe_icon.png');
   ok('the native title is suppressed while the popover is up (no double tooltip)',
-     dagger.getAttribute('title') === null);
-  fire(dagger, 'mouseleave');
+     dagger3.getAttribute('title') === null);
+  fire(dagger3, 'mouseleave');
   ok('leaving hides the popover and restores the native title',
-     pop().hidden === true && dagger.getAttribute('title') === heldTitle);
+     pop().hidden === true && dagger3.getAttribute('title') === heldTitle);
 
   // a single-needer material shows just its one chip. Capture the element
   // first: mouseenter suppresses the title, so it can't be re-found by title.
   const elegy = tileBy('Elegy Tacet Core');         // Jinhsi only
   fire(elegy, 'mouseenter');
-  ok('a single-user material shows one chip, with its quantity',
+  ok('a single-user material shows one chip, with its own/needed',
      pop().querySelectorAll('.tip-chip').length === 1 &&
      pop().querySelector('.tip-chip span').textContent === 'Jinhsi' &&
-     pop().querySelector('.tip-chip .tip-q').textContent === '46');
+     pop().querySelector('.tip-chip .tip-q').textContent === '0/46');
   fire(elegy, 'mouseleave');
 
   // a weapon needer renders its avatar from the weapons folder

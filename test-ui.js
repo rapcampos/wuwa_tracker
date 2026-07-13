@@ -119,8 +119,9 @@ ok('tiles carry rarity grounds', d.querySelector('#summary .tile.r5') !== null &
   ok('setting persists in the save',
      JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).skipCE === true);
   fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Farm next'), 'click');
-  ok('Farm next notes the filter and drops credit tiles',
-     d.querySelector('#summary .gmeta').textContent.includes('ignored') &&
+  ok('Farm next: today’s plan drops the EXP/credit simulation runs',
+     [...d.querySelectorAll('#summary .today .run .rname')].length > 0 &&
+     ![...d.querySelectorAll('#summary .today .run .rname')].some(r => /simulation/i.test(r.textContent)) &&
      ![...d.querySelectorAll('#summary .tile')]
        .some(t => (t.getAttribute('title') || '').startsWith('Shell Credit')));
   fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Total'), 'click');
@@ -346,12 +347,25 @@ const palAdd = q => {
      JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).synth === false);
 }
 
-// ── Farm next tab ──
+// ── Farm next tab: today's plan, then the no-waveplate materials ──
 fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Farm next'), 'click');
-ok('walk lists all goals', d.querySelectorAll('#summary .goalstat').length === 3);
-ok('top unmet goal expanded with its missing mats as tiles',
-   d.querySelectorAll('#summary .tiles .tile').length > 0 &&
-   d.querySelector('#summary .st.miss') !== null);
+ok('the per-goal walk rows are gone (they just restated the Ledger order)',
+   d.querySelectorAll('#summary .goalstat').length === 0);
+ok('the tab leads with today’s plan, then the free-farm section',
+   d.querySelector('#summary .today') !== null &&
+   d.querySelector('#summary .freefarm') !== null &&
+   d.querySelector('#summary').firstElementChild.classList.contains('today'));
+ok('free-farm groups by category, like the inventory',
+   [...d.querySelectorAll('#summary .freefarm .ffcat')].map(c => c.textContent).join(',')
+     === 'Specialty,Enemy Drops');
+ok('free-farm lists ONLY no-waveplate materials (no boss/weekly/forgery/credits/EXP)', (() => {
+   const tiles = [...d.querySelectorAll('#summary .freefarm .tile')];
+   return tiles.length > 0 && tiles.every(t => w.eval(
+     `isOverworld(MAT_ID_BY_NAME[${JSON.stringify((t.getAttribute('title') || '').split(' — ')[0])}]) === true`));
+})());
+ok('free-farm tiles carry the deficit and open the farm pop-up on click',
+   [...d.querySelectorAll('#summary .freefarm .tile')]
+     .every(t => /click to log drops/.test(t.getAttribute('title') || '')));
 
 // ── today's plan: the daily budget split into whole runs ──
 {
@@ -702,7 +716,6 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok('beta weapon carries the badge', d.querySelector('.goal[data-g="4"] .badge') !== null);
   fire(d.querySelector('button[data-act="del"][data-g="4"]'), 'click');
 
-  const sumEl = () => d.querySelector('#summary');
   // energy cores feed the Weapon EXP pool (separate from potions) — log via the pop-up
   w.eval('openInv()');
   const coreTile = [...d.querySelectorAll('#invGrid .itile')]
@@ -714,10 +727,12 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
      w.eval('state.inv.wexp4') === 100 && w.eval('state.inv.exp4 === undefined'));
   d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
 
-  // Farm next walks weapon goals too
+  // Farm next accounts for weapon goals too
   fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Farm next'), 'click');
-  ok('walk lists char + weapon goals', d.querySelectorAll('#summary .goalstat').length === 4);
-  ok('weapon row in walk shows its name', sumEl().textContent.includes('Ages of Harvest'));
+  ok('today’s plan still books runs with a weapon queued',
+     d.querySelectorAll('#summary .today .run').length > 0);
+  ok('the weapon’s overworld mats appear in the no-waveplate section',
+     d.querySelectorAll('#summary .freefarm .tile').length > 0);
 
   // persistence round-trip includes the weapon goal
   const savedW = JSON.parse(w.localStorage.getItem('wuwa-planner-v1'));

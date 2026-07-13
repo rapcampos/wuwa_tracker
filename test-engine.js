@@ -11,7 +11,7 @@ eval(blocks.join('\n;\n') + `
   freshWpnState, maxedWpnState, wexpToCores, fmtShort, priorityMatIds, defaultGoalTgt, fuzzyScore,
   nodeShortfall, charEnergy, teamUsage, energyLeft, sanitizeTeams, expTopTier, wexpTopTier,
   waveplateEstimate, stripCE, craftFromPool, affordCost, poolPlan, spendCost, dailyPlan, familyIds, famLabel,
-  statNodesFor, forteStatTotals});`);
+  statNodesFor, forteStatTotals, overworldBag, isOverworld});`);
 
 let pass = 0, fail = 0;
 const canon = v => (v && typeof v === 'object' && !Array.isArray(v))
@@ -685,6 +685,44 @@ eq('stripCE never mutates its input', (() => {
   eq('a post-3.1 character returns null even with a full tree', forteStatTotals(g(all(2), 'suisui'), 'cur'), null);
   eq('a nodeless goal returns null', forteStatTotals({char:'jinhsi'}, 'tgt'), null);
   eq('defaults to the tgt side', forteStatTotals(g(all(1))), forteStatTotals(g(all(1)), 'tgt'));
+}
+
+// ═══ 23. OVERWORLD BAG (materials that cost no waveplates) ═══
+{
+  const firstOf = cat => Object.keys(MATS).find(id => MATS[id].cat === cat);
+  const BOSS = firstOf('Boss Drops'), WK = firstOf('Weekly Boss'), SPEC = firstOf('Specialty');
+  const ENEMY = firstOf('Enemy Drops'), FORGE = firstOf('Forgery');
+
+  eq('specialty mats are free to farm', isOverworld(SPEC), true);
+  eq('common enemy drops are free to farm', isOverworld(ENEMY), true);
+  eq('boss drops cost waveplates', isOverworld(BOSS), false);
+  eq('weekly drops cost waveplates', isOverworld(WK), false);
+  eq('forgery mats cost waveplates', isOverworld(FORGE), false);
+  eq('credits cost waveplates (sim domain)', isOverworld('credits'), false);
+  eq('the EXP pool is not a farmable material', isOverworld('exp'), false);
+  eq('potion items are not overworld mats', isOverworld('exp4'), false);
+  eq('an unknown id is not overworld', isOverworld('nope'), false);
+
+  eq('overworldBag keeps only the free-to-farm entries',
+     overworldBag({[SPEC]: 60, [ENEMY]: 29, [BOSS]: 46, [WK]: 26, [FORGE]: 25, credits: 100, exp: 5}),
+     {[SPEC]: 60, [ENEMY]: 29});
+  eq('non-positive quantities are dropped', overworldBag({[SPEC]: 0, [ENEMY]: -3}), {});
+  eq('an empty bag yields an empty bag', overworldBag({}), {});
+  eq('overworldBag does not mutate its input', (() => {
+    const b = {[SPEC]: 60, [BOSS]: 46};
+    overworldBag(b);
+    return JSON.stringify(b);
+  })(), JSON.stringify({[SPEC]: 60, [BOSS]: 46}));
+
+  // the invariant: overworldBag's keys are exactly what waveplateEstimate
+  // books to `overworld` (i.e. charges no waveplates for) — keep them in sync
+  {
+    const full = totalBag([{char:'jinhsi', cur:freshState(), tgt:maxedState()},
+                           {weapon:'agesOfHarvest', cur:freshWpnState(), tgt:maxedWpnState()}]);
+    eq('overworldBag agrees with waveplateEstimate’s overworld list',
+       Object.keys(overworldBag(full)).sort(),
+       waveplateEstimate(full).overworld.slice().sort());
+  }
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

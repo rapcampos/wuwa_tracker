@@ -466,10 +466,17 @@ visual aid, not a test — still be careful with CSS-only changes.
 - Summary tabs (three now — Inventory tab removed): Total (aggregate deficit
   + waveplate line + the two global toggles: "Ignore credits & EXP" and
   "Craft 3→1", the latter `#synthChk` moved here from the old tab, both
-  `save(); render()`) / Farm next (sequential allocation; crafting follows
-  the synth toggle with reserved-tier protection — see the deficit-tiles
-  bullet; the in-app note states which mode is active) / Completed (finished
-  goals; tab label carries a count when non-empty).
+  `save(); render()`) / Farm next (see below) / Completed (finished goals;
+  tab label carries a count when non-empty).
+- **Farm next** answers "what do I do now": today's 240⚡ plan (`todayBox`),
+  then a **"No waveplates needed"** section (`.freefarm`) listing every
+  still-missing material that costs no stamina — Specialty pickups and common
+  Enemy Drops — as deficit tiles, grouped by category (`.ffcat`) exactly like
+  the Inventory pop-up, ordered by queue priority. `overworldBag(bag)`
+  (pure/engine) does the filtering; an engine test locks its key set to
+  `waveplateEstimate(bag).overworld` so the two can't drift. The old per-goal
+  walk rows are GONE — they only restated the Ledger's priority order, which
+  the cards and the Total tab already show (user call, Jul 2026).
 - **Today's plan** (`dailyPlan`, pure/engine; `todayBox` renders it at the
   top of Farm next): splits one day's 240⚡ into WHOLE runs. It takes the
   walk's per-goal remainders in queue order, books each material to the

@@ -1167,24 +1167,26 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok('tiles carry the plain material name as their title (no need info)',
      tileOf('Elegy Tacet Core').getAttribute('title') === 'Elegy Tacet Core' &&
      tileOf('Premium Resonance Potion').getAttribute('title') === 'Premium Resonance Potion');
-  // definition order (oldest → newest): each section follows registration
-  // order (Object.keys(MATS) filtered), NOT a rarity/alphabetical re-sort
+  // game order inside a category: rarity bands DESCENDING, and within a band
+  // the definition order (oldest → newest) — never an alphabetical re-sort
   {
     const section = label => [...d.querySelectorAll('#invGrid .cat')]
       .find(c => c.textContent === label).nextElementSibling;
-    const secNames = label => [...section(label).querySelectorAll('.itile')].map(t => t.getAttribute('title'));
-    const regNames = cat => w.eval(`Object.keys(MATS)
+    const tiles = label => [...section(label).querySelectorAll('.itile')];
+    const secNames = label => tiles(label).map(t => t.getAttribute('title'));
+    const rarities = label => tiles(label).map(t => +t.className.match(/r(\d)/)[1]);
+    // definition order, stable-sorted by rarity descending — what the UI should render
+    const wantNames = cat => w.eval(`Object.keys(MATS)
       .filter(id => id !== 'exp' && id !== 'wexp' && MATS[id].cat === ${JSON.stringify(cat)})
+      .sort((a, b) => MATS[b].r - MATS[a].r)
       .map(id => MATS[id].name)`);
-    ok('EXP section follows definition order (lowest tier first), not rarity-descending',
-       JSON.stringify(secNames('EXP')) === JSON.stringify(regNames('EXP')) &&
-       section('EXP').querySelector('.itile').classList.contains('r2'));
-    ok('Forgery families stay grouped in release order, tiers low→high',
-       JSON.stringify(secNames('Forgery')) === JSON.stringify(regNames('Forgery')) &&
-       section('Forgery').querySelector('.itile').classList.contains('r2'));
-    ok('a family’s four tiers are consecutive and ascend (not scattered by rarity)',
-       JSON.stringify([...section('Forgery').querySelectorAll('.itile')].slice(0, 4)
-         .map(t => +t.className.match(/r(\d)/)[1])) === JSON.stringify([2, 3, 4, 5]));
+    for(const cat of ['EXP', 'Forgery', 'Enemy Drops']){
+      ok(`${cat}: rarity never increases down the section (top tier first)`,
+         rarities(cat).every((r, i, a) => i === 0 || a[i - 1] >= r) &&
+         rarities(cat)[0] === 5);
+      ok(`${cat}: definition order (oldest → newest) preserved inside each rarity band`,
+         JSON.stringify(secNames(cat)) === JSON.stringify(wantNames(cat)));
+    }
   }
   const q = tileOf('Elegy Tacet Core').querySelector('.iqty');
   q.value = '7'; fire(q, 'change');

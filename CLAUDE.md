@@ -416,13 +416,15 @@ visual aid, not a test — still be careful with CSS-only changes.
   registry item as a rarity tile (icon + quantity input, **name-only** hover
   title) in category sections. NO deficit info lives here — no need/left, no
   "covered" dimming, no Craft-3→1 or Hide-un-needed toggles — because that's
-  shown across the rest of the UI (cards, Total, Farm next). Within each
-  category section tiles follow **registration order** (`Object.keys(MATS)`
-  filtered — the order materials are DEFINED in the data), which runs
-  oldest → newest like the in-game inventory: forgery/enemy families in
-  release order, each family's four tiers together low → high. Deliberately
-  NO re-sort — a rarity/alphabetical sort (what it used to do, and what
-  `sortMatIds` still does for the planning views) would scramble that order.
+  shown across the rest of the UI (cards, Total, Farm next). Within a
+  category, tiles follow the game's inventory order: **rarity bands
+  DESCENDING** (all top-tier first, then the next…), and inside a band the
+  **definition order** (`Object.keys(MATS)` — the order materials are DEFINED
+  in the data), which runs oldest → newest (families in release order). The
+  code relies on `Array#sort` being STABLE: it filters in registration order,
+  then sorts by rarity only, so the definition order survives inside each
+  band. Never add a name/family tiebreak — that scrambles it (the old
+  alphabetical sort did, and `sortMatIds` still does for the planning views).
   `IGRID` carries ids by index. The grid
   builds once per open and is NOT re-rendered on input (focus safety);
   CLOSING it (Esc/backdrop/✕, priority palette → reorder → inventory →

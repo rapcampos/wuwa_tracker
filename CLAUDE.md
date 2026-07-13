@@ -346,10 +346,12 @@ visual aid, not a test — still be careful with CSS-only changes.
   display name — data attributes must not carry ids).
 - **Hover popover** (`#tipPop`, `showTip`/`hideTip`): hovering any `.tile`
   opens a small floating card (position:fixed, z-index 80, pointer-events
-  none). Header is **"Name — own/needed"** summed across the queue; below it
-  the needers as **avatar chips** (`.tip-chip` with an `icoImg` face, char or
-  weapon folder by `kind`), each showing **that goal's own/needed** — or a
-  **✓** (`.tip-chip.ok`) once its share is covered. `own` comes from
+  none). Header names the material and its progress; below it the needers as
+  **avatar chips** (`.tip-chip` with an `icoImg` face, char or weapon folder
+  by `kind`), each showing **that goal's** progress. Progress (`progress()`,
+  used for both) reads: owning **none → just the amount needed** ("6", never
+  "0/6"), **part way → own/needed** ("4/6"), **covered → ✓**
+  (`.tip-chip.ok`). `own` comes from
   `buildNeeders`, which walks `farmNextWalk`, so the popover uses the SAME
   queue-order allocation as the goal cards (P1 eats the stock first) — it must
   never invent a different one. Native `title` can't carry images. While it's

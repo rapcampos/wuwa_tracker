@@ -2570,21 +2570,25 @@ function showTip(t){
   if(title == null) return;
   const id = MAT_ID_BY_NAME[title.split(' — ')[0]];
   const needers = (id && NEEDERS[id]) || [];
-  /* header is "Name — own/needed" summed across the queue; each chip is that
-     goal's own share, or a ✓ once its share is fully covered. Falls back to
-     the tile's own tooltip text when a material has no needers. */
+  /* Progress reads as: nothing yet → just the amount needed ("6"); part way
+     → own/needed ("4/6"); covered → ✓. Same rule for the header (summed
+     across the queue) and each needer's chip. Falls back to the tile's own
+     tooltip text when a material has no needers. */
+  const progress = (own, need) => own >= need ? '✓'
+                 : own > 0 ? fmt(own) + '/' + fmt(need)
+                 : fmt(need);
   let html;
   if(needers.length){
     const own = needers.reduce((s, n) => s + n.own, 0);
     const need = needers.reduce((s, n) => s + n.need, 0);
     html = `<div class="tip-h">${esc(MATS[id].name)} — ` +
-      `<b class="num${own >= need ? ' ok' : ''}">${fmt(own)}/${fmt(need)}</b></div>` +
+      `<b class="num${own >= need ? ' ok' : ''}">${progress(own, need)}</b></div>` +
       `<div class="tip-need"><span class="tip-lbl">Needed by</span>` +
       needers.map(n => {
         const done = n.own >= n.need;
         return `<span class="tip-chip${done ? ' ok' : ''}">${icoImg(n.name, n.kind, 'tip-av')}` +
           `<span>${esc(n.name)}</span>` +
-          `<b class="tip-q num">${done ? '✓' : fmt(n.own) + '/' + fmt(n.need)}</b></span>`;
+          `<b class="tip-q num">${progress(n.own, n.need)}</b></span>`;
       }).join('') + `</div>`;
   } else {
     html = `<div class="tip-h">${esc(title.split(' · needed by ')[0].split(' · click to log drops')[0])}</div>`;

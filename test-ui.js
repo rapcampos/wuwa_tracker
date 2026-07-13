@@ -655,8 +655,8 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok('hover opens the popover', pop().hidden === false);
   ok('it is a real fixed overlay', w.getComputedStyle(pop()).position === 'fixed');
   const head = () => pop().querySelector('.tip-h').textContent;
-  ok('the header reads "Name — own/needed", not the raw tooltip text',
-     head() === "Sentinel's Dagger — 0/12" &&
+  ok('owning none reads as just the amount needed (no "0/12")',
+     head() === "Sentinel's Dagger — 12" &&
      !head().includes('needed by') && !head().includes('click to log'));
   const chips = () => [...pop().querySelectorAll('.tip-chip')].map(c => ({
     name: c.querySelector('span').textContent,
@@ -665,8 +665,8 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   }));
   ok('one chip per needer, in queue order, each with a name',
      chips().map(c => c.name).join(',') === 'Jinhsi,Phoebe');
-  ok('with nothing stocked, each chip shows own/needed for THAT goal',
-     chips().map(c => c.qty).join(',') === '0/6,0/6' && chips().every(c => !c.ok));
+  ok('a needer owning none shows just its need, not "0/6"',
+     chips().map(c => c.qty).join(',') === '6,6' && chips().every(c => !c.ok));
 
   // stock 6 → the walk gives them all to P1 (queue order), so Jinhsi is covered
   // and Phoebe still needs its full share. Same allocation the cards use.
@@ -674,13 +674,19 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   w.eval(`state.inv["wk:Sentinel's Dagger"] = 6; save(); render();`);
   const dagger2 = tileBy("Sentinel's Dagger");
   fire(dagger2, 'mouseenter');
-  ok('a fully-covered needer shows a ✓ instead of a ratio',
-     chips()[0].qty === '✓' && chips()[0].ok === true);
-  ok('…while the next goal in the queue still shows its shortfall',
-     chips()[1].qty === '0/6' && chips()[1].ok === false);
-  ok('the header sums own/needed across the queue', head() === "Sentinel's Dagger — 6/12");
-  fire(dagger2, 'mouseleave');
-  w.eval(`delete state.inv["wk:Sentinel's Dagger"]; save(); render();`);
+  ok('a fully-covered needer shows a ✓', chips()[0].qty === '✓' && chips()[0].ok === true);
+  ok('…the next goal in the queue got none, so it shows just its need',
+     chips()[1].qty === '6' && chips()[1].ok === false);
+  ok('a part-way header shows own/needed', head() === "Sentinel's Dagger — 6/12");
+
+  // part-way through → the own/needed ratio (render() already dropped the tip)
+  w.eval(`state.inv["boss:Elegy Tacet Core"] = 10; save(); render();`);   // Jinhsi needs 46
+  const elegyP = tileBy('Elegy Tacet Core');
+  fire(elegyP, 'mouseenter');
+  ok('part-way through, a chip shows own/needed', chips()[0].qty === '10/46');
+  fire(elegyP, 'mouseleave');
+
+  w.eval('state.inv = {}; save(); render();');            // back to an empty stock
   // re-renders rebuilt the tiles, so grab a live node for the rest
   const dagger3 = tileBy("Sentinel's Dagger");
   const heldTitle = dagger3.getAttribute('title');
@@ -698,10 +704,10 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   // first: mouseenter suppresses the title, so it can't be re-found by title.
   const elegy = tileBy('Elegy Tacet Core');         // Jinhsi only
   fire(elegy, 'mouseenter');
-  ok('a single-user material shows one chip, with its own/needed',
+  ok('a single-user material shows one chip, owning none → just the need',
      pop().querySelectorAll('.tip-chip').length === 1 &&
      pop().querySelector('.tip-chip span').textContent === 'Jinhsi' &&
-     pop().querySelector('.tip-chip .tip-q').textContent === '0/46');
+     pop().querySelector('.tip-chip .tip-q').textContent === '46');
   fire(elegy, 'mouseleave');
 
   // a weapon needer renders its avatar from the weapons folder

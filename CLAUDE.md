@@ -417,9 +417,13 @@ visual aid, not a test — still be careful with CSS-only changes.
   title) in category sections. NO deficit info lives here — no need/left, no
   "covered" dimming, no Craft-3→1 or Hide-un-needed toggles — because that's
   shown across the rest of the UI (cards, Total, Farm next). Within each
-  section tiles sort **rarity high → low** (then family, then name) to
-  mirror the in-game inventory — deliberately NOT `sortMatIds`, which stays
-  low→high for the planning views. `IGRID` carries ids by index. The grid
+  category section tiles follow **registration order** (`Object.keys(MATS)`
+  filtered — the order materials are DEFINED in the data), which runs
+  oldest → newest like the in-game inventory: forgery/enemy families in
+  release order, each family's four tiers together low → high. Deliberately
+  NO re-sort — a rarity/alphabetical sort (what it used to do, and what
+  `sortMatIds` still does for the planning views) would scramble that order.
+  `IGRID` carries ids by index. The grid
   builds once per open and is NOT re-rendered on input (focus safety);
   CLOSING it (Esc/backdrop/✕, priority palette → reorder → inventory →
   editor; Ctrl+K/P close it too) runs the full `render()`, the "apply

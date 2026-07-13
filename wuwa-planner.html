@@ -2545,19 +2545,16 @@ function closeInv(){
 function renderInvGrid(){
   const box = $('#invGrid');
   IGRID = [];
+  // Registration order (the order materials are DEFINED in the data) runs
+  // oldest → newest, matching how the game organizes the inventory: forgery
+  // and enemy families in release order, each family's tiers together low →
+  // high. Object.keys(MATS) preserves that, so we just filter per category —
+  // no re-sort (a rarity/alphabetical sort would scramble it).
   const ids = Object.keys(MATS).filter(id => id !== 'exp' && id !== 'wexp');
-  // game-style order inside each section: rarity high → low (gold first),
-  // then family, then name — mirrors the in-game inventory sort
-  const gameSort = list => list.sort((a, b) => {
-    const A = MATS[a], B = MATS[b];
-    if(A.r !== B.r) return B.r - A.r;
-    if((A.family || '') !== (B.family || '')) return (A.family || '') < (B.family || '') ? -1 : 1;
-    return A.name < B.name ? -1 : 1;
-  });
   const shown = id => fuzzyScore(invFilter, MATS[id].name) >= 0;
   let html = '';
   for(const cat of CATEGORY_ORDER){
-    const catIds = gameSort(ids.filter(id => MATS[id].cat === cat && shown(id)));
+    const catIds = ids.filter(id => MATS[id].cat === cat && shown(id));
     if(!catIds.length) continue;
     html += `<span class="cat">${cat}</span><div class="igrid">` + catIds.map(id => {
       const i = IGRID.push(id) - 1;

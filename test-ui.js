@@ -1167,17 +1167,24 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok('tiles carry the plain material name as their title (no need info)',
      tileOf('Elegy Tacet Core').getAttribute('title') === 'Elegy Tacet Core' &&
      tileOf('Premium Resonance Potion').getAttribute('title') === 'Premium Resonance Potion');
-  // game-style sort: rarity descends within each section (gold first)
+  // definition order (oldest → newest): each section follows registration
+  // order (Object.keys(MATS) filtered), NOT a rarity/alphabetical re-sort
   {
     const section = label => [...d.querySelectorAll('#invGrid .cat')]
       .find(c => c.textContent === label).nextElementSibling;
-    const exp = [...section('EXP').querySelectorAll('.itile')];
-    ok('EXP section leads with the premium (gold) items',
-       exp[0].classList.contains('r5') && exp[exp.length - 1].classList.contains('r2'));
-    const forge = [...section('Forgery').querySelectorAll('.itile')];
-    ok('Forgery section descends by rarity like the game inventory',
-       forge[0].classList.contains('r5') && forge[forge.length - 1].classList.contains('r2') &&
-       forge.every((t, i) => i === 0 || +forge[i - 1].className.match(/r(\d)/)[1] >= +t.className.match(/r(\d)/)[1]));
+    const secNames = label => [...section(label).querySelectorAll('.itile')].map(t => t.getAttribute('title'));
+    const regNames = cat => w.eval(`Object.keys(MATS)
+      .filter(id => id !== 'exp' && id !== 'wexp' && MATS[id].cat === ${JSON.stringify(cat)})
+      .map(id => MATS[id].name)`);
+    ok('EXP section follows definition order (lowest tier first), not rarity-descending',
+       JSON.stringify(secNames('EXP')) === JSON.stringify(regNames('EXP')) &&
+       section('EXP').querySelector('.itile').classList.contains('r2'));
+    ok('Forgery families stay grouped in release order, tiers low→high',
+       JSON.stringify(secNames('Forgery')) === JSON.stringify(regNames('Forgery')) &&
+       section('Forgery').querySelector('.itile').classList.contains('r2'));
+    ok('a family’s four tiers are consecutive and ascend (not scattered by rarity)',
+       JSON.stringify([...section('Forgery').querySelectorAll('.itile')].slice(0, 4)
+         .map(t => +t.className.match(/r(\d)/)[1])) === JSON.stringify([2, 3, 4, 5]));
   }
   const q = tileOf('Elegy Tacet Core').querySelector('.iqty');
   q.value = '7'; fire(q, 'change');

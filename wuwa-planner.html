@@ -457,16 +457,26 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
 .team-h .tname{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .team-h .tiny{padding:3px 6px}
 .slots{display:flex; flex-direction:column; gap:8px}
-.slot{display:flex; align-items:center; gap:8px; border:1px solid var(--line2); border-radius:8px;
+.slot{display:flex; align-items:center; gap:6px; border:1px solid var(--line2); border-radius:8px;
   padding:6px 8px; min-height:46px; background:var(--panel2); cursor:pointer;
   font:inherit; font-size:13px; color:var(--ink); text-align:left}
 .slot:hover, .slot.over{border-color:var(--acc,var(--cyan))}
 .slot.empty{border-style:dashed; color:var(--faint); justify-content:center; font-size:15px}
+/* filled slot: [member — click removes] [weapon — click links/changes] */
+.smem{display:flex; align-items:center; gap:8px; flex:1; min-width:0; padding:0;
+  background:transparent; border:0; font:inherit; font-size:13px; color:var(--ink);
+  text-align:left; cursor:pointer}
 .slot .avatar{width:26px; height:26px; font-size:10px; border-radius:7px; flex:none}
 .slot .sname{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0}
-.slot .swpn{margin-left:auto; display:flex; flex:none}          /* the weapon they carry */
-.slot .swpn img{width:20px; height:20px; object-fit:contain; border-radius:4px}
-.slot .swpn .dot{width:14px; height:14px}
+/* the weapon area is ALWAYS there — a ＋ when empty, so a weapon can be linked
+   without removing the character from the team */
+.swpn{display:flex; align-items:center; justify-content:center; flex:none; width:26px; height:26px;
+  padding:0; border-radius:6px; border:1px solid transparent; background:transparent;
+  color:var(--faint); font:inherit; font-size:12px; cursor:pointer}
+.swpn:hover{border-color:var(--cyan); color:var(--ink)}
+.swpn.none{border-style:dashed; border-color:var(--line2)}
+.swpn img{width:22px; height:22px; object-fit:contain; border-radius:4px}
+.swpn .dot{width:14px; height:14px}
 
 /* Completed tab: node indicator — lit diamond = owned nodes cover the
    per-rarity template plan (live: template edits re-grade it) */
@@ -2433,10 +2443,11 @@ function ownerChip(g, i){
 
 /* card header: priority number (bare — the "P" is gone) · avatar · name · buttons.
    The meta row below reads left to right as the goal's identity:
-     character — 5★ [element] [weapon type] · Lv 1 → Lv 90
-     weapon    — [carrier] 5★ [weapon type] · Lv 1 → Lv 90
-   Rarity is plain rarity-colored text; the avatar carries no ring. */
-const rStar = r => `<span class="rstar r${r}">${r}★</span>`;
+     character — [element] [weapon type] · Lv 1 → Lv 90
+     weapon    — [carrier] [weapon type] · Lv 1 → Lv 90
+   No rarity marker at all: the portrait art already sits on the game's own
+   rarity-colored ground (gold 5★ / purple 4★), and the avatar tile behind it is
+   tinted to match (user's call — the ring and the "5★" text both went). */
 function goalHead(g, i, it, acc, meta, fin){
   return `<div class="goal-top">
       <span class="prio">${i+1}</span>
@@ -2449,7 +2460,7 @@ function goalHead(g, i, it, acc, meta, fin){
 
 function wpnCard(g, i, wk, vw, ceOnly){
   const w = GAME.weapons[g.weapon];
-  const meta = ownerChip(g, i) + rStar(w.rarity) + attrIco(w.wtype, 'weapon');
+  const meta = ownerChip(g, i) + attrIco(w.wtype, 'weapon');
   return `<div class="goal${g.off ? ' off' : ''}" data-g="${i}" style="--acc:var(--weapon)">` +
     goalHead(g, i, w, `var(--r${w.rarity})`, meta, !Object.keys(wk.need).length) +
     `${readyBar(vw)}${goalMats(vw, ceOnly)}</div>`;
@@ -2457,7 +2468,7 @@ function wpnCard(g, i, wk, vw, ceOnly){
 
 function charCard(g, i, wk, vw, ceOnly){
   const ch = GAME.characters[g.char];
-  const meta = rStar(ch.rarity) + attrIco(ch.element, 'element') + attrIco(ch.wtype, 'weapon type');
+  const meta = attrIco(ch.element, 'element') + attrIco(ch.wtype, 'weapon type');
   return `<div class="goal${g.off ? ' off' : ''}" data-g="${i}" style="--acc:${ch.elColor}">` +
     goalHead(g, i, ch, ch.elColor, meta, !Object.keys(wk.need).length) +
     `${readyBar(vw)}${miniTree(g)}${goalMats(vw, ceOnly)}</div>`;
@@ -2898,17 +2909,29 @@ document.querySelectorAll('.pagenav button').forEach(b => b.addEventListener('cl
 }));
 window.addEventListener('hashchange', () => showPage(curPage()));
 
+/* A filled slot is a CONTAINER (`.slot`, also the drop target), not a button:
+   the member area (`.smem`) removes the character on click, and the weapon area
+   (`.swpn`) is its OWN button — always present, showing the carried weapon or a
+   faint ＋ — so a weapon can be linked from the team card without first pulling
+   the character out of the team. (A button inside a button is invalid HTML,
+   hence the split.) */
 function teamSlot(t, s, id){
   if(!id) return `<button class="slot empty" data-t="${t}" data-s="${s}" title="Add a member">＋</button>`;
   const ch = GAME.characters[id];
   const w = equipOf(wpnGoals(), id);                     // the weapon they carry, if any
   const wp = w && GAME.weapons[w.weapon];
-  return `<button class="slot" data-t="${t}" data-s="${s}" style="--acc:${ch.elColor}" ` +
-      `title="${esc(ch.name)}${wp ? ' · ' + esc(wp.name) : ''} — click to remove">` +
-    `<span class="avatar" style="background:${ch.elColor}">${ch.mono}${icoImg(ch.name, 'char', 'avatar-img')}</span>` +
-    `<span class="sname">${esc(ch.name)}</span>` +
-    (wp ? `<span class="swpn">${icoImg(wp.name, 'weapon')}</span>` : '') +
-  `</button>`;
+  return `<div class="slot" data-t="${t}" data-s="${s}" style="--acc:${ch.elColor}">` +
+    `<button class="smem" data-t="${t}" data-s="${s}" ` +
+        `title="${esc(ch.name)}${wp ? ' · ' + esc(wp.name) : ''} — click to remove from the team">` +
+      `<span class="avatar" style="background:${ch.elColor}">${ch.mono}${icoImg(ch.name, 'char', 'avatar-img')}</span>` +
+      `<span class="sname">${esc(ch.name)}</span>` +
+    `</button>` +
+    `<button class="swpn${wp ? '' : ' none'}" data-eq="${id}" ` +
+        `title="${wp ? esc(wp.name) + ' — click to change the linked weapon'
+                     : 'No weapon linked — click to pick one from your ledger'}">` +
+      (wp ? icoImg(wp.name, 'weapon') : '＋') +
+    `</button>` +
+  `</div>`;
 }
 /* a team is named after its first member — positional "Team N" until slot 1
    is filled (there is no custom name: old saves' `name` is dropped) */
@@ -3012,10 +3035,14 @@ function renderTeams(){
   }));
   box.querySelectorAll('[data-prio]').forEach(b => b.addEventListener('click', e =>
     prioritizeTeam(+e.currentTarget.dataset.prio)));
-  box.querySelectorAll('.slot').forEach(b => b.addEventListener('click', e => {
+  box.querySelectorAll('.slot.empty, .smem').forEach(b => b.addEventListener('click', e => {
     const t = +e.currentTarget.dataset.t, s = +e.currentTarget.dataset.s;
     if(state.teams[t].chars[s]){ state.teams[t].chars[s] = null; save(); render(); }
     else openPal({mode:'slot', t, s});
+  }));
+  box.querySelectorAll('.tgrid [data-eq]').forEach(b => b.addEventListener('click', e => {
+    e.stopPropagation();                   // don't let the click reach the slot
+    openPal({mode:'equip', char: e.currentTarget.dataset.eq});
   }));
   box.querySelector('#rosterFind').addEventListener('input', e => {
     rosterFilter = e.currentTarget.value;

@@ -785,11 +785,12 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
      card.querySelector('.mini') === null && card.querySelectorAll('select').length === 0);
   ok('weapon card shows its materials as tiles', card.querySelector('.goal-mats .tiles') !== null);
   ok('weapon card carries the weapon accent', (card.getAttribute('style') || '').includes('--acc:var(--weapon)'));
-  ok('weapon meta reads: carrier · rarity · type glyph · level (no words)',
+  ok('weapon meta reads: carrier · type glyph · level — no rarity, no words',
      card.querySelector('.gmeta .ochip') !== null &&
-     card.querySelector('.gmeta .rstar').textContent === '5★' &&
+     card.querySelector('.gmeta .rstar') === null &&        // the portrait's ground shows rarity
      card.querySelector('.gmeta .attr img.__ico').getAttribute('src') === 'images/attributes/broadblade_icon.png' &&
      !card.querySelector('.gmeta').textContent.includes('Broadblade') &&
+     !card.querySelector('.gmeta').textContent.includes('★') &&
      card.querySelector('.gmeta .lvl').textContent.includes('Lv 1 → Lv 90'));
   ok('the priority number lost its P', card.querySelector('.prio').textContent === '4');
   ok('weapon avatar resolves in images/weapons/',
@@ -1256,8 +1257,9 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
      [...d.querySelectorAll('#palList .tag')].some(t2 => t2.textContent.includes('weapon')));
   d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
 
-  // clicking the filled slot clears it and refunds the energy
-  fire(d.querySelector('#teams .slot:not(.empty)'), 'click');
+  // clicking the MEMBER area of a filled slot clears it and refunds the energy
+  // (the weapon area beside it is its own button — see the link tests)
+  fire(d.querySelector('#teams .slot .smem'), 'click');
   ok('clicking a filled slot clears it',
      d.querySelectorAll('#teams .slot.empty').length === 3 &&
      d.querySelectorAll('#teams .rcard.spent').length === 0);
@@ -1867,12 +1869,22 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok('the roster floats characters with energy left to the top, spent ones sink',
      spentSeq().includes(0) && spentSeq().includes(1) &&
      spentSeq().every((v, i, a) => i === 0 || a[i-1] <= v));
-  const jSlot = [...d.querySelectorAll('#teams .slot')].find(s => /Jinhsi/.test(s.textContent));
+  const slotOf = n => [...d.querySelectorAll('#teams .slot')].find(s => new RegExp(n).test(s.textContent));
   ok('a team slot shows the weapon its character carries',
-     jSlot.querySelector('.swpn') !== null &&
-     /Ages of Harvest/.test(jSlot.getAttribute('title')) &&
-     [...d.querySelectorAll('#teams .slot')].filter(s => /Phoebe/.test(s.textContent))
-       .every(s => s.querySelector('.swpn') === null));   // Phoebe has no weapon linked yet
+     slotOf('Jinhsi').querySelector('.swpn img.__ico').getAttribute('src') ===
+       'images/weapons/ages_of_harvest_icon.png' &&
+     /Ages of Harvest/.test(slotOf('Jinhsi').querySelector('.smem').getAttribute('title')));
+  // an unarmed member keeps the weapon area (a ＋) — you can link without
+  // removing them from the team
+  const pWpn = slotOf('Phoebe').querySelector('.swpn');
+  ok('an unarmed member keeps a ＋ weapon button',
+     pWpn !== null && pWpn.classList.contains('none') && pWpn.dataset.eq === 'phoebe');
+  fire(pWpn, 'click');
+  ok('clicking it opens the equip palette and leaves the member in the team',
+     d.querySelector('#palWrap').hidden === false &&
+     /weapon from your ledger/.test(d.querySelector('#palIn').placeholder) &&
+     w.eval(`state.teams.some(t => t.chars.includes('phoebe'))`) === true);
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
 
   // the roster card's weapon slot picks from the LEDGER's weapons only
   // the ledger's only weapon is Jinhsi's Broadblade — nothing Phoebe could hold

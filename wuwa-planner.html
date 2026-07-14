@@ -99,9 +99,7 @@ label.chk{display:inline-flex; gap:6px; align-items:center; cursor:pointer; colo
 /* .grip lives on the reorder pop-up rows only; goal cards reorder via ▲▼ */
 .grip{cursor:grab; color:var(--faint); font-size:15px; padding:2px 3px; user-select:none; touch-action:none}
 .grip:active{cursor:grabbing}
-.goal-top{display:flex; align-items:center; gap:9px; padding:10px 12px 2px}
-/* card meta on its own full-width row so the level range never wraps */
-.goal .gmeta{padding:0 12px 8px}
+
 .prio{font-family:'Chakra Petch'; font-weight:700; font-size:12px; color:var(--acc,var(--cyan)); width:26px; text-align:center}
 .avatar{width:40px; height:40px; border-radius:9px; display:grid; place-items:center;
   font-family:'Chakra Petch'; font-weight:700; font-size:15px; color:#0A0E16; flex:none;
@@ -400,26 +398,19 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
   padding:9px 11px 12px}
 .freefarm .ffcat{display:block; padding:11px 0 5px; font-size:10.5px; text-transform:uppercase;
   letter-spacing:.16em; color:var(--faint)}
-/* card meta: element / weapon-type glyphs + (weapons) the carrier's avatar */
-.goal .gmeta{display:flex; align-items:center; gap:6px}
-.attr{display:inline-flex; width:17px; height:17px; flex:none}
-.attr-img{width:17px; height:17px; object-fit:contain}
+/* header row, then the identity meta on its own full-width row below */
+.goal-top{display:flex; align-items:center; gap:9px; padding:10px 12px 3px}
+.goal .gmeta{display:flex; align-items:center; gap:5px; padding:0 12px 8px}
+.goal .gmeta .lvl{margin-left:1px}
+.attr{display:inline-flex; width:18px; height:18px; flex:none}
+.attr-img{width:18px; height:18px; object-fit:contain}
 .attr .dot{width:9px; height:9px; margin:4px}                 /* fallback when a glyph is missing */
 .ochip{display:inline-flex; align-items:center; justify-content:center; flex:none;
-  width:22px; height:22px; padding:0; border-radius:6px; border:1px solid var(--line2);
-  background:var(--panel2); color:var(--faint); font:inherit; font-size:12px; cursor:pointer}
+  width:20px; height:20px; padding:0; border-radius:6px; border:1px solid var(--line2);
+  background:var(--panel2); color:var(--faint); font:inherit; font-size:11px; cursor:pointer}
 .ochip:hover{border-color:var(--cyan)}
 .ochip.none{border-style:dashed}
-.ochip .avatar{width:20px; height:20px; font-size:8px; border-radius:5px}
-/* rarity as a ring on the card avatar (the meta line no longer spells "5★").
-   It rides in an ::after so it sits ABOVE .avatar-img, which covers the avatar's
-   own inset shadow. */
-.avatar.r5, .avatar.r4, .avatar.r3{position:relative}
-.avatar.r5::after, .avatar.r4::after, .avatar.r3::after{
-  content:''; position:absolute; inset:0; border-radius:inherit; z-index:2; pointer-events:none}
-.avatar.r5::after{box-shadow:inset 0 0 0 2px var(--r5)}
-.avatar.r4::after{box-shadow:inset 0 0 0 2px var(--r4)}
-.avatar.r3::after{box-shadow:inset 0 0 0 2px var(--r3)}
+.ochip .avatar{width:18px; height:18px; font-size:8px; border-radius:5px}
 
 /* ── pages: Ledger | Teams header nav + the Teams page ── */
 .pagenav{display:flex; gap:4px; margin-top:14px}
@@ -487,16 +478,36 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
   40%{ box-shadow:0 0 0 2px var(--cyan) }
 }
 .tabs button.pulse{animation:tabPulse .9s ease-out}
-/* Completed tab: a compact grid — a finished build needs no numbers */
-.dgrid{display:grid; grid-template-columns:repeat(auto-fill, minmax(132px, 1fr)); gap:8px}
-.dcard{display:flex; align-items:center; gap:7px; padding:5px 6px; border:1px solid var(--line2);
-  border-radius:9px; background:var(--panel2); font-size:12.5px; cursor:help}
-.dcard.r5{background:rgba(229,181,102,.07)}
-.dcard.r4{background:rgba(166,127,224,.08)}
-.dcard.r3{background:rgba(92,168,222,.08)}
-.dcard .avatar{width:28px; height:28px; font-size:10px; border-radius:7px; flex:none}
-.dcard .dname{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-.dcard .tiny{flex:none; padding:2px 5px}
+/* add-palette filter chips: rarity · element · weapon type */
+.pal-filt{display:flex; align-items:center; flex-wrap:wrap; gap:6px; padding:8px 12px;
+  border-bottom:1px solid var(--line)}
+.fgrp{display:flex; gap:3px; padding-right:6px; margin-right:2px; border-right:1px solid var(--line)}
+.fgrp:last-of-type{border-right:0}
+.fchip{display:inline-flex; align-items:center; justify-content:center; width:26px; height:24px;
+  padding:0; border-radius:6px; border:1px solid transparent; background:var(--panel2);
+  color:var(--mut); font:inherit; font-size:10.5px; cursor:pointer; opacity:.6}
+.fchip:hover{opacity:1}
+.fchip.on{opacity:1; border-color:var(--cyan); background:rgba(94,234,212,.10)}
+.fchip .attr-img{width:16px; height:16px}
+.fchip.clear{width:auto; padding:0 7px; color:var(--faint)}
+.rstar{font-family:'Chakra Petch',sans-serif; font-weight:700; letter-spacing:-.02em}
+.rstar.r5{color:var(--r5)} .rstar.r4{color:var(--r4)} .rstar.r3{color:var(--r3)}
+
+/* Completed tab: portrait tiles — big art, name under it, ↩ only on hover.
+   A finished build needs no numbers (the detail lives in the tooltip). */
+.dgrid{display:grid; grid-template-columns:repeat(auto-fill, minmax(84px, 1fr)); gap:8px}
+.dcard{position:relative; display:flex; flex-direction:column; align-items:center; gap:5px;
+  padding:8px 5px 7px; border:1px solid var(--line2); border-radius:10px;
+  background:var(--panel2); font-size:11.5px; cursor:help}
+.dcard.r5{background:rgba(229,181,102,.08)}
+.dcard.r4{background:rgba(166,127,224,.09)}
+.dcard.r3{background:rgba(92,168,222,.09)}
+.dcard .avatar{width:52px; height:52px; font-size:15px; border-radius:10px}
+.dcard .dname{max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  font-family:'Chakra Petch',sans-serif; font-weight:600}
+.dcard .tiny{position:absolute; top:3px; right:3px; padding:1px 5px; line-height:1.35;
+  opacity:0; transition:opacity .12s}
+.dcard:hover .tiny, .dcard .tiny:focus{opacity:1}
 
 .nodechk{width:9px; height:9px; flex:none; border-radius:2px; transform:rotate(45deg);
   border:1px solid var(--line2); background:var(--panel2); cursor:help}
@@ -559,6 +570,7 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
 <div id="palWrap" hidden>
   <div class="palette" role="dialog" aria-modal="true" aria-label="Add goal">
     <input id="palIn" type="text" placeholder="Add a character or weapon…" autocomplete="off" spellcheck="false">
+    <div id="palFilt" class="pal-filt"></div>
     <div id="palList"></div>
     <div id="palHint" class="pal-f">Enter adds from your template · right-click or Shift+Enter adds it already built</div>
   </div>
@@ -1891,6 +1903,10 @@ const equipOf = (goals, charId) => goals.find(g => isWpn(g) && g.owner === charI
 /* in-game rule: a weapon is usable only by characters of its own type — a Sword
    is for Sword characters. The two vocabularies (GAME.characters[].wtype and
    GAME.weapons[].wtype) are the same five words, so this is a plain compare. */
+/* the game's two five/six-word vocabularies, in roster-definition order —
+   the palette's filter chips iterate these */
+const ELEMENTS = [...new Set(Object.values(GAME.characters).map(c => c.element))];
+const WTYPES   = [...new Set(Object.values(GAME.characters).map(c => c.wtype))];
 const wtypeOfChar = id => (GAME.characters[id] || {}).wtype;
 const wtypeOfWpn  = id => (GAME.weapons[id] || {}).wtype;
 const canCarry = (charId, wpnId) => !!wtypeOfChar(charId) && wtypeOfChar(charId) === wtypeOfWpn(wpnId);
@@ -2412,29 +2428,35 @@ function ownerChip(g, i){
         : `＋`) + `</button>`;
 }
 
+/* card header: priority number (bare — the "P" is gone) · avatar · name · buttons.
+   The meta row below reads left to right as the goal's identity:
+     character — 5★ [element] [weapon type] · Lv 1 → Lv 90
+     weapon    — [carrier] 5★ [weapon type] · Lv 1 → Lv 90
+   Rarity is plain rarity-colored text; the avatar carries no ring. */
+const rStar = r => `<span class="rstar r${r}">${r}★</span>`;
+function goalHead(g, i, it, acc, meta, fin){
+  return `<div class="goal-top">
+      <span class="prio">${i+1}</span>
+      <span class="avatar" style="background:${acc}">${it.mono}${icoImg(it.name, isWpn(g) ? 'weapon' : 'char', 'avatar-img')}</span>
+      <div class="gname" title="${esc(it.name)}">${esc(it.name)}${it.beta ? '<span class="badge">3.5 BETA</span>' : ''}</div>
+      <div class="gctrl">${goalCtrls(i, fin, g.off)}</div>
+    </div>
+    <div class="gmeta">${meta}<span class="lvl">· ${lvlLabel(g)}</span></div>`;
+}
+
 function wpnCard(g, i, wk, vw, ceOnly){
   const w = GAME.weapons[g.weapon];
-  return `<div class="goal${g.off ? ' off' : ''}" data-g="${i}" style="--acc:var(--weapon)">
-    <div class="goal-top">
-      <span class="prio">P${i+1}</span>
-      <span class="avatar r${w.rarity}" style="background:var(--r${w.rarity})">${w.mono}${icoImg(w.name, 'weapon', 'avatar-img')}</span>
-      <div class="gname" title="${esc(w.name)}">${esc(w.name)}${w.beta ? '<span class="badge">3.5 BETA</span>' : ''}</div>
-      <div class="gctrl">${goalCtrls(i, !Object.keys(wk.need).length, g.off)}</div>
-    </div>
-    <div class="gmeta">${ownerChip(g, i)}${attrIco(w.wtype, 'weapon')}<span>${lvlLabel(g)}</span></div>` +
+  const meta = ownerChip(g, i) + rStar(w.rarity) + attrIco(w.wtype, 'weapon');
+  return `<div class="goal${g.off ? ' off' : ''}" data-g="${i}" style="--acc:var(--weapon)">` +
+    goalHead(g, i, w, `var(--r${w.rarity})`, meta, !Object.keys(wk.need).length) +
     `${readyBar(vw)}${goalMats(vw, ceOnly)}</div>`;
 }
 
 function charCard(g, i, wk, vw, ceOnly){
   const ch = GAME.characters[g.char];
-  return `<div class="goal${g.off ? ' off' : ''}" data-g="${i}" style="--acc:${ch.elColor}">
-    <div class="goal-top">
-      <span class="prio">P${i+1}</span>
-      <span class="avatar r${ch.rarity}" style="background:${ch.elColor}">${ch.mono}${icoImg(ch.name, 'char', 'avatar-img')}</span>
-      <div class="gname" title="${esc(ch.name)}">${esc(ch.name)}${ch.beta ? '<span class="badge">3.5 BETA</span>' : ''}</div>
-      <div class="gctrl">${goalCtrls(i, !Object.keys(wk.need).length, g.off)}</div>
-    </div>
-    <div class="gmeta">${attrIco(ch.element, 'element')}${attrIco(ch.wtype, 'weapon type')}<span>${lvlLabel(g)}</span></div>` +
+  const meta = rStar(ch.rarity) + attrIco(ch.element, 'element') + attrIco(ch.wtype, 'weapon type');
+  return `<div class="goal${g.off ? ' off' : ''}" data-g="${i}" style="--acc:${ch.elColor}">` +
+    goalHead(g, i, ch, ch.elColor, meta, !Object.keys(wk.need).length) +
     `${readyBar(vw)}${miniTree(g)}${goalMats(vw, ceOnly)}</div>`;
 }
 
@@ -2545,6 +2567,48 @@ const PAL_PH = {
   owner: () => `Which ${palType()} character carries this?`,
   equip: () => `Pick a ${palType()} weapon from your ledger…`,
 };
+/* filter chips (add mode only): rarity · element · weapon type. Within a facet
+   the chips OR together, across facets they AND. An element chip implies
+   characters (weapons have none); a weapon-type chip matches BOTH a character's
+   wtype and a weapon's. Transient — cleared whenever the palette opens/closes. */
+let palFilt = {r: new Set(), el: new Set(), wt: new Set()};
+const palFiltOn = () => palFilt.r.size || palFilt.el.size || palFilt.wt.size;
+function palFiltClear(){ palFilt = {r: new Set(), el: new Set(), wt: new Set()}; }
+/* it: {kind, rarity, element?, wtype} — element is absent on weapons */
+function palFiltPass(it){
+  if(palFilt.r.size  && !palFilt.r.has(it.rarity)) return false;
+  if(palFilt.el.size && !(it.element && palFilt.el.has(it.element))) return false;
+  if(palFilt.wt.size && !palFilt.wt.has(it.wtype)) return false;
+  return true;
+}
+function renderPalFilt(){
+  const box = $('#palFilt');
+  if(palPick){ box.hidden = true; box.innerHTML = ''; return; }   // no filters in a pick mode
+  box.hidden = false;
+  const RAR = [5, 4, 3];
+  const chip = (facet, val, body, title, on) =>
+    `<button class="fchip${on ? ' on' : ''}" data-facet="${facet}" data-val="${esc(String(val))}" ` +
+    `title="${esc(title)}">${body}</button>`;
+  box.innerHTML =
+    `<span class="fgrp">` + RAR.map(r =>
+      chip('r', r, `<span class="rstar r${r}">${r}★</span>`, `${r}★ only`, palFilt.r.has(r))).join('') + `</span>` +
+    `<span class="fgrp">` + ELEMENTS.map(e =>
+      chip('el', e, icoImg(e, 'attr', 'attr-img'), e, palFilt.el.has(e))).join('') + `</span>` +
+    `<span class="fgrp">` + WTYPES.map(t =>
+      chip('wt', t, icoImg(t, 'attr', 'attr-img'), t, palFilt.wt.has(t))).join('') + `</span>` +
+    (palFiltOn() ? `<button class="fchip clear" data-facet="clear" title="Clear the filters">✕</button>` : '');
+  box.querySelectorAll('[data-facet]').forEach(b => b.addEventListener('click', e => {
+    const f = e.currentTarget.dataset.facet;
+    if(f === 'clear') palFiltClear();
+    else{
+      const set = palFilt[f], v = f === 'r' ? +e.currentTarget.dataset.val : e.currentTarget.dataset.val;
+      set.has(v) ? set.delete(v) : set.add(v);
+    }
+    palSel = 0; renderPal();
+  }));
+  bindIcons(box);
+}
+
 function paletteEntries(q){
   const out = [];
   const mode = palPick && palPick.mode;
@@ -2575,12 +2639,16 @@ function paletteEntries(q){
   } else {
     for(const [id, ch] of Object.entries(GAME.characters)){
       if(state.goals.some(g => g.char === id) || state.done.some(g => g.char === id)) continue;
+      const it = {kind:'char', id, name:ch.name, rarity:ch.rarity, element:ch.element, wtype:ch.wtype};
+      if(!palFiltPass(it)) continue;
       const s = fuzzyScore(q, ch.name);
-      if(s >= 0) out.push({score:s, kind:'char', id, name:ch.name, rarity:ch.rarity});
+      if(s >= 0) out.push({...it, score:s});
     }
     for(const [id, wp] of Object.entries(GAME.weapons)){
+      const it = {kind:'wpn', id, name:wp.name, rarity:wp.rarity, wtype:wp.wtype};
+      if(!palFiltPass(it)) continue;
       const s = fuzzyScore(q, wp.name);
-      if(s >= 0) out.push({score:s, kind:'wpn', id, name:wp.name, rarity:wp.rarity});
+      if(s >= 0) out.push({...it, score:s});
     }
   }
   const grp = it => (it.kind === 'char' ? 0 : 10) + (5 - it.rarity);
@@ -2589,11 +2657,13 @@ function paletteEntries(q){
 function openPal(pick){
   closeEdit(); closeOrd(); closeInv(); closeFarm();
   palPick = pick || null;
+  palFiltClear();
   $('#palIn').placeholder = pick ? PAL_PH[pick.mode]() : 'Add a character or weapon…';
   $('#palWrap').hidden = false; palSel = 0; renderPal(); $('#palIn').focus();
 }
-function closePal(){ $('#palWrap').hidden = true; $('#palIn').value = ''; palPick = null; }
+function closePal(){ $('#palWrap').hidden = true; $('#palIn').value = ''; palPick = null; palFiltClear(); }
 function renderPal(){
+  renderPalFilt();
   const q = $('#palIn').value.trim();
   const list = paletteEntries(q);
   palSel = clamp(palSel, 0, Math.max(0, list.length - 1));
@@ -2606,6 +2676,7 @@ function renderPal(){
           : `<div class="empty">No ${t} weapon in your ledger yet — add one as a goal first (Ctrl+K).</div>`)
     : (palPick && !q && palPick.mode === 'owner')
       ? `<div class="empty">No ${t} character on your Ledger — only ${t} users can carry this weapon.</div>`
+    : palFiltOn() ? '<div class="empty">No matches — the filters above may be too narrow.</div>'
     : '<div class="empty">No matches.</div>';
   $('#palList').innerHTML = list.length ? list.map((it, i) =>
     `<div class="pal-item r${it.rarity}${i === palSel ? ' on' : ''}" data-i="${i}">` +
@@ -2857,7 +2928,9 @@ function rosterCard(g){
     `<span class="rname">${esc(ch.name)}</span>` +
     `<span class="rlv num">${done ? '✓ done' : esc(ORD_LABEL(g.cur.ord))}</span>` +
     `<span class="energy" title="Energy ${left}/${cap} — teams ${esc(ch.name)} can still join">` +
-      [...Array(cap).keys()].map(k => `<i class="${k < left ? 'on' : ''}"></i>`).join('') + `</span>` +
+      // bars DRAIN LEFT TO RIGHT: the leftmost goes dark first, so what is still
+      // lit sits on the right
+      [...Array(cap).keys()].map(k => `<i class="${k >= cap - left ? 'on' : ''}"></i>`).join('') + `</span>` +
     `<button class="rwpn${wp ? '' : ' none'}" data-eq="${g.char}" ` +
       `title="${wp ? esc(wp.name) + ' — click to change the linked weapon' : 'No weapon linked — click to pick one from your ledger'}">` +
       (wp ? icoImg(wp.name, 'weapon') + `<span class="wname">${esc(wp.name)}</span>`
@@ -2871,7 +2944,10 @@ let teamDrag = null;                   // team index being dragged in the grid
 
 function renderTeams(){
   const box = $('#teams');
-  const roster = rosterGoals();
+  // characters who can still join a team float to the top; the spent ones sink
+  // (Array#sort is stable, so each group keeps its ledger order)
+  const roster = rosterGoals().slice()
+    .sort((a, b) => (energyLeft(state.teams, b.char) > 0) - (energyLeft(state.teams, a.char) > 0));
   const teams = state.teams.map((t, i) =>
     `<div class="team" draggable="true" data-t="${i}">
       <div class="team-h">
@@ -3308,7 +3384,7 @@ function renderSummary(){
                                 : ` · nodes cover the ${it.rarity}★ template`;
           }
           return `<div class="dcard r${it.rarity}" title="${esc(tip)}">` +
-            `<span class="avatar r${it.rarity}" style="background:${bg}">${it.mono}${icoImg(it.name, isW ? 'weapon' : 'char', 'avatar-img')}</span>` +
+            `<span class="avatar" style="background:${bg}">${it.mono}${icoImg(it.name, isW ? 'weapon' : 'char', 'avatar-img')}</span>` +
             `<span class="dname">${esc(it.name)}</span>` +
             `<button class="tiny" data-undone="${i}" title="Return ${esc(it.name)} to the end of the queue">↩</button>` +
           `</div>`;

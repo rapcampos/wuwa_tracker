@@ -110,6 +110,13 @@ it goes in block 2 with tests; presentation goes in block 3.
   group as 5★ chars · 4★ chars · 5★/4★/3★ weapons (fuzzy rank within a
   group) with faint rarity row tints (`.pal-item.rN`). Arrows navigate,
   Enter activates, Esc/backdrop close. The old inline add-menu is gone.
+  **Filter chips** (`#palFilt`, add mode only — a pick mode hides the row):
+  rarity 5/4/3 · the six element glyphs · the five weapon-type glyphs, from the
+  engine's `ELEMENTS`/`WTYPES` (derived from the roster, definition order).
+  Transient `palFilt = {r, el, wt}` of Sets, cleared by `openPal`/`closePal`;
+  within a facet the chips OR, across facets they AND (`palFiltPass`). An
+  element chip implies characters (weapons have none); a weapon-type chip
+  matches a character's `wtype` AND a weapon's, so it spans both groups.
   **Right-click (or Shift+Enter) adds the goal ALREADY BUILT** —
   `palActivate(it, built)` runs `maxGoal(goal)` (current → target: the
   template target for a character, Lv90 for a weapon) and pushes it straight
@@ -142,9 +149,9 @@ it goes in block 2 with tests; presentation goes in block 3.
   and the queue slot. `flushCompletion()` lands a goal still in the air (it
   fires when a second goal is maxed mid-flight, and the tests call it to skip
   the animation). `pulseDone()` flashes the Completed tab on arrival.
-  The **Completed summary tab** is a compact GRID (`.dgrid`/`.dcard`): icon ·
-  name · ↩, rarity-tinted, nothing else — a finished build needs no numbers
-  (user's call). The level, forte levels and the **node-plan grade**
+  The **Completed summary tab** is a GRID of portrait tiles (`.dgrid`/`.dcard`):
+  big art, the name under it, rarity-tinted, and ↩ appearing only on hover —
+  a finished build needs no numbers (user's call). The level, forte levels and the **node-plan grade**
   (`nodeShortfall(cur, tpl)`, pure/engine — a LIVE comparison against the
   per-rarity template, so editing a template re-grades every completed build)
   all live in the card's tooltip. **↩ (restore to the queue) is the only
@@ -208,9 +215,11 @@ it goes in block 2 with tests; presentation goes in block 3.
   costs, totals — EXCEPT via ⚑ Prioritize, below.
   **Page layout** (`.tcols`): the roster is a LEFT COLUMN of slim cards
   (`rosterCard`: avatar · name · current level · linked-weapon strip · energy —
-  ONE vertical bar per point of budget, side by side, lit while that point is
-  free; dimmed when out of energy, desaturated when the goal is paused, ✓ done
-  for completed characters). A roster card is the drag source
+  ONE vertical bar per point of budget, side by side, DRAINING LEFT TO RIGHT so
+  what is still lit sits on the right; dimmed when out of energy, desaturated
+  when the goal is paused, ✓ done for completed characters). Characters with
+  energy left float to the TOP of the roster, spent ones sink (a stable sort, so
+  each group keeps its ledger order). A roster card is the drag source
   (`rosterDrag` → drop on a `.slot`, then `pruneLinks()` repairs an illegal
   drop); clicking an empty slot still opens the palette. Team cards carry a ⠿
   grip and drag to reorder (`teamDrag`/`moveTeam`) — **order is not cosmetic**:
@@ -475,13 +484,14 @@ visual aid, not a test — still be careful with CSS-only changes.
   avatar · name (grows, ellipsis + title — 5 buttons leave it little room) ·
   `.gctrl` buttons ✎▲▼⏸✕ in that order, with ✓ prepended on a finished goal)
   with the meta on its OWN full-width row below (`.goal .gmeta`) so the level
-  range never wraps in a narrow 3-col card. **The meta line is GLYPHS, not
-  words** (`attrIco`): a character shows its element + weapon-type icons, a
-  weapon shows its `ownerChip` + weapon-type icon, then the level. Rarity is
-  the ring on the avatar (`.avatar.rN::after` — an ::after because `.avatar-img`
-  covers the avatar's own inset shadow), not a "5★" string. Level text is
-  `lvlLabel(g)`: "Lv 1 → Lv 90" while building, just "Lv 90" once
-  `cur.ord === tgt.ord` (no "Lv 90 → Lv 90").
+  range never wraps in a narrow 3-col card. The priority number is BARE ("1",
+  not "P1" — the reorder pop-up still prefixes P). **The meta row reads as the
+  goal's identity, glyphs not words** (`attrIco`, kind `attr`):
+  character = `5★ [element] [weapon type] · Lv 1 → Lv 90`;
+  weapon = `[carrier] 5★ [weapon type] · Lv 1 → Lv 90`. Rarity is plain
+  rarity-colored text (`rStar`) — the avatar carries no ring (tried, user
+  rejected it, Jul 2026). Level text is `lvlLabel(g)`: "Lv 1 → Lv 90" while
+  building, just "Lv 90" once `cur.ord === tgt.ord` (no "Lv 90 → Lv 90").
   Then a mini forte tree (`miniTree`,
   span-based, no handlers) with per-column skill levels cur→tgt + an
   always-visible materials tile grid (`goalMats`). All editing happens in the ✎

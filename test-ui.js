@@ -785,11 +785,13 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
      card.querySelector('.mini') === null && card.querySelectorAll('select').length === 0);
   ok('weapon card shows its materials as tiles', card.querySelector('.goal-mats .tiles') !== null);
   ok('weapon card carries the weapon accent', (card.getAttribute('style') || '').includes('--acc:var(--weapon)'));
-  ok('weapon meta is icons + level, not words',
-     !card.querySelector('.gmeta').textContent.includes('Broadblade') &&
+  ok('weapon meta reads: carrier · rarity · type glyph · level (no words)',
+     card.querySelector('.gmeta .ochip') !== null &&
+     card.querySelector('.gmeta .rstar').textContent === '5★' &&
      card.querySelector('.gmeta .attr img.__ico').getAttribute('src') === 'images/attributes/broadblade_icon.png' &&
-     card.querySelector('.gmeta').textContent.includes('Lv 1 → Lv 90'));
-  ok('rarity moved onto the avatar as a ring', card.querySelector('.avatar').classList.contains('r5'));
+     !card.querySelector('.gmeta').textContent.includes('Broadblade') &&
+     card.querySelector('.gmeta .lvl').textContent.includes('Lv 1 → Lv 90'));
+  ok('the priority number lost its P', card.querySelector('.prio').textContent === '4');
   ok('weapon avatar resolves in images/weapons/',
      card.querySelector('.avatar img.__ico').getAttribute('src') === 'images/weapons/ages_of_harvest_icon.png');
 
@@ -1067,10 +1069,13 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
      [...d.querySelectorAll('#tabs button')].some(b => b.textContent === 'Completed (1)'));
   fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent.startsWith('Completed')), 'click');
   const dcard = () => d.querySelector('#summary .dgrid .dcard');
-  ok('completed grid: icon + name + ↩, and nothing else',
+  ok('completed grid: a portrait tile — art, name under it, ↩ only',
      dcard() !== null && dcard().querySelector('.avatar') !== null &&
      dcard().querySelector('.dname').textContent === 'Phoebe' &&
      dcard().querySelector('[data-undone]') !== null &&
+     // the name follows the portrait in the DOM (it sits below it in the column)
+     dcard().querySelector('.avatar').compareDocumentPosition(dcard().querySelector('.dname')) ===
+       w.Node.DOCUMENT_POSITION_FOLLOWING &&
      d.querySelector('#summary [data-rmdone]') === null &&      // no "forget" — ↩ then ✕ on the card
      d.querySelector('#summary .goalstat') === null && d.querySelector('#summary .mini') === null);
   ok('the detail a finished build no longer shows lives in the tooltip',
@@ -1840,11 +1845,16 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   const teamNames = () => [...d.querySelectorAll('#teams .team .tname')].map(e => e.textContent);
 
   const bars = n => [...rcard(n).querySelectorAll('.energy i')];
+  const lit  = n => bars(n).map(b => b.classList.contains('on') ? 1 : 0).join('');
   ok('one energy bar per point of budget, lit while that point is free',
      rcard('jinhsi').querySelector('.rlv').textContent.includes('Lv 1') &&
-     bars('jinhsi').length === 1 && bars('jinhsi').filter(b => b.classList.contains('on')).length === 0 &&
-     bars('suisui').length === 2 && bars('suisui').filter(b => b.classList.contains('on')).length === 2 &&
+     bars('jinhsi').length === 1 && lit('jinhsi') === '0' &&      // energy 1, spent in a team
+     bars('suisui').length === 2 && lit('suisui') === '11' &&     // energy 2, none used
      rcard('jinhsi').querySelector('.rwpn .wname').textContent.includes('Ages of Harvest'));
+  // spending one of Suisui's two points drains the LEFT bar first
+  w.eval(`state.teams.push({chars:['suisui', null, null]}); save(); render();`);
+  ok('energy drains left to right', lit('suisui') === '01');
+  w.eval(`state.teams.pop(); save(); render();`);
   ok('an unlinked character shows the empty weapon slot',
      rcard('phoebe').querySelector('.rwpn').classList.contains('none'));
   ok('a character already in a team has no energy left and cannot be dragged',
@@ -1852,6 +1862,11 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
      rcard('jinhsi').getAttribute('draggable') === 'false' &&
      rcard('suisui').getAttribute('draggable') === 'true');
   ok('teams are auto-named after their first member', teamNames().join() === 'Phoebe,Jinhsi');
+  // Jinhsi and Phoebe each sit in a team (energy 1, spent); Suisui is free
+  const spentSeq = () => rcards().map(c => c.classList.contains('spent') ? 1 : 0);
+  ok('the roster floats characters with energy left to the top, spent ones sink',
+     spentSeq().includes(0) && spentSeq().includes(1) &&
+     spentSeq().every((v, i, a) => i === 0 || a[i-1] <= v));
   const jSlot = [...d.querySelectorAll('#teams .slot')].find(s => /Jinhsi/.test(s.textContent));
   ok('a team slot shows the weapon its character carries',
      jSlot.querySelector('.swpn') !== null &&
@@ -1911,6 +1926,64 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
      queue() === '["jinhsi","phoebe","suisui","w:agesOfHarvest","w:stringmaster"]' &&
      w.eval(`!!state.goals[1].off`) === true);
   w.eval(`location.hash = ''; showPage('ledger');`);
+}
+
+// ── add-palette filter chips: rarity · element · weapon type ──
+{
+  reset();
+  fire(d.querySelector('#btnAdd'), 'click');
+  const chips = f => [...d.querySelectorAll(`#palFilt [data-facet="${f}"]`)];
+  const items = () => [...d.querySelectorAll('#palList .pal-item')];
+  const tags  = () => items().map(e => e.querySelector('.tag').textContent);
+  ok('the chip row offers rarity, every element and every weapon type',
+     chips('r').length === 3 && chips('el').length === 6 && chips('wt').length === 5 &&
+     d.querySelector('#palFilt .fchip .attr-img') !== null);
+  const all = items().length;
+
+  fire(chips('r').find(c => c.dataset.val === '4'), 'click');
+  ok('a rarity chip narrows to that rarity (chars AND weapons)',
+     items().length < all && tags().every(x => x.startsWith('4★')) &&
+     chips('r').find(c => c.dataset.val === '4').classList.contains('on'));
+
+  fire(chips('r').find(c => c.dataset.val === '4'), 'click');       // toggle off
+  ok('clicking it again clears it', items().length === all);
+
+  fire(chips('el').find(c => c.dataset.val === 'Spectro'), 'click');
+  ok('an element chip implies characters (weapons have no element)',
+     items().length > 0 && tags().every(x => x.endsWith('char')));
+  const spectro = items().length;
+
+  // facets AND: adding a weapon-type chip can only narrow the element result
+  fire(chips('wt').find(c => c.dataset.val === 'Broadblade'), 'click');
+  const both = items().length;
+  ok('facets AND together: Spectro + Broadblade ⊆ Spectro', both <= spectro);
+  fire(chips('wt').find(c => c.dataset.val === 'Broadblade'), 'click');   // back off
+  ok('…and dropping the second facet restores the first', items().length === spectro);
+
+  fire(d.querySelector('#palFilt [data-facet="clear"]'), 'click');
+  ok('✕ clears every facet at once',
+     items().length === all && d.querySelectorAll('#palFilt .fchip.on').length === 0);
+
+  // a weapon-type chip alone matches BOTH the characters and the weapons of that type
+  fire(chips('wt').find(c => c.dataset.val === 'Rectifier'), 'click');
+  ok('a weapon-type chip matches characters and weapons alike',
+     tags().some(x => x.endsWith('char')) && tags().some(x => x.endsWith('weapon')));
+
+  // typing still narrows within the filters
+  const pIn = d.querySelector('#palIn');
+  pIn.value = 'zzzz'; fire(pIn, 'input');
+  ok('a filtered dead end says the filters may be too narrow',
+     /filters above may be too narrow/.test(d.querySelector('#palList').textContent));
+  pIn.value = ''; fire(pIn, 'input');
+
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
+  fire(d.querySelector('#btnAdd'), 'click');
+  ok('reopening the palette starts unfiltered',
+     d.querySelectorAll('#palFilt .fchip.on').length === 0 && items().length === all);
+  // the filter row is hidden in a pick mode (nothing to filter there)
+  w.eval(`closePal(); openPal({mode:'slot', t:0, s:0})`);
+  ok('no filter row in a pick mode', d.querySelector('#palFilt').hidden === true);
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
 }
 
 dom.window.close();    // kill pending toast timers so Node exits promptly

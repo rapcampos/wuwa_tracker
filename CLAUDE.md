@@ -110,11 +110,12 @@ it goes in block 2 with tests; presentation goes in block 3.
   group as 5★ chars · 4★ chars · 5★/4★/3★ weapons (fuzzy rank within a
   group) with faint rarity row tints (`.pal-item.rN`). Arrows navigate,
   Enter activates, Esc/backdrop close. The old inline add-menu is gone.
-  **Right-click (or Shift+Enter) adds the goal maxed** — `palActivate(it,
-  max)` runs `maxTarget(goal)`, the same transform behind the editor's
-  ⤒ Max target button (Lv90 · skills 10 · every node at least planned).
-  Weapons already target Lv90 from `newWpnGoal`, so `max` is a no-op for
-  them. `#palHint` advertises it, and hides in any pick mode (no "maxed"
+  **Right-click (or Shift+Enter) adds the goal ALREADY BUILT** —
+  `palActivate(it, built)` runs `maxGoal(goal)` (current → target: the
+  template target for a character, Lv90 for a weapon) and pushes it straight
+  to `state.done`, never the queue: it costs nothing, so a card would only
+  sit there waiting for a ✓ click. `pulseDone()` flashes the Completed tab so
+  you see where it landed. `#palHint` advertises it, and hides in any pick mode (no "maxed"
   concept when filling a slot). **`palPick` selects the mode** (null = the
   normal add palette): `{mode:'slot',t,s}` a team member (roster chars with
   energy left), `{mode:'owner',g}` who carries weapon goal #g (any roster
@@ -128,20 +129,29 @@ it goes in block 2 with tests; presentation goes in block 3.
   flanking the grid. The goal editor deliberately has no bottom legend and
   no save-as-default button — the toolbar "Templates" pop-up is the single
   place templates are edited.
-- **Completed goals**: a card whose cost is empty (current meets target)
-  grows a ✓ button that moves the goal from `state.goals` to `state.done`
-  (full goal objects, state intact). The **Completed summary tab** lists
-  them as single-line `.goalstat` rows: icon · name · rarity/level · for
-  characters also achieved forte levels ("forte all 6" when uniform, else
-  "10/10/8/8/6") and a **node indicator** (`.nodechk`) — a diamond lit when
-  the build's OWNED node counts cover the per-rarity template's plan
-  (`nodeShortfall(cur, tpl)`, pure/engine, count-based since templates
-  don't record columns; tooltip names any gap). It's a LIVE comparison:
-  editing a template re-grades every completed build — deliberate ("does
-  this build meet my current standard?"). Row buttons: ↩ (restore to queue
-  end — raise the target to keep building) and ✕ (forget; the char becomes
-  addable again). A character exists at most once across queue + done;
-  `sanitize()` lets the queued copy win.
+- **Completed goals**: a card whose cost is empty (current meets target) grows
+  a ✓ button that moves the goal from `state.goals` to `state.done` (full goal
+  objects, state intact). **A "maxed" goal completes itself** — the editor's
+  ✓ Max goal and the palette's right-click add both SAY the build is done, so
+  they send it straight to `done` rather than parking a zero-cost card in the
+  queue; every other route to zero cost (level edits, ⬆ purchases) still just
+  offers the manual ✓, so nothing vanishes mid-edit (user's call, Jul 2026).
+  `completeGoal(g)` flies the card out first (`.goal.leaving`, `LEAVE_MS` =
+  380ms) and mutates state only when the flight lands, so the `withUndo`
+  snapshot still holds the PRE-max build — one Ctrl+Z restores both the levels
+  and the queue slot. `flushCompletion()` lands a goal still in the air (it
+  fires when a second goal is maxed mid-flight, and the tests call it to skip
+  the animation). `pulseDone()` flashes the Completed tab on arrival.
+  The **Completed summary tab** is a compact GRID (`.dgrid`/`.dcard`): icon ·
+  name · ↩, rarity-tinted, nothing else — a finished build needs no numbers
+  (user's call). The level, forte levels and the **node-plan grade**
+  (`nodeShortfall(cur, tpl)`, pure/engine — a LIVE comparison against the
+  per-rarity template, so editing a template re-grades every completed build)
+  all live in the card's tooltip. **↩ (restore to the queue) is the only
+  action**: there is no "forget" button — in-game a build can't be un-done, and
+  a mis-added completion is still removable with ↩ then ✕ on the card. A
+  character exists at most once across queue + done; `sanitize()` lets the
+  queued copy win.
 - **Paused goals** (`goal.off`, ⏸/▶ on the card): the goal keeps its queue slot
   but takes part in NOTHING — no totals, no inventory allocation, no waveplate
   plan, no needer chips. The engine chokepoint is `activeGoals(goals)` (pure:
@@ -160,15 +170,21 @@ it goes in block 2 with tests; presentation goes in block 3.
   goals may be duplicated — pointing from the weapon is the only unambiguous
   direction, and it survives reordering (no indices). Only weapons already in
   the ledger (queued or completed) can be linked; a character carries at most
-  ONE (`linkWeapon` unlinks the previous). Engine (pure, tested): `isWpn`,
-  `equipOf(goals, charId)`, `sanitizeOwners(wpnGoals, rosterIds)` — repairs in
-  place: an owner must be a roster character and may own one weapon, first
-  claim in list order wins (the queue is passed ahead of `done`, so it wins).
+  ONE (`linkWeapon` unlinks the previous); and the **in-game type rule holds** —
+  a Sword is only for Sword characters (`canCarry`, engine/pure; the
+  `GAME.characters[].wtype` and `GAME.weapons[].wtype` vocabularies are the
+  same five words, so it's a plain compare). Engine (pure, tested): `isWpn`,
+  `equipOf(goals, charId)`, `canCarry(charId, wpnId)`,
+  `sanitizeOwners(wpnGoals, rosterIds)` — repairs in place: an owner must be a
+  roster character who can WIELD it, and may own one weapon, first claim in
+  list order wins (the queue is passed ahead of `done`, so it wins).
   `pruneLinks()` (was `pruneTeams`) runs it plus `sanitizeTeams` whenever a
-  character leaves the roster. Surfaced on the Ledger as the weapon card's
-  **owner row** (`ownerRow`: avatar + "for Jinhsi", or "＋ link to a
-  character"; ✕ unlinks) and on the Teams page as the roster card's weapon
-  strip. Both open the palette (modes `owner` / `equip`).
+  character leaves the roster. Both palette link modes filter by weapon type
+  and name it in the placeholder and the empty state. Surfaced on the Ledger as
+  the weapon card's **owner chip** (`ownerChip`: the carrier's avatar on the
+  meta line, faint ＋ when unlinked; click assigns/reassigns, RIGHT-CLICK
+  unlinks) and on the Teams page as the roster card's weapon strip plus each
+  team slot's weapon icon (`teamSlot`).
 - **Teams (matrix team builder)**: a second page (`#pageTeams`, header nav
   "Ledger | Teams", `location.hash === '#teams'` routing — nav clicks call
   `showPage` directly so jsdom needs no hashchange event; boot calls
@@ -191,8 +207,9 @@ it goes in block 2 with tests; presentation goes in block 3.
   done does NOT — still rostered). Teams are planning-only: no effect on
   costs, totals — EXCEPT via ⚑ Prioritize, below.
   **Page layout** (`.tcols`): the roster is a LEFT COLUMN of slim cards
-  (`rosterCard`: avatar · name · current level · linked-weapon strip · energy
-  pips; dimmed when out of energy, desaturated when the goal is paused, ✓ done
+  (`rosterCard`: avatar · name · current level · linked-weapon strip · energy —
+  ONE vertical bar per point of budget, side by side, lit while that point is
+  free; dimmed when out of energy, desaturated when the goal is paused, ✓ done
   for completed characters). A roster card is the drag source
   (`rosterDrag` → drop on a `.slot`, then `pruneLinks()` repairs an illegal
   drop); clicking an empty slot still opens the palette. Team cards carry a ⠿
@@ -306,8 +323,12 @@ beta badge is gone; only Firstlight's Herald still carries one.
 
 No images are embedded. Icons resolve from a local folder by convention:
 `GAME.icons` = `{dir:'images/', kinds:{char:'characters/', mat:'materials/',
-weapon:'weapons/'}, exts:['png','webp','jpg'], overrides:{}}` — kind subfolder
-is picked by what the icon is for. Slug rule: lowercase display name, drop
+weapon:'weapons/', attr:'attributes/'}, exts:['png','webp','jpg'],
+overrides:{}}` — kind subfolder is picked by what the icon is for. The `attr`
+kind holds the game's **element and weapon-type glyphs** (6 + 5, one flat
+folder — the vocabularies don't collide), fetched from the wiki's
+`File:<Name> Icon.png` by `fetch-icons.js`; the card meta lines show these
+instead of the words. Slug rule: lowercase display name, drop
 apostrophes, non-alphanumeric runs → `_`, suffix `_icon` (e.g. "Loong's
 Pearl" → `images/materials/loongs_pearl_icon.png`, character "Jinhsi" →
 `images/characters/jinhsi_icon.png`). Extensions are tried in order via
@@ -452,10 +473,15 @@ visual aid, not a test — still be careful with CSS-only changes.
   in the tooltip.
 - **Cards are read-only status views**: a header row (`.goal-top`: prio ·
   avatar · name (grows, ellipsis + title — 5 buttons leave it little room) ·
-  `.gctrl` buttons ⏸✎▲▼✕, with ✓ prepended on a finished goal) with the meta
-  on its OWN full-width row below (`.goal .gmeta`) so the level range never
-  wraps in a narrow 3-col card. Level text is `lvlLabel(g)`: "Lv 1 → Lv 90"
-  while building, just "Lv 90" once `cur.ord === tgt.ord` (no "Lv 90 → Lv 90").
+  `.gctrl` buttons ✎▲▼⏸✕ in that order, with ✓ prepended on a finished goal)
+  with the meta on its OWN full-width row below (`.goal .gmeta`) so the level
+  range never wraps in a narrow 3-col card. **The meta line is GLYPHS, not
+  words** (`attrIco`): a character shows its element + weapon-type icons, a
+  weapon shows its `ownerChip` + weapon-type icon, then the level. Rarity is
+  the ring on the avatar (`.avatar.rN::after` — an ::after because `.avatar-img`
+  covers the avatar's own inset shadow), not a "5★" string. Level text is
+  `lvlLabel(g)`: "Lv 1 → Lv 90" while building, just "Lv 90" once
+  `cur.ord === tgt.ord` (no "Lv 90 → Lv 90").
   Then a mini forte tree (`miniTree`,
   span-based, no handlers) with per-column skill levels cur→tgt + an
   always-visible materials tile grid (`goalMats`). All editing happens in the ✎

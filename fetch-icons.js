@@ -25,6 +25,10 @@ for (const w of Object.values(GAME.weapons))
 for (const id of Object.keys(MATS))
   if (id !== 'exp' && id !== 'wexp' && !exists('mat', MATS[id].name))
     want.push({kind:'mat', name:MATS[id].name, title:`File:Item ${MATS[id].name}.png`});
+// element + weapon-type glyphs (the card meta shows these instead of the words)
+const attrs = [...new Set(Object.values(GAME.characters).flatMap(c => [c.element, c.wtype]))];
+for (const a of attrs)
+  if (!exists('attr', a)) want.push({kind:'attr', name:a, title:`File:${a} Icon.png`});
 
 const UA = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'};
 const api = 'https://wutheringwaves.fandom.com/api.php';

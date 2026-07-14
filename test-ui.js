@@ -262,9 +262,12 @@ ok('Esc closes the palette', d.querySelector('#palWrap').hidden === true);
 
 // ── right-click / Shift+Enter add a goal ALREADY BUILT ──
 {
-  const goalOf = name => w.eval(`JSON.stringify(state.goals.find(g =>
+  const goalOf = name => w.eval(`JSON.stringify(state.goals.concat(state.done).find(g =>
     (g.char && GAME.characters[g.char].name === ${JSON.stringify(name)}) ||
     (g.weapon && GAME.weapons[g.weapon].name === ${JSON.stringify(name)})))`);
+  const inDone = name => w.eval(`state.done.some(g =>
+    (g.char && GAME.characters[g.char].name === ${JSON.stringify(name)}) ||
+    (g.weapon && GAME.weapons[g.weapon].name === ${JSON.stringify(name)}))`);
   ok('the palette advertises the already-built add', d.querySelector('#palHint').hidden === false &&
      /right-click/.test(d.querySelector('#palHint').textContent) &&
      /already built/.test(d.querySelector('#palHint').textContent));
@@ -289,10 +292,10 @@ ok('Esc closes the palette', d.querySelector('#palWrap').hidden === true);
   ok('…with every planned node OWNED (not just planned)',
      cam.nodes.every(row => row.every(v => v === 0 || v === 2)) &&
      cam.nodes.some(row => row.some(v => v === 2)));
-  ok('…so it costs nothing and its card offers ✓ Mark completed',
-     w.eval(`Object.keys(costForGoal(state.goals.find(g => g.char === 'camellya'))).length`) === 0 &&
-     [...d.querySelectorAll('#goals .goal')].some(c =>
-        c.querySelector('.gname').textContent.includes('Camellya') && c.querySelector('[data-act="done"]')));
+  ok('…so it costs nothing and lands straight on the Completed tab, not the queue',
+     w.eval(`Object.keys(costForGoal(state.done.find(g => g.char === 'camellya'))).length`) === 0 &&
+     inDone('Camellya') === true &&
+     ![...d.querySelectorAll('#goals .gname')].some(n => n.textContent.includes('Camellya')));
 
   // weapons come in maxed the same way (they already target Lv90)
   fire(d.querySelector('#btnAdd'), 'click');
@@ -300,14 +303,15 @@ ok('Esc closes the palette', d.querySelector('#palWrap').hidden === true);
   [...d.querySelectorAll('#palList .pal-item')].find(x => x.textContent.includes('Stringmaster'))
     .dispatchEvent(new w.MouseEvent('contextmenu', {bubbles:true, cancelable:true}));
   const sm = JSON.parse(goalOf('Stringmaster'));
-  ok('right-click adds a weapon at Lv 90, already built', sm.cur.ord === 13 && sm.tgt.ord === 13);
+  ok('right-click adds a weapon at Lv 90, already built and completed',
+     sm.cur.ord === 13 && sm.tgt.ord === 13 && inDone('Stringmaster') === true);
 
   // Shift+Enter is the keyboard equivalent
   fire(d.querySelector('#btnAdd'), 'click');
   palIn.value = 'zani'; fire(palIn, 'input');
   palIn.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Enter', shiftKey:true, bubbles:true}));
   const zani = JSON.parse(goalOf('Zani'));
-  ok('Shift+Enter adds it already built too', zani.cur.ord === zani.tgt.ord);
+  ok('Shift+Enter adds it already built too', zani.cur.ord === zani.tgt.ord && inDone('Zani') === true);
 
   // pick modes have no "already built" concept
   w.eval(`openPal({mode:'slot', t:0, s:0})`);
@@ -315,7 +319,8 @@ ok('Esc closes the palette', d.querySelector('#palWrap').hidden === true);
   d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
 
   w.eval(`state.goals = state.goals.filter(g => !g.weapon && (!g.char ||
-    !['Changli','Camellya','Zani'].includes(GAME.characters[g.char].name))); save(); render();`);
+    !['Changli','Camellya','Zani'].includes(GAME.characters[g.char].name)));
+          state.done = []; save(); render();`);
   ok('scratch goals removed for the rest of the suite', texts('.gname').length === 3);
 }
 
@@ -487,7 +492,7 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok('a building goal shows the cur → tgt range', /Lv 1 → Lv 90/.test(meta(0)));
   w.eval(`state.goals[0].cur.ord = state.goals[0].tgt.ord; save(); render();`);
   ok('a goal at its target level shows just the level, no arrow',
-     /· Lv 90$/.test(meta(0).trim()) && !meta(0).includes('→'));
+     /Lv 90$/.test(meta(0).trim()) && !meta(0).includes('→'));
 }
 
 // ── acting on today's plan: click a run to log drops; ✓ claims the weekly ──
@@ -780,7 +785,11 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
      card.querySelector('.mini') === null && card.querySelectorAll('select').length === 0);
   ok('weapon card shows its materials as tiles', card.querySelector('.goal-mats .tiles') !== null);
   ok('weapon card carries the weapon accent', (card.getAttribute('style') || '').includes('--acc:var(--weapon)'));
-  ok('weapon meta shows rarity/type', card.textContent.includes('5★ Broadblade weapon'));
+  ok('weapon meta is icons + level, not words',
+     !card.querySelector('.gmeta').textContent.includes('Broadblade') &&
+     card.querySelector('.gmeta .attr img.__ico').getAttribute('src') === 'images/attributes/broadblade_icon.png' &&
+     card.querySelector('.gmeta').textContent.includes('Lv 1 → Lv 90'));
+  ok('rarity moved onto the avatar as a ring', card.querySelector('.avatar').classList.contains('r5'));
   ok('weapon avatar resolves in images/weapons/',
      card.querySelector('.avatar img.__ico').getAttribute('src') === 'images/weapons/ages_of_harvest_icon.png');
 
@@ -896,34 +905,47 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
      d.querySelector('#modalWrap').hidden === false &&
      mbox().querySelector('select[data-side="tgt"][data-f="ord"]').value === '13');
 
-  // Max goal: current snaps to target, planned nodes become owned
-  fire(mbox().querySelector('[data-maxgoal]'), 'click');
-  ok('max goal: current level matches target (shows just the level)',
-     sCard().querySelector('.gmeta').textContent.includes('· Lv 90') &&
-     !sCard().querySelector('.gmeta').textContent.includes('→'));
-  ok('max goal: current skills match target',
-     [...sCard().querySelectorAll('.mini .sk')].every(s => s.textContent === '10→10'));
-  ok('max goal: every planned node now owned',
-     sCard().querySelectorAll('.mini .node.own').length === 10 &&
-     sCard().querySelectorAll('.mini .node.plan').length === 0);
-  ok('max goal: card needs nothing and offers ✓',
-     sCard().textContent.includes('Nothing needed') &&
-     sCard().querySelector('button[data-act="done"]') !== null);
-
   // editor is lean now: no bottom legend, no save-as-default (Templates owns that)
   ok('goal editor: no bottom legend, no save-as-default',
      mbox().querySelector('.ftree-legend') === null && mbox().querySelector('[data-setdef]') === null);
-  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
+
+  /* ✓ Max goal: the build is DONE — the editor closes, the card flies out
+     (.leaving), and only when the flight lands does the goal move to Completed.
+     flushCompletion() is the app's own "land it now" (it also fires when a second
+     goal is maxed mid-flight); the tests use it to skip the 380ms animation. */
+  fire(mbox().querySelector('[data-maxgoal]'), 'click');
+  ok('max goal: the editor closes and the card starts flying out',
+     d.querySelector('#modalWrap').hidden === true &&
+     sCard().classList.contains('leaving') &&
+     w.eval('state.done.length') === 0);          // state untouched until it lands
+  w.eval('flushCompletion()');
+  const sanhua = () => JSON.parse(w.eval('JSON.stringify(state.done[0])'));
+  ok('max goal: it lands on the Completed tab, current = target',
+     w.eval('state.done.length') === 1 && sanhua().char === 'sanhua' &&
+     sanhua().cur.ord === sanhua().tgt.ord &&
+     sanhua().cur.skills.join() === sanhua().tgt.skills.join());
+  ok('max goal: every planned node is now owned',
+     sanhua().nodes.every(r => r.every(v => v === 0 || v === 2)) &&
+     sanhua().nodes.some(r => r.some(v => v === 2)));
+  ok('max goal: it costs nothing and left the queue',
+     w.eval(`Object.keys(costForGoal(state.done[0])).length`) === 0 &&
+     ![...d.querySelectorAll('#goals .gname')].some(n => n.textContent.includes('Sanhua')));
+  ok('max goal: the Completed tab flags the arrival', /Completed \(1\)/.test(d.querySelector('#tabs').textContent));
+  w.eval('doUndo()');
+  ok('one Ctrl+Z restores the pre-max build in its queue slot',
+     w.eval('state.done.length') === 0 &&
+     w.eval(`state.goals[4].char`) === 'sanhua' &&
+     w.eval(`state.goals[4].cur.ord`) === 0);     // back to Lv 1, not maxed
   fire(d.querySelector('button[data-act="del"][data-g="4"]'), 'click');   // remove sanhua
-  // weapon pop-up keeps Max and gains Max goal
+  // weapon pop-up keeps Max, and its Max goal completes the weapon the same way
   fire(d.querySelector('button[data-act="edit"][data-g="3"]'), 'click');
   ok('weapon pop-up keeps Max', mbox().querySelector('[data-max]') !== null);
   fire(mbox().querySelector('[data-maxgoal]'), 'click');
-  ok('weapon max goal: current level snaps to target',
-     mbox().querySelector('select[data-side="cur"][data-f="ord"]').value ===
-     mbox().querySelector('select[data-side="tgt"][data-f="ord"]').value);
-  const wCur = mbox().querySelector('select[data-side="cur"][data-f="ord"]');
-  wCur.value = '0'; fire(wCur, 'change');            // back to a full plan for later blocks
+  w.eval('flushCompletion()');
+  ok('weapon max goal: Lv 90 and straight to Completed',
+     w.eval('state.done.length') === 1 && w.eval('state.done[0].weapon') === 'agesOfHarvest' &&
+     w.eval('state.done[0].cur.ord') === 13);
+  w.eval('doUndo()');                                 // back to a full plan for later blocks
   d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
 }
 
@@ -1044,25 +1066,23 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok('Completed tab shows its count',
      [...d.querySelectorAll('#tabs button')].some(b => b.textContent === 'Completed (1)'));
   fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent.startsWith('Completed')), 'click');
-  ok('completed row: name + DONE badge + restore/forget buttons',
-     d.querySelector('#summary .goalstat') !== null &&
-     d.querySelector('#summary').textContent.includes('Phoebe') &&
-     d.querySelector('#summary .st.ready') !== null &&
-     d.querySelector('#summary [data-undone]') !== null &&
-     d.querySelector('#summary [data-rmdone]') !== null);
-  ok('completed row is a single line: level + forte levels + lit node indicator',
-     d.querySelector('#summary .mini') === null &&
-     d.querySelector('#summary .goalstat .gmeta').textContent.includes('forte all 6') &&
-     d.querySelector('#summary .goalstat .nodechk.on') !== null &&
-     (d.querySelector('#summary .nodechk').getAttribute('title') || '').includes('cover'));
-  // dropping below the template's node plan unlights the indicator
+  const dcard = () => d.querySelector('#summary .dgrid .dcard');
+  ok('completed grid: icon + name + ↩, and nothing else',
+     dcard() !== null && dcard().querySelector('.avatar') !== null &&
+     dcard().querySelector('.dname').textContent === 'Phoebe' &&
+     dcard().querySelector('[data-undone]') !== null &&
+     d.querySelector('#summary [data-rmdone]') === null &&      // no "forget" — ↩ then ✕ on the card
+     d.querySelector('#summary .goalstat') === null && d.querySelector('#summary .mini') === null);
+  ok('the detail a finished build no longer shows lives in the tooltip',
+     /Phoebe — 5★ · Lv 90/.test(dcard().getAttribute('title')) &&
+     /forte all 6/.test(dcard().getAttribute('title')) &&
+     /nodes cover the 5★ template/.test(dcard().getAttribute('title')));
+  // the tooltip still grades the build against the LIVE template
   w.eval('state.done[0].nodes[1][0] = 0; syncNodeCounts(state.done[0]); save(); render();');
-  ok('indicator goes dark below the template plan; tooltip names the gap',
-     d.querySelector('#summary .nodechk') !== null &&
-     d.querySelector('#summary .nodechk.on') === null &&
-     d.querySelector('#summary .nodechk').getAttribute('title').includes('1 major stat node'));
+  ok('a build below the template plan says so, naming the gap',
+     /below the 5★ template: 1 major stat node/.test(dcard().getAttribute('title')));
   w.eval('state.done[0].nodes[1][0] = 2; syncNodeCounts(state.done[0]); save(); render();');
-  ok('re-owning the node relights the indicator', d.querySelector('#summary .nodechk.on') !== null);
+  ok('re-owning the node clears it', /nodes cover the 5★ template/.test(dcard().getAttribute('title')));
   ok('completed list persisted',
      JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).done.some(g => g.char === 'phoebe'));
   // completed characters are hidden from the add palette
@@ -1078,16 +1098,17 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok('restored goal keeps its finished state (✓ offered again)',
      [...d.querySelectorAll('#goals .goal')].find(c => c.textContent.includes('Phoebe'))
        .querySelector('button[data-act="done"]') !== null);
-  // ✕ forgets the record and frees the character for re-adding
+  // getting rid of a completion is ↩ (back to the queue) then ✕ on the card —
+  // there is no "forget" button on the Completed tab any more
   const phCard2 = [...d.querySelectorAll('#goals .goal')].find(c => c.textContent.includes('Phoebe'));
-  fire(phCard2.querySelector('button[data-act="done"]'), 'click');
-  fire(d.querySelector('#summary [data-rmdone]'), 'click');
-  ok('✕ forgets the completed goal',
-     JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).done.length === 0);
+  fire(phCard2.querySelector('button[data-act="del"]'), 'click');
+  ok('↩ then ✕ removes the record entirely',
+     JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).done.length === 0 &&
+     !texts('.gname').includes('Phoebe'));
   fire(d.querySelector('#btnAdd'), 'click');
   const pIn2 = d.querySelector('#palIn');
   pIn2.value = 'phoebe'; fire(pIn2, 'input');
-  ok('forgotten char is addable again', d.querySelector('#palList').textContent.includes('Phoebe'));
+  ok('the deleted char is addable again', d.querySelector('#palList').textContent.includes('Phoebe'));
   fire(d.querySelector('#palWrap'), 'click');
 }
 
@@ -1171,12 +1192,12 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   const savedD = JSON.parse(domD.window.localStorage.getItem('wuwa-planner-v1'));
   ok('sanitize: queued char wins over its done copy',
      savedD.done.length === 2 && !savedD.done.some(g => g.char === 'jinhsi'));
-  ok('done tab persists and renders its rows', dD.querySelectorAll('#summary .goalstat').length === 2);
-  ok('char done rows carry the node indicator, weapon rows do not',
-     dD.querySelectorAll('#summary .nodechk').length === 1 &&
-     dD.querySelector('#summary .goalstat .nodechk') !== null);
-  ok('a bare done record (no owned nodes) reads dark against the template',
-     dD.querySelector('#summary .nodechk.on') === null);
+  ok('done tab persists and renders its grid', dD.querySelectorAll('#summary .dgrid .dcard').length === 2);
+  ok('a character card grades its nodes in the tooltip; a weapon card has none to grade',
+     /below the 5★ template/.test([...dD.querySelectorAll('.dcard')]
+       .find(c => /Camellya/.test(c.textContent)).getAttribute('title')) &&
+     !/template/.test([...dD.querySelectorAll('.dcard')]
+       .find(c => /Stonard/i.test(c.textContent)).getAttribute('title')));
   ok('completed count shows on the tab',
      [...dD.querySelectorAll('#tabs button')].some(b => b.textContent === 'Completed (2)'));
 }
@@ -1754,8 +1775,9 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   const ownerBtn = i => wcard(i).querySelector('[data-act="own"]');
   const palNames = () => [...d.querySelectorAll('#palList .pal-item')].map(e => e.textContent);
   ok('a weapon card starts unlinked and invites a link',
-     ownerBtn(3).textContent.includes('link to a character') &&
-     wcard(0).querySelector('[data-act="own"]') === null);   // character cards have no owner row
+     ownerBtn(3).classList.contains('none') &&
+     /Not linked/.test(ownerBtn(3).getAttribute('title')) &&
+     wcard(0).querySelector('[data-act="own"]') === null);   // character cards carry no owner chip
 
   // a Broadblade offers only Broadblade characters (Jinhsi), never Phoebe/Suisui
   fire(ownerBtn(3), 'click');
@@ -1764,8 +1786,11 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
      palNames().length === 1 && palNames()[0].includes('Jinhsi') &&
      /Broadblade character/.test(d.querySelector('#palIn').placeholder));
   fire(d.querySelector('#palList .pal-item'), 'click');
-  ok('picking an owner links it and shows the avatar row',
-     w.eval(`state.goals[3].owner`) === 'jinhsi' && ownerBtn(3).textContent.includes('for Jinhsi'));
+  ok('picking an owner links it and the chip becomes their avatar',
+     w.eval(`state.goals[3].owner`) === 'jinhsi' &&
+     !ownerBtn(3).classList.contains('none') &&
+     ownerBtn(3).querySelector('.avatar img.__ico').getAttribute('src') === 'images/characters/jinhsi_icon.png' &&
+     /Jinhsi carries this/.test(ownerBtn(3).getAttribute('title')));
   ok('the link persists in the save',
      JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).goals[3].owner === 'jinhsi');
 
@@ -1781,9 +1806,10 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok('linking a second weapon to the same character unlinks the first',
      w.eval(`[state.goals[3].owner, state.goals[4].owner].join()`) === ',jinhsi');
 
-  fire(wcard(4).querySelector('[data-act="unown"]'), 'click');
-  ok('✕ unlinks', w.eval(`state.goals[4].owner`) === undefined &&
-     wcard(4).querySelector('[data-act="unown"]') === null);
+  wcard(4).querySelector('[data-act="own"]')
+    .dispatchEvent(new w.MouseEvent('contextmenu', {bubbles:true, cancelable:true}));
+  ok('right-click on the chip unlinks', w.eval(`state.goals[4].owner`) === undefined &&
+     wcard(4).querySelector('[data-act="own"]').classList.contains('none'));
 
   // sanitize enforces the type rule on load (a hand-edited/older save can't smuggle one in)
   ok('sanitize drops a link the character could never wield',

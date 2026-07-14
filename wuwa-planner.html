@@ -400,15 +400,26 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
   padding:9px 11px 12px}
 .freefarm .ffcat{display:block; padding:11px 0 5px; font-size:10.5px; text-transform:uppercase;
   letter-spacing:.16em; color:var(--faint)}
-/* weapon card: who carries it (goal.owner) */
-.ownerrow{display:flex; align-items:center; gap:4px; padding:0 12px 8px}
-.owner{display:flex; align-items:center; gap:7px; flex:1; min-width:0; text-align:left;
-  background:var(--panel2); border:1px solid var(--line2); border-radius:8px; padding:3px 8px 3px 4px;
-  font:inherit; font-size:12px; color:var(--ink); cursor:pointer}
-.owner:hover{border-color:var(--cyan)}
-.owner .avatar{width:22px; height:22px; font-size:9px; border-radius:6px; flex:none}
-.owner .oname{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-.owner .faint{color:var(--faint)}
+/* card meta: element / weapon-type glyphs + (weapons) the carrier's avatar */
+.goal .gmeta{display:flex; align-items:center; gap:6px}
+.attr{display:inline-flex; width:17px; height:17px; flex:none}
+.attr-img{width:17px; height:17px; object-fit:contain}
+.attr .dot{width:9px; height:9px; margin:4px}                 /* fallback when a glyph is missing */
+.ochip{display:inline-flex; align-items:center; justify-content:center; flex:none;
+  width:22px; height:22px; padding:0; border-radius:6px; border:1px solid var(--line2);
+  background:var(--panel2); color:var(--faint); font:inherit; font-size:12px; cursor:pointer}
+.ochip:hover{border-color:var(--cyan)}
+.ochip.none{border-style:dashed}
+.ochip .avatar{width:20px; height:20px; font-size:8px; border-radius:5px}
+/* rarity as a ring on the card avatar (the meta line no longer spells "5★").
+   It rides in an ::after so it sits ABOVE .avatar-img, which covers the avatar's
+   own inset shadow. */
+.avatar.r5, .avatar.r4, .avatar.r3{position:relative}
+.avatar.r5::after, .avatar.r4::after, .avatar.r3::after{
+  content:''; position:absolute; inset:0; border-radius:inherit; z-index:2; pointer-events:none}
+.avatar.r5::after{box-shadow:inset 0 0 0 2px var(--r5)}
+.avatar.r4::after{box-shadow:inset 0 0 0 2px var(--r4)}
+.avatar.r3::after{box-shadow:inset 0 0 0 2px var(--r3)}
 
 /* ── pages: Ledger | Teams header nav + the Teams page ── */
 .pagenav{display:flex; gap:4px; margin-top:14px}
@@ -418,7 +429,7 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
 .tcols{display:grid; grid-template-columns:minmax(215px, 250px) minmax(0, 1fr); gap:16px; align-items:start}
 @media(max-width:860px){ .tcols{grid-template-columns:1fr} }
 .rlist{display:flex; flex-direction:column; gap:6px; margin-bottom:10px}
-.rcard{display:grid; grid-template-columns:34px minmax(0,1fr) auto 5px; grid-template-rows:auto auto;
+.rcard{display:grid; grid-template-columns:34px minmax(0,1fr) auto auto; grid-template-rows:auto auto;
   gap:2px 8px; align-items:center; border:1px solid var(--line2); border-radius:9px;
   background:var(--panel2); padding:6px 8px; cursor:grab; font-size:12.5px}
 .rcard:active{cursor:grabbing}
@@ -436,11 +447,10 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
 .rcard .rwpn img{width:16px; height:16px; object-fit:contain; border-radius:3px; flex:none}
 .rcard .rwpn .wname{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .rcard .rwpn.none{color:var(--faint)}
-/* energy: ONE vertical bar per point of budget (a support with energy 2 shows
-   two), stacked bottom-up and lit while that point is still free */
-.energy{grid-column:4; grid-row:1/3; justify-self:end; display:flex; flex-direction:column-reverse;
-  gap:2px; width:5px; height:34px}
-.energy i{flex:1; border-radius:3px; background:var(--line2)}
+/* energy: ONE vertical bar per point of budget, SIDE BY SIDE (a support with
+   energy 2 shows two bars); a bar is lit while that point is still free */
+.energy{grid-column:4; grid-row:1/3; justify-self:end; display:flex; gap:2px; height:34px}
+.energy i{width:4px; border-radius:3px; background:var(--line2)}
 .energy i.on{background:var(--cyan)}
 .tgrid{display:grid; grid-template-columns:repeat(auto-fill, minmax(185px, 1fr)); gap:10px; margin-bottom:12px}
 .team{border:1px solid var(--line); border-radius:10px; padding:10px 12px}
@@ -466,6 +476,28 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
 
 /* Completed tab: node indicator — lit diamond = owned nodes cover the
    per-rarity template plan (live: template edits re-grade it) */
+/* a maxed goal flies toward the summary's Completed tab, then really moves */
+@keyframes goalLeave{
+  0%{ transform:none; opacity:1 }
+  100%{ transform:translateX(-18px) scale(.86); opacity:0 }
+}
+.goal.leaving{animation:goalLeave .38s ease-in forwards; pointer-events:none}
+@keyframes tabPulse{
+  0%,100%{ box-shadow:none }
+  40%{ box-shadow:0 0 0 2px var(--cyan) }
+}
+.tabs button.pulse{animation:tabPulse .9s ease-out}
+/* Completed tab: a compact grid — a finished build needs no numbers */
+.dgrid{display:grid; grid-template-columns:repeat(auto-fill, minmax(132px, 1fr)); gap:8px}
+.dcard{display:flex; align-items:center; gap:7px; padding:5px 6px; border:1px solid var(--line2);
+  border-radius:9px; background:var(--panel2); font-size:12.5px; cursor:help}
+.dcard.r5{background:rgba(229,181,102,.07)}
+.dcard.r4{background:rgba(166,127,224,.08)}
+.dcard.r3{background:rgba(92,168,222,.08)}
+.dcard .avatar{width:28px; height:28px; font-size:10px; border-radius:7px; flex:none}
+.dcard .dname{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.dcard .tiny{flex:none; padding:2px 5px}
+
 .nodechk{width:9px; height:9px; flex:none; border-radius:2px; transform:rotate(45deg);
   border:1px solid var(--line2); background:var(--panel2); cursor:help}
 .nodechk.on{background:var(--acc,var(--cyan)); border-color:var(--acc,var(--cyan));
@@ -656,7 +688,9 @@ const GAME = {
      the built-in colored dots / element monograms. For files that don't
      follow the pattern, map the display name to a base filename (no ext):
        overrides: { "Shell Credit": "credits" }   →  images/materials/credits.png   */
-  icons: { dir:'images/', kinds:{char:'characters/', mat:'materials/', weapon:'weapons/'},
+  // `attr` = the game's element + weapon-type glyphs (one flat folder — the two
+  // vocabularies don't collide: Spectro/Aero/… vs Sword/Broadblade/…)
+  icons: { dir:'images/', kinds:{char:'characters/', mat:'materials/', weapon:'weapons/', attr:'attributes/'},
            exts:['png','webp','jpg'],
            overrides:{
              // pooled EXP pseudo-materials render as the max-tier item of their type
@@ -2361,20 +2395,21 @@ const lvlLabel = g => g.cur.ord === g.tgt.ord
 /* a paused card is simply DIMMED (no tag — user's call): its tiles and bar show
    the FULL cost, since none of the inventory is allocated to it, so what it
    displays is exactly what resuming would cost */
-/* who this weapon is for (goal.owner). Click to assign or change — the palette
-   offers the roster; the same link drives the Teams page's weapon slots. */
-function ownerRow(g, i){
+/* the game's own element / weapon-type glyphs (kind 'attr'), replacing the words
+   in the card meta. Rarity moved onto the avatar as a colored ring (.avatar.rN),
+   so the meta line is icons + level and nothing else. */
+const attrIco = (name, what) =>
+  `<span class="attr" title="${esc(name)} ${what}">${icoImg(name, 'attr', 'attr-img')}</span>`;
+
+/* who this weapon is for (goal.owner) — an avatar sitting on the level line;
+   a faint ＋ when unlinked. Click assigns/reassigns, right-click unlinks. */
+function ownerChip(g, i){
   const ch = g.owner && GAME.characters[g.owner];
-  const body = ch
-    ? `<span class="avatar" style="background:${ch.elColor}">${ch.mono}${icoImg(ch.name, 'char', 'avatar-img')}</span>` +
-      `<span class="oname">for ${esc(ch.name)}</span>`
-    : `<span class="oname faint">＋ link to a character</span>`;
-  return `<div class="ownerrow">` +
-    `<button class="owner" data-act="own" data-g="${i}" ` +
-      `title="${ch ? esc(ch.name) + ' carries this weapon — click to reassign' : 'Not linked to a character — click to assign'}">` +
-      `${body}</button>` +
-    (ch ? `<button class="tiny" data-act="unown" data-g="${i}" title="Unlink from ${esc(ch.name)}">✕</button>` : '') +
-  `</div>`;
+  return `<button class="ochip${ch ? '' : ' none'}" data-act="own" data-g="${i}" ` +
+    `title="${ch ? esc(ch.name) + ' carries this — click to reassign, right-click to unlink'
+                 : 'Not linked to a character — click to assign one'}">` +
+    (ch ? `<span class="avatar" style="background:${ch.elColor}">${ch.mono}${icoImg(ch.name, 'char', 'avatar-img')}</span>`
+        : `＋`) + `</button>`;
 }
 
 function wpnCard(g, i, wk, vw, ceOnly){
@@ -2382,11 +2417,12 @@ function wpnCard(g, i, wk, vw, ceOnly){
   return `<div class="goal${g.off ? ' off' : ''}" data-g="${i}" style="--acc:var(--weapon)">
     <div class="goal-top">
       <span class="prio">P${i+1}</span>
-      <span class="avatar" style="background:var(--r${w.rarity})">${w.mono}${icoImg(w.name, 'weapon', 'avatar-img')}</span>
+      <span class="avatar r${w.rarity}" style="background:var(--r${w.rarity})">${w.mono}${icoImg(w.name, 'weapon', 'avatar-img')}</span>
       <div class="gname" title="${esc(w.name)}">${esc(w.name)}${w.beta ? '<span class="badge">3.5 BETA</span>' : ''}</div>
       <div class="gctrl">${goalCtrls(i, !Object.keys(wk.need).length, g.off)}</div>
     </div>
-    <div class="gmeta">${w.rarity}★ ${w.wtype} weapon · ${lvlLabel(g)}</div>${ownerRow(g, i)}${readyBar(vw)}${goalMats(vw, ceOnly)}</div>`;
+    <div class="gmeta">${ownerChip(g, i)}${attrIco(w.wtype, 'weapon')}<span>${lvlLabel(g)}</span></div>` +
+    `${readyBar(vw)}${goalMats(vw, ceOnly)}</div>`;
 }
 
 function charCard(g, i, wk, vw, ceOnly){
@@ -2394,11 +2430,12 @@ function charCard(g, i, wk, vw, ceOnly){
   return `<div class="goal${g.off ? ' off' : ''}" data-g="${i}" style="--acc:${ch.elColor}">
     <div class="goal-top">
       <span class="prio">P${i+1}</span>
-      <span class="avatar" style="background:${ch.elColor}">${ch.mono}${icoImg(ch.name, 'char', 'avatar-img')}</span>
+      <span class="avatar r${ch.rarity}" style="background:${ch.elColor}">${ch.mono}${icoImg(ch.name, 'char', 'avatar-img')}</span>
       <div class="gname" title="${esc(ch.name)}">${esc(ch.name)}${ch.beta ? '<span class="badge">3.5 BETA</span>' : ''}</div>
       <div class="gctrl">${goalCtrls(i, !Object.keys(wk.need).length, g.off)}</div>
     </div>
-    <div class="gmeta">${ch.rarity}★ ${ch.element} · ${ch.wtype} · ${lvlLabel(g)}</div>${readyBar(vw)}${miniTree(g)}${goalMats(vw, ceOnly)}</div>`;
+    <div class="gmeta">${attrIco(ch.element, 'element')}${attrIco(ch.wtype, 'weapon type')}<span>${lvlLabel(g)}</span></div>` +
+    `${readyBar(vw)}${miniTree(g)}${goalMats(vw, ceOnly)}</div>`;
 }
 
 function renderGoals(){
@@ -2408,6 +2445,11 @@ function renderGoals(){
     ? state.goals.map((g, i) => goalCard(g, i, walk[i])).join('')
     : '<div class="empty">No goals yet — press Ctrl+K (or “⌕ Add goal…”) to queue a character or weapon.</div>';
   box.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', onAct));
+  box.querySelectorAll('[data-act="own"]').forEach(b => b.addEventListener('contextmenu', e => {
+    e.preventDefault();                                  // right-click unlinks the carrier
+    delete state.goals[+e.currentTarget.dataset.g].owner;
+    save(); render();
+  }));
   // cards are read-only status views — selects and node buttons live in the modal
   bindIcons(box);
   bindTileClicks(box);
@@ -2448,7 +2490,6 @@ function onAct(e){
   if(act === 'edit'){ editIdx = i; render(); return; }
   if(act === 'off') state.goals[i].off = !state.goals[i].off;   // pause / resume: reversible in one click, no undo entry
   if(act === 'own')   return openPal({mode:'owner', g:i});      // who carries this weapon
-  if(act === 'unown') delete state.goals[i].owner;
   const fixEdit = () => {                     // keep the pop-up pointed at the same goal
     if(editIdx !== null){
       if(editIdx === i) editIdx = null;
@@ -2601,6 +2642,52 @@ function linkWeapon(wgoal, char){
   for(const g of wpnGoals()) if(g.owner === char) delete g.owner;
   if(wgoal) wgoal.owner = char;
 }
+/* ── a maxed goal completes itself ──
+   "✓ Max goal" (editor) and the palette's right-click add both SAY the build is
+   already done, so the goal moves straight to Completed instead of sitting in
+   the queue waiting for a ✓ click. Everything else (level edits, ⬆ purchases)
+   still grows the manual ✓ button — nothing vanishes mid-edit.
+   The card FLIES OUT first (`.goal.leaving`, ~380ms) and the state changes only
+   when the flight ends, so the undo snapshot taken inside withUndo still holds
+   the pre-max build: one Ctrl+Z restores both the levels and the queue slot. */
+const LEAVE_MS = 380;
+const goalName = g => isWpn(g) ? GAME.weapons[g.weapon].name : GAME.characters[g.char].name;
+function pulseDone(){                        // the Completed tab lights up on arrival
+  const b = [...document.querySelectorAll('#tabs button')].find(x => x.dataset.t === 'done');
+  if(!b) return;
+  b.classList.add('pulse');
+  setTimeout(() => b.classList.remove('pulse'), 900);
+}
+let leaveTimer = null, leavePending = null;
+/* apply a completion that is mid-flight. Called by the timer, and eagerly when a
+   SECOND goal is maxed before the first has landed (one flight at a time) —
+   the tests use it to skip the animation. */
+function flushCompletion(){
+  clearTimeout(leaveTimer); leaveTimer = null;
+  const fn = leavePending; leavePending = null;
+  if(fn) fn();
+}
+function completeGoal(g){
+  flushCompletion();                         // land any goal still in the air
+  const apply = () => {
+    const i = state.goals.indexOf(g);
+    if(i < 0) return;                        // it left the queue while the card flew
+    withUndo(`Completed ${goalName(g)}`, () => {
+      maxGoal(g);
+      g.off = false;                         // paused is a queue-only state
+      state.goals.splice(i, 1);
+      state.done.push(g);
+      if(editIdx !== null){ if(editIdx === i) editIdx = null; else if(editIdx > i) editIdx--; }
+    });
+    pulseDone();
+  };
+  const card = document.querySelector(`#goals .goal[data-g="${state.goals.indexOf(g)}"]`);
+  if(!card) return apply();                  // nothing to animate (e.g. the Teams page is up)
+  card.classList.add('leaving');
+  leavePending = apply;
+  leaveTimer = setTimeout(flushCompletion, LEAVE_MS);
+}
+
 /* current → target: the build is ALREADY DONE. Levels and skills snap to the
    target, planned nodes flip to owned, skipped ones stay skipped — the goal
    then costs nothing and its card offers ✓ Mark completed. Shared by the
@@ -2627,7 +2714,11 @@ function palActivate(it, built){
   else if(mode === 'equip') linkWeapon(it.ref, pick.char);
   else{
     const g = it.kind === 'wpn' ? newWpnGoal(it.id, true) : newGoal(it.id, true, state.defaults);
-    state.goals.push(built ? maxGoal(g) : g);
+    if(built){ state.done.push(maxGoal(g)); }   // already built → it belongs on the Completed tab
+    else state.goals.push(g);
+    save(); render();
+    if(built) pulseDone();                      // no card to fly — flash where it landed
+    return;
   }
   save(); render();
 }
@@ -3192,46 +3283,40 @@ function renderSummary(){
   const el = $('#summary');
 
   if(state.tab === 'done'){
+    /* A finished build needs no numbers — a completed goal is completed. The tab
+       is a compact GRID of icon + name (the level / forte / node-plan detail
+       lives in the tooltip), and ↩ is the only action: it returns the goal to
+       the queue, where ✕ can still delete it. There is no "forget" button here —
+       in-game a build can't be un-done (user's call). */
     el.innerHTML = state.done.length
-      ? `<div class="gmeta" style="margin-bottom:8px">Finished builds — out of the queue and totals. ↩ returns one to the end of the queue (raise its target to keep going); ✕ forgets it.</div>` +
-        state.done.map((g, i) => {
-          const isWpn = g.weapon !== undefined;
-          const it = isWpn ? GAME.weapons[g.weapon] : GAME.characters[g.char];
-          const bg = isWpn ? `var(--r${it.rarity})` : it.elColor;
-          let meta = `${it.rarity}★ · ${ORD_LABEL(g.tgt.ord)}`, chk = '';
-          if(!isWpn){
+      ? `<div class="gmeta" style="margin-bottom:8px">Finished builds — out of the queue and totals. ↩ returns one to the end of the queue (raise its target to keep going).</div>` +
+        `<div class="dgrid">` + state.done.map((g, i) => {
+          const isW = isWpn(g);
+          const it = isW ? GAME.weapons[g.weapon] : GAME.characters[g.char];
+          const bg = isW ? `var(--r${it.rarity})` : it.elColor;
+          let tip = `${it.name} — ${it.rarity}★ · ${ORD_LABEL(g.tgt.ord)}`;
+          if(!isW){
             const sk = g.cur.skills;
-            meta += ` · forte ${sk.every(v => v === sk[0]) ? 'all ' + sk[0] : sk.join('/')}`;
-            const miss = nodeShortfall(g.cur, state.defaults[it.rarity]);
+            tip += ` · ${it.element} · forte ${sk.every(v => v === sk[0]) ? 'all ' + sk[0] : sk.join('/')}`;
+            const miss = nodeShortfall(g.cur, state.defaults[it.rarity]);   // live vs the template
             const parts = [];
             if(miss.minor) parts.push(`${miss.minor} minor stat node${miss.minor > 1 ? 's' : ''}`);
             if(miss.major) parts.push(`${miss.major} major stat node${miss.major > 1 ? 's' : ''}`);
             if(miss.inh1) parts.push('Inherent Ⅰ');
             if(miss.inh2) parts.push('Inherent Ⅱ');
-            chk = `<span class="nodechk${parts.length ? '' : ' on'}" title="${esc(parts.length
-              ? `Below the ${it.rarity}★ template's node plan: ${parts.join(' · ')}`
-              : `Owned forte nodes cover the ${it.rarity}★ template's plan`)}"></span>`;
+            tip += parts.length ? ` · below the ${it.rarity}★ template: ${parts.join(', ')}`
+                                : ` · nodes cover the ${it.rarity}★ template`;
           }
-          return `<div class="goalstat" style="--acc:${isWpn ? 'var(--weapon)' : it.elColor}">` +
-            `<span class="avatar" style="background:${bg};width:24px;height:24px;font-size:10px;border-radius:6px">${it.mono}${icoImg(it.name, isWpn ? 'weapon' : 'char', 'avatar-img')}</span>` +
-            `<strong>${esc(it.name)}</strong><span class="gmeta">${meta}</span>${chk}` +
-            `<span class="st ready">DONE</span>` +
-            `<button class="tiny" data-undone="${i}" title="Return to the end of the queue">↩</button>` +
-            `<button class="tiny danger" data-rmdone="${i}" title="Forget — the character becomes addable again">✕</button></div>`;
-        }).join('')
-      : '<div class="empty">Nothing completed yet — when a goal needs nothing, its card grows a ✓ button.</div>';
+          return `<div class="dcard r${it.rarity}" title="${esc(tip)}">` +
+            `<span class="avatar r${it.rarity}" style="background:${bg}">${it.mono}${icoImg(it.name, isW ? 'weapon' : 'char', 'avatar-img')}</span>` +
+            `<span class="dname">${esc(it.name)}</span>` +
+            `<button class="tiny" data-undone="${i}" title="Return ${esc(it.name)} to the end of the queue">↩</button>` +
+          `</div>`;
+        }).join('') + `</div>`
+      : '<div class="empty">Nothing completed yet — a goal that needs nothing offers ✓, and “✓ Max goal” sends one straight here.</div>';
     el.querySelectorAll('[data-undone]').forEach(b => b.addEventListener('click', e => {
       state.goals.push(state.done.splice(+e.currentTarget.dataset.undone, 1)[0]);
       save(); render();
-    }));
-    el.querySelectorAll('[data-rmdone]').forEach(b => b.addEventListener('click', e => {
-      const i = +e.currentTarget.dataset.rmdone;
-      const g = state.done[i];
-      const nm = g.weapon !== undefined ? GAME.weapons[g.weapon].name : GAME.characters[g.char].name;
-      withUndo(`Forgot ${nm}`, () => {
-        state.done.splice(i, 1);
-        pruneLinks();                         // forgotten = out of the roster → off any team, no weapon link
-      });
     }));
     bindIcons(el);
     return;
@@ -3399,7 +3484,7 @@ function renderModal(){
   }
   html += `<div style="display:flex; gap:8px; margin-top:16px; flex-wrap:wrap">
     <button class="tiny" data-max title="Target → Lv 90${isW ? '' : ', all skills 10, every node &amp; passive planned'}">⤒ Max target</button>
-    <button class="tiny good" data-maxgoal title="Current → target${isW ? '' : ': levels, skills, and every planned node becomes owned'} — the card then offers ✓ Mark completed">✓ Max goal</button>
+    <button class="tiny good" data-maxgoal title="Current → target${isW ? '' : ': levels, skills, and every planned node becomes owned'} — the build is done, so it moves straight to the Completed tab (Ctrl+Z undoes)">✓ Max goal</button>
   </div>`;
 
   /* ── upgrade transactions: spend inventory, advance current one step ──
@@ -3477,7 +3562,8 @@ function renderModal(){
   // Max goal: current snaps to target (the backlog "set current = target"
   // quick action) — planned nodes flip to owned, skipped ones stay skipped;
   // the goal then costs nothing and its card offers ✓ Mark completed
-  box.querySelector('[data-maxgoal]').addEventListener('click', () => { maxGoal(g); save(); render(); });
+  // ✓ Max goal: the build is done → close the editor, fly the card to Completed
+  box.querySelector('[data-maxgoal]').addEventListener('click', () => { closeEdit(); completeGoal(g); });
   box.querySelectorAll('[data-upg]').forEach(b => b.addEventListener('click', e => {
     const st = steps[+e.currentTarget.dataset.upg];
     if(!st || Object.keys(affordCost(state.inv, st.cost, state.synth)).length) return;

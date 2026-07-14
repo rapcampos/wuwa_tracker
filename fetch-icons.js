@@ -18,13 +18,24 @@ const want = [];
 // '#' and ':' are dropped from wiki file names — "Weapon Broadblade41.png",
 // "Resonator Yangyang Xuanling.png" (for the page "Yangyang: Xuanling")
 const wikiName = n => n.replace(/[#:]/g, '');
+/* Where the wiki's file title doesn't follow from the in-game display name.
+   The 3.5 kernels are the case in point: the game calls them "Autopuppet Kernel
+   (LF)" but the wiki kept the beta prefix form, "Item LF Autopuppet Kernel.png".
+   Keyed by display name → full wiki file title. */
+const TITLE_OVERRIDES = {
+  'Autopuppet Kernel (LF)': 'File:Item LF Autopuppet Kernel.png',
+  'Autopuppet Kernel (MF)': 'File:Item MF Autopuppet Kernel.png',
+  'Autopuppet Kernel (HF)': 'File:Item HF Autopuppet Kernel.png',
+  'Autopuppet Kernel (FF)': 'File:Item FF Autopuppet Kernel.png',
+};
 for (const ch of Object.values(GAME.characters))
   if (!exists('char', ch.name)) want.push({kind:'char', name:ch.name, title:`File:Resonator ${wikiName(ch.name)}.png`});
 for (const w of Object.values(GAME.weapons))
   if (!exists('weapon', w.name)) want.push({kind:'weapon', name:w.name, title:`File:Weapon ${wikiName(w.name)}.png`});
 for (const id of Object.keys(MATS))
   if (id !== 'exp' && id !== 'wexp' && !exists('mat', MATS[id].name))
-    want.push({kind:'mat', name:MATS[id].name, title:`File:Item ${MATS[id].name}.png`});
+    want.push({kind:'mat', name:MATS[id].name,
+               title: TITLE_OVERRIDES[MATS[id].name] || `File:Item ${wikiName(MATS[id].name)}.png`});
 // element + weapon-type glyphs (the card meta shows these instead of the words)
 const attrs = [...new Set(Object.values(GAME.characters).flatMap(c => [c.element, c.wtype]))];
 for (const a of attrs)

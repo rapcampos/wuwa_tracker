@@ -675,13 +675,15 @@ visual aid, not a test — still be careful with CSS-only changes.
 ## Roadmap / open items
 
 1. **3.5 act-2 checkpoint (2026-07-30, Suisui's release):** re-verify
-   Firstlight's Herald's exoswarm enemy family (drop its `beta:true`), and
-   swap the ten stopgap icons for proper wiki files if uploaded by then —
-   `images/missing_icons.md` has the list (8 materials currently from
-   Game8's framed 120×120 icons, 2 weapons from wiki Full-art renders):
-   delete the local files and re-run `node fetch-icons.js`. (Icon source
-   of record: fandom wiki files `Item/Resonator/Weapon <Name>.png` via the
-   MediaWiki API — page fetches are Cloudflare-blocked but the API and
+   Firstlight's Herald's exoswarm enemy family and drop its `beta:true` —
+   that is now the ONLY open item there. The ten stopgap icons were swapped
+   for proper wiki files on 2026-07-14: `node fetch-icons.js` reports
+   `0 fetched, 0 not found` and `images/missing_icons.md` records the
+   gotcha (the wiki kept the beta prefix form for the kernels, so the
+   fetcher carries a `TITLE_OVERRIDES` map: display name → wiki file title).
+   (Icon source of record: fandom wiki files `Item/Resonator/Weapon
+   <Name>.png` and `<Name> Icon.png` for the element/weapon-type glyphs, via
+   the MediaWiki API — page fetches are Cloudflare-blocked but the API and
    static.wikia CDN are not; payloads are WebP saved as .png; '#' and ':'
    are dropped from file names.) The 2026-07-10 launch checkpoint is done —
    see the provenance section. Note: the Dimbreath/WutheringData datamine

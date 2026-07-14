@@ -1892,6 +1892,21 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
      w.eval(`equipOf(wpnGoals(), 'phoebe').weapon`) === 'stringmaster' &&
      rcard('phoebe').querySelector('.rwpn .wname').textContent.includes('Stringmaster'));
 
+  // fuzzy filter over the roster panel (same fuzzyScore as the palette/inventory)
+  const find = () => d.querySelector('#rosterFind');
+  const rnames = () => rcards().map(c => c.dataset.c);
+  const allNames = rnames();
+  find().value = 'sui'; fire(find(), 'input');
+  ok('the filter narrows the roster', rnames().join() === 'suisui' && allNames.length > 1);
+  ok('the input keeps its value (it lives outside the rebuilt list, so focus survives)',
+     d.querySelector('#rosterFind').value === 'sui' &&
+     d.querySelector('#rosterFind') === find());          // the node itself was not replaced
+  find().value = 'zzz'; fire(find(), 'input');
+  ok('no match says so', /No character matches/.test(d.querySelector('#rlist').textContent) &&
+     rcards().length === 0);
+  find().value = ''; fire(find(), 'input');
+  ok('clearing it brings the whole roster back', rnames().join() === allNames.join());
+
   // drag a roster card onto an empty slot
   const emptySlot = () => d.querySelector('#teams .team[data-t="0"] .slot.empty');
   fire(rcard('suisui'), 'dragstart');

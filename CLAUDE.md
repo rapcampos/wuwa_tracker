@@ -219,7 +219,14 @@ it goes in block 2 with tests; presentation goes in block 3.
   what is still lit sits on the right; dimmed when out of energy, desaturated
   when the goal is paused, ✓ done for completed characters). Characters with
   energy left float to the TOP of the roster, spent ones sink (a stable sort, so
-  each group keeps its ledger order). A roster card is the drag source
+  each group keeps its ledger order). A **fuzzy filter box** (`#rosterFind`,
+  transient `rosterFilter`, the same `fuzzyScore` as the palette and the
+  inventory pop-up) narrows the panel and, once you type, ranks by match quality
+  inside each energy group. It rebuilds per keystroke *safely* because the input
+  sits OUTSIDE `#rlist` (`renderRosterList` redraws only the list, so focus
+  survives) — the same rule the inventory pop-up follows. The DnD binder is split
+  accordingly: `bindRosterCards` (drag sources + weapon strips, rebound per
+  keystroke) vs `bindSlotDrops`/`bindTeamDnD` (bound once per render). A roster card is the drag source
   (`rosterDrag` → drop on a `.slot`, then `pruneLinks()` repairs an illegal
   drop); clicking an empty slot still opens the palette. Team cards carry a ⠿
   grip and drag to reorder (`teamDrag`/`moveTeam`) — **order is not cosmetic**:

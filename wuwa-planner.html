@@ -419,6 +419,9 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
 /* Teams page: roster column (drag source) left, team grid right */
 .tcols{display:grid; grid-template-columns:minmax(215px, 250px) minmax(0, 1fr); gap:16px; align-items:start}
 @media(max-width:860px){ .tcols{grid-template-columns:1fr} }
+.rfind{width:100%; margin-bottom:7px; padding:5px 8px; font-size:12px; border-radius:7px;
+  border:1px solid var(--line); background:var(--panel2); color:var(--ink)}
+.rfind:focus{outline:none; border-color:var(--cyan)}
 .rlist{display:flex; flex-direction:column; gap:6px; margin-bottom:10px}
 .rcard{display:grid; grid-template-columns:34px minmax(0,1fr) auto auto; grid-template-rows:auto auto;
   gap:2px 8px; align-items:center; border:1px solid var(--line2); border-radius:9px;
@@ -2941,13 +2944,39 @@ function rosterCard(g){
 
 let rosterDrag = null;                 // charId being dragged from the roster panel
 let teamDrag = null;                   // team index being dragged in the grid
+let rosterFilter = '';                 // transient fuzzy filter over the roster panel
+
+/* the roster panel's list, in display order: characters who can still join a
+   team first, spent ones after (stable, so each group keeps its ledger order),
+   narrowed by the fuzzy filter box (same `fuzzyScore` as the palette and the
+   inventory pop-up — "shk" finds Shorekeeper) and, once you type, ranked by
+   match quality inside each energy group. */
+function rosterList(){
+  const q = rosterFilter.trim();
+  const scored = rosterGoals()
+    .map(g => ({g, s: fuzzyScore(q, GAME.characters[g.char].name)}))
+    .filter(x => x.s >= 0);
+  return scored
+    .sort((a, b) => (energyLeft(state.teams, b.g.char) > 0) - (energyLeft(state.teams, a.g.char) > 0)
+                 || (q ? a.s - b.s : 0))
+    .map(x => x.g);
+}
+/* rebuilt on every keystroke — SAFE because the filter input lives OUTSIDE
+   #rlist (the same rule the inventory pop-up follows), so it never loses focus */
+function renderRosterList(){
+  const list = $('#rlist');
+  if(!list) return;
+  const roster = rosterList();
+  list.innerHTML = roster.length ? roster.map(rosterCard).join('')
+    : `<div class="empty">${rosterFilter.trim() ? 'No character matches that.'
+                                                : 'No characters yet — add goals on the Ledger page first.'}</div>`;
+  bindRosterCards(list);
+  bindIcons(list);
+}
 
 function renderTeams(){
   const box = $('#teams');
-  // characters who can still join a team float to the top; the spent ones sink
-  // (Array#sort is stable, so each group keeps its ledger order)
-  const roster = rosterGoals().slice()
-    .sort((a, b) => (energyLeft(state.teams, b.char) > 0) - (energyLeft(state.teams, a.char) > 0));
+  const roster = rosterGoals();
   const teams = state.teams.map((t, i) =>
     `<div class="team" draggable="true" data-t="${i}">
       <div class="team-h">
@@ -2962,8 +2991,9 @@ function renderTeams(){
     `<div class="tcols">
       <aside>
         <div class="gmeta" style="margin-bottom:6px">Roster — everyone on the Ledger. Drag onto a slot; a dimmed card has no energy left.</div>
-        ${roster.length ? `<div class="rlist">${roster.map(rosterCard).join('')}</div>`
-                        : '<div class="empty">No characters yet — add goals on the Ledger page first.</div>'}
+        <input id="rosterFind" class="rfind" type="text" placeholder="Filter roster…"
+               autocomplete="off" spellcheck="false" value="${esc(rosterFilter)}">
+        <div class="rlist" id="rlist"></div>
       </aside>
       <div>
         ${state.teams.length ? `<div class="tgrid">${teams}</div>`
@@ -2982,16 +3012,17 @@ function renderTeams(){
   }));
   box.querySelectorAll('[data-prio]').forEach(b => b.addEventListener('click', e =>
     prioritizeTeam(+e.currentTarget.dataset.prio)));
-  box.querySelectorAll('[data-eq]').forEach(b => b.addEventListener('click', e => {
-    e.stopPropagation();
-    openPal({mode:'equip', char: e.currentTarget.dataset.eq});
-  }));
   box.querySelectorAll('.slot').forEach(b => b.addEventListener('click', e => {
     const t = +e.currentTarget.dataset.t, s = +e.currentTarget.dataset.s;
     if(state.teams[t].chars[s]){ state.teams[t].chars[s] = null; save(); render(); }
     else openPal({mode:'slot', t, s});
   }));
-  bindRosterDnD(box);
+  box.querySelector('#rosterFind').addEventListener('input', e => {
+    rosterFilter = e.currentTarget.value;
+    renderRosterList();                  // the list only — the input keeps focus
+  });
+  renderRosterList();
+  bindSlotDrops(box);
   bindTeamDnD(box);
   bindIcons(box);
 }
@@ -2999,7 +3030,7 @@ function renderTeams(){
 /* drag a roster card onto a slot. The slot takes the character (replacing
    whoever sat there); sanitizeTeams then enforces the energy budget and the
    no-dupes-within-a-team rule, so an illegal drop simply doesn't stick. */
-function bindRosterDnD(box){
+function bindRosterCards(box){
   box.querySelectorAll('.rcard[draggable="true"]').forEach(card => {
     card.addEventListener('dragstart', e => {
       rosterDrag = card.dataset.c;
@@ -3008,6 +3039,12 @@ function bindRosterDnD(box){
     });
     card.addEventListener('dragend', () => { rosterDrag = null; card.classList.remove('dragging'); });
   });
+  box.querySelectorAll('[data-eq]').forEach(b => b.addEventListener('click', e => {
+    e.stopPropagation();
+    openPal({mode:'equip', char: e.currentTarget.dataset.eq});
+  }));
+}
+function bindSlotDrops(box){
   box.querySelectorAll('.slot').forEach(slot => {
     slot.addEventListener('dragover', e => {
       if(rosterDrag === null) return;

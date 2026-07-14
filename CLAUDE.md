@@ -114,8 +114,15 @@ it goes in block 2 with tests; presentation goes in block 3.
   max)` runs `maxTarget(goal)`, the same transform behind the editor's
   ⤒ Max target button (Lv90 · skills 10 · every node at least planned).
   Weapons already target Lv90 from `newWpnGoal`, so `max` is a no-op for
-  them. `#palHint` advertises it, and hides in team-pick mode (no "maxed"
-  concept when filling a slot).
+  them. `#palHint` advertises it, and hides in any pick mode (no "maxed"
+  concept when filling a slot). **`palPick` selects the mode** (null = the
+  normal add palette): `{mode:'slot',t,s}` a team member (roster chars with
+  energy left), `{mode:'owner',g}` who carries weapon goal #g (any roster
+  char), `{mode:'equip',char}` which LEDGER weapon a character carries —
+  entries carry `ref`, the weapon-goal OBJECT, because duplicate weapon goals
+  are legal and only the object identifies the copy. `PAL_PH` holds the
+  per-mode placeholder; the equip mode's empty state distinguishes "no weapon
+  in the ledger yet" from "every one is already carried".
 - **Editor skill controls**: each skill column has −/+ pairs under BOTH the
   current and target selects (`data-skc/sks/skd`), plus the bulk ±1 gutters
   flanking the grid. The goal editor deliberately has no bottom legend and
@@ -148,6 +155,20 @@ it goes in block 2 with tests; presentation goes in block 3.
   marking a goal done clears the flag (`sanitize` drops `off` inside `done`).
   Pausing/resuming is one click each way, so it is deliberately NOT wrapped in
   `withUndo`. All-paused is its own Total-tab empty state.
+- **Character ⇄ weapon link** (`goal.owner` on a WEAPON goal = the character
+  it is for): the link lives on the weapon, not the character, because weapon
+  goals may be duplicated — pointing from the weapon is the only unambiguous
+  direction, and it survives reordering (no indices). Only weapons already in
+  the ledger (queued or completed) can be linked; a character carries at most
+  ONE (`linkWeapon` unlinks the previous). Engine (pure, tested): `isWpn`,
+  `equipOf(goals, charId)`, `sanitizeOwners(wpnGoals, rosterIds)` — repairs in
+  place: an owner must be a roster character and may own one weapon, first
+  claim in list order wins (the queue is passed ahead of `done`, so it wins).
+  `pruneLinks()` (was `pruneTeams`) runs it plus `sanitizeTeams` whenever a
+  character leaves the roster. Surfaced on the Ledger as the weapon card's
+  **owner row** (`ownerRow`: avatar + "for Jinhsi", or "＋ link to a
+  character"; ✕ unlinks) and on the Teams page as the roster card's weapon
+  strip. Both open the palette (modes `owner` / `equip`).
 - **Teams (matrix team builder)**: a second page (`#pageTeams`, header nav
   "Ledger | Teams", `location.hash === '#teams'` routing — nav clicks call
   `showPage` directly so jsdom needs no hashchange event; boot calls
@@ -164,11 +185,33 @@ it goes in block 2 with tests; presentation goes in block 3.
   ids, dedupes within a team, enforces the budget with earlier teams
   winning, clamps/pads slots to 3; `name` survives only as a non-empty
   string — the UI shows positional "Team N" when absent). Empty slots open
-  the add palette in **pick mode** (`palPick = {t,s}`; roster-only entries,
-  cleared by `closePal`); clicking a filled slot empties it. Deleting a
-  queued goal or forgetting a completed one calls `pruneTeams()` (marking
+  the add palette in **pick mode** (`palPick = {mode:'slot',t,s}`; roster-only
+  entries, cleared by `closePal`); clicking a filled slot empties it. Deleting
+  a queued goal or forgetting a completed one calls `pruneLinks()` (marking
   done does NOT — still rostered). Teams are planning-only: no effect on
-  costs, totals, or the queue.
+  costs, totals — EXCEPT via ⚑ Prioritize, below.
+  **Page layout** (`.tcols`): the roster is a LEFT COLUMN of slim cards
+  (`rosterCard`: avatar · name · current level · linked-weapon strip · energy
+  pips; dimmed when out of energy, desaturated when the goal is paused, ✓ done
+  for completed characters). A roster card is the drag source
+  (`rosterDrag` → drop on a `.slot`, then `pruneLinks()` repairs an illegal
+  drop); clicking an empty slot still opens the palette. Team cards carry a ⠿
+  grip and drag to reorder (`teamDrag`/`moveTeam`) — **order is not cosmetic**:
+  `sanitizeTeams` resolves the energy budget with EARLIER teams winning, so
+  moving a team up can evict a shared support from one below it (the grip's
+  tooltip says so). Teams are **auto-named after their first member**
+  (`teamName`; positional "Team N" while slot 1 is empty) — the old custom
+  `name` field is gone from the save and from `sanitizeTeams`.
+- **⚑ Prioritize a team** (`prioritizeQueue`, engine/pure; `prioritizeTeam`
+  wraps it in `withUndo` — it moves many goals, so one Ctrl+Z must undo it):
+  the team's QUEUED characters move to the front of the queue **keeping the
+  relative order they already had there** (user's rule), each followed by the
+  weapon goal linked to them; everything else keeps its order behind that
+  block. Moved goals RESUME if paused ("prioritizing means I'm building this
+  now"). Completed members aren't in `state.goals` at all, so they're skipped
+  for free; an unlinked weapon doesn't move. It returns `{goals, moved}` and
+  mutates nothing — the caller clears `off`. Afterwards the UI switches to the
+  Ledger (that's what changed) and drops `editIdx` (indices shifted).
 - **Save format** lives in localStorage key `wuwa-planner-v1`. `sanitize()`
   migrates all older generations (v1 counts → v2 `{minor,major,inh}` arrays →
   current matrix) and repairs illegal states. Later-added top-level fields:
@@ -176,8 +219,10 @@ it goes in block 2 with tests; presentation goes in block 3.
   drove is gone; still sanitized so old saves don't error), `skipCE`
   ("Ignore credits & EXP"), `teams` (Teams page), `week`
   (`{start, used}` — weekly-boss claims spent this game week), `craftMode`
-  (`'reserve'|'priority'`, anything else sanitizes to `'reserve'`), and the
-  per-goal `off` (paused) — all default safely when absent. A saved
+  (`'reserve'|'priority'`, anything else sanitizes to `'reserve'`), the
+  per-goal `off` (paused) and, on weapon goals, `owner` (the character who
+  carries it) — all default safely when absent. A team's old custom `name` is
+  DROPPED on load (teams are auto-named after their first member now). A saved
   `tab:'left'` (the removed Inventory tab)
   migrates to Total. Never break old-save loading; add migrations instead.
   Storage is normalized (rewritten) once at boot.
@@ -595,8 +640,7 @@ visual aid, not a test — still be careful with CSS-only changes.
    see the provenance section. Note: the Dimbreath/WutheringData datamine
    is abandoned at 3.1.0 — verify post-3.1 data via Game8/prydwen instead.
 2. Backlog (user-approved ideas, unscheduled): "buy all affordable steps"
-   in the goal editor, Teams rename/reorder + "prioritize this team" queue
-   reordering, `iconSlug` duplicated between the app and `fetch-icons.js`,
+   in the goal editor, `iconSlug` duplicated between the app and `fetch-icons.js`,
    legacy unused `goal.open`. **Not doing:** Echo XP / tuners (user declined,
    Jul 2026). No farming-schedule/day-of-week features — WuWa domains are
    always open (user-confirmed). Per-block test isolation via `reset()` is

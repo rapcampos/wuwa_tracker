@@ -1180,9 +1180,9 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
      nav('teams').classList.contains('on') && w.location.hash === '#teams');
 
   const nChars = w.eval('state.goals.concat(state.done).filter(g => g.char !== undefined).length');
-  ok('roster chips: one per character (weapons excluded), none spent',
-     nChars >= 2 && d.querySelectorAll('#teams .rchip').length === nChars &&
-     d.querySelectorAll('#teams .rchip.spent').length === 0);
+  ok('roster cards: one per character (weapons excluded), none spent',
+     nChars >= 2 && d.querySelectorAll('#teams .rcard').length === nChars &&
+     d.querySelectorAll('#teams .rcard.spent').length === 0);
 
   fire(d.querySelector('#btnTeam'), 'click');
   ok('add team: one team card in the grid, auto-named, 3 vertically stacked slots',
@@ -1196,13 +1196,13 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
      d.querySelector('#palWrap').hidden === false &&
      d.querySelectorAll('#palList .pal-item').length === nChars &&
      ![...d.querySelectorAll('#palList .tag')].some(t2 => t2.textContent.includes('weapon')) &&
-     d.querySelector('#palIn').placeholder.includes('Team 1'));
+     d.querySelector('#palIn').placeholder.includes('member'));
   fire(d.querySelector('#palList .pal-item'), 'click');
   const teamSave = () => JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).teams;
   ok('picking fills the slot and persists',
      d.querySelectorAll('#teams .slot.empty').length === 2 &&
      teamSave()[0].chars.filter(Boolean).length === 1);
-  ok('used chip dims (energy 1 spent)', d.querySelectorAll('#teams .rchip.spent').length === 1);
+  ok('used roster card dims (energy 1 spent)', d.querySelectorAll('#teams .rcard.spent').length === 1);
 
   // the next slot's picker no longer offers the spent character
   fire(d.querySelector('#teams .slot.empty'), 'click');
@@ -1220,7 +1220,7 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   fire(d.querySelector('#teams .slot:not(.empty)'), 'click');
   ok('clicking a filled slot clears it',
      d.querySelectorAll('#teams .slot.empty').length === 3 &&
-     d.querySelectorAll('#teams .rchip.spent').length === 0);
+     d.querySelectorAll('#teams .rcard.spent').length === 0);
 
   // deleting the goal strips the character from any team
   fire(d.querySelector('#teams .slot.empty'), 'click');
@@ -1625,7 +1625,7 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok('repaired teams render (2 teams, 2 filled slots, both chips spent)',
      dT.querySelectorAll('#teams .team').length === 2 &&
      dT.querySelectorAll('#teams .slot:not(.empty)').length === 2 &&
-     dT.querySelectorAll('#teams .rchip.spent').length === 2);
+     dT.querySelectorAll('#teams .rcard.spent').length === 2);
   ok('old saves without teams default to none (jsdom main dom booted clean)', Array.isArray(savedT.teams));
 }
 
@@ -1727,6 +1727,126 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
      w.eval(`sanitize({}).craftMode`) === 'reserve' &&
      w.eval(`sanitize({craftMode: 'priority'}).craftMode`) === 'priority');
   w.eval(`state.craftMode = 'reserve'; save();`);
+}
+
+// ── character⇄weapon link: owner row on weapon cards, one weapon per char ──
+{
+  reset();                                   // Jinhsi (P1) / Phoebe (P2) / Suisui (P3)
+  w.eval(`state.goals.push(newWpnGoal('agesOfHarvest', false), newWpnGoal('stringmaster', false));
+          save(); render();`);
+  const wcard = i => d.querySelector(`.goal[data-g="${i}"]`);
+  const ownerBtn = i => wcard(i).querySelector('[data-act="own"]');
+  ok('a weapon card starts unlinked and invites a link',
+     ownerBtn(3).textContent.includes('link to a character') &&
+     wcard(0).querySelector('[data-act="own"]') === null);   // character cards have no owner row
+
+  fire(ownerBtn(3), 'click');
+  const palNames = () => [...d.querySelectorAll('#palList .pal-item')].map(e => e.textContent);
+  ok('the owner palette offers the roster characters, no weapons',
+     d.querySelector('#palWrap').hidden === false &&
+     palNames().length === 3 && palNames().some(n => n.includes('Jinhsi')) &&
+     !palNames().some(n => n.includes('Harvest')));
+  fire([...d.querySelectorAll('#palList .pal-item')].find(e => e.textContent.includes('Jinhsi')), 'click');
+  ok('picking an owner links it and shows the avatar row',
+     w.eval(`state.goals[3].owner`) === 'jinhsi' && ownerBtn(3).textContent.includes('for Jinhsi'));
+  ok('the link persists in the save',
+     JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).goals[3].owner === 'jinhsi');
+
+  // one character carries ONE weapon: linking the second moves the link
+  fire(ownerBtn(4), 'click');
+  fire([...d.querySelectorAll('#palList .pal-item')].find(e => e.textContent.includes('Jinhsi')), 'click');
+  ok('linking a second weapon to the same character unlinks the first',
+     w.eval(`[state.goals[3].owner, state.goals[4].owner].join()`) === ',jinhsi');
+
+  fire(wcard(4).querySelector('[data-act="unown"]'), 'click');
+  ok('✕ unlinks', w.eval(`state.goals[4].owner`) === undefined &&
+     wcard(4).querySelector('[data-act="unown"]') === null);
+
+  // a character leaving the roster takes its links with it
+  w.eval(`state.goals[3].owner = 'jinhsi'; save(); render();`);
+  fire(wcard(0).querySelector('[data-act="del"]'), 'click');      // delete Jinhsi
+  ok('deleting the character unlinks its weapon',
+     w.eval(`state.goals.filter(isWpn).every(g => g.owner === undefined)`) === true);
+  w.eval(`doUndo()`);                                            // put Jinhsi back
+  ok('undo restores the character and its link',
+     w.eval(`state.goals[0].char`) === 'jinhsi' && w.eval(`state.goals[3].owner`) === 'jinhsi');
+}
+
+// ── Teams page: roster panel, drag-to-slot, auto names, reorder, prioritize ──
+{
+  reset();
+  w.eval(`state.goals.push(newWpnGoal('agesOfHarvest', false));
+          state.goals[3].owner = 'jinhsi';
+          state.teams = [{chars:['phoebe', null, null]}, {chars:['jinhsi', null, null]}];
+          save(); showPage('teams'); render();`);
+  const rcards = () => [...d.querySelectorAll('#teams .rcard')];
+  const rcard = n => rcards().find(c => c.dataset.c === n);
+  const teamNames = () => [...d.querySelectorAll('#teams .team .tname')].map(e => e.textContent);
+
+  ok('roster cards carry level, energy pips and the linked weapon',
+     rcard('jinhsi').querySelector('.rlv').textContent.includes('Lv 1') &&
+     rcard('jinhsi').querySelectorAll('.energy i').length === 1 &&      // energy 1 → one pip
+     rcard('jinhsi').querySelector('.rwpn .wname').textContent.includes('Ages of Harvest') &&
+     rcard('suisui').querySelectorAll('.energy i').length === 2);       // seeded support: energy 2
+  ok('an unlinked character shows the empty weapon slot',
+     rcard('phoebe').querySelector('.rwpn').classList.contains('none'));
+  ok('a character already in a team has no energy left and cannot be dragged',
+     rcard('jinhsi').classList.contains('spent') &&
+     rcard('jinhsi').getAttribute('draggable') === 'false' &&
+     rcard('suisui').getAttribute('draggable') === 'true');
+  ok('teams are auto-named after their first member', teamNames().join() === 'Phoebe,Jinhsi');
+
+  // the roster card's weapon slot picks from the LEDGER's weapons only
+  // the ledger's only weapon is Jinhsi's, so there is nothing free to equip
+  fire(rcard('phoebe').querySelector('.rwpn'), 'click');
+  ok('the equip palette offers no weapon someone else carries, and says why',
+     d.querySelectorAll('#palList .pal-item').length === 0 &&
+     /already carried by someone else/.test(d.querySelector('#palList').textContent));
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
+  w.eval(`state.goals.push(newWpnGoal('stringmaster', false)); save(); render();`);
+  fire(rcard('phoebe').querySelector('.rwpn'), 'click');
+  ok('a free LEDGER weapon shows up (not the 89-weapon catalog) and links on pick',
+     d.querySelectorAll('#palList .pal-item').length === 1 &&
+     d.querySelector('#palList .pal-item').textContent.includes('Stringmaster'));
+  fire(d.querySelector('#palList .pal-item'), 'click');
+  ok('the roster card now shows Phoebe’s weapon',
+     w.eval(`equipOf(wpnGoals(), 'phoebe').weapon`) === 'stringmaster' &&
+     rcard('phoebe').querySelector('.rwpn .wname').textContent.includes('Stringmaster'));
+
+  // drag a roster card onto an empty slot
+  const emptySlot = () => d.querySelector('#teams .team[data-t="0"] .slot.empty');
+  fire(rcard('suisui'), 'dragstart');
+  ok('dragging a roster card marks it', rcard('suisui').classList.contains('dragging'));
+  fire(emptySlot(), 'drop');
+  ok('dropping fills the slot and persists',
+     w.eval(`state.teams[0].chars[1]`) === 'suisui' &&
+     JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).teams[0].chars[1] === 'suisui');
+
+  // reorder teams by dragging (jsdom rects are 0 ⇒ the drop resolves "before")
+  fire(d.querySelector('#teams .team[data-t="1"]'), 'dragstart');
+  fire(d.querySelector('#teams .team[data-t="0"]'), 'drop');
+  ok('dragging a team card reorders the grid', teamNames().join() === 'Jinhsi,Phoebe');
+
+  // ⚑ prioritize: members to the front (queue order kept), weapons in tow,
+  // paused members resume, and we land back on the Ledger
+  w.eval(`state.goals[1].off = true;                       // pause Phoebe
+          state.teams = [{chars:['suisui', 'phoebe', null]}];
+          save(); showPage('teams'); render();`);
+  const queue = () => w.eval(`JSON.stringify(state.goals.map(g =>
+    g.char !== undefined ? g.char : 'w:' + g.weapon))`);
+  ok('queue before: jinhsi, phoebe, suisui, + two weapons',
+     queue() === '["jinhsi","phoebe","suisui","w:agesOfHarvest","w:stringmaster"]');
+  fire(d.querySelector('#teams [data-prio]'), 'click');
+  ok('prioritize: members keep their queue order, each weapon behind its owner',
+     queue() === '["phoebe","w:stringmaster","suisui","jinhsi","w:agesOfHarvest"]');
+  ok('a paused member resumes when prioritized', w.eval(`!!state.goals[0].off`) === false);
+  ok('prioritizing lands on the Ledger page',
+     d.querySelector('#pageLedger').hidden === false && d.querySelector('#pageTeams').hidden === true);
+  w.eval(`doUndo()`);
+  ok('one Ctrl+Z puts the whole queue back (paused state included)',
+     queue() === '["jinhsi","phoebe","suisui","w:agesOfHarvest","w:stringmaster"]' &&
+     w.eval(`!!state.goals[1].off`) === true);
+  w.eval(`location.hash = ''; showPage('ledger');`);
 }
 
 dom.window.close();    // kill pending toast timers so Node exits promptly

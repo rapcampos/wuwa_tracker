@@ -400,25 +400,60 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
   padding:9px 11px 12px}
 .freefarm .ffcat{display:block; padding:11px 0 5px; font-size:10.5px; text-transform:uppercase;
   letter-spacing:.16em; color:var(--faint)}
+/* weapon card: who carries it (goal.owner) */
+.ownerrow{display:flex; align-items:center; gap:4px; padding:0 12px 8px}
+.owner{display:flex; align-items:center; gap:7px; flex:1; min-width:0; text-align:left;
+  background:var(--panel2); border:1px solid var(--line2); border-radius:8px; padding:3px 8px 3px 4px;
+  font:inherit; font-size:12px; color:var(--ink); cursor:pointer}
+.owner:hover{border-color:var(--cyan)}
+.owner .avatar{width:22px; height:22px; font-size:9px; border-radius:6px; flex:none}
+.owner .oname{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.owner .faint{color:var(--faint)}
+
 /* ── pages: Ledger | Teams header nav + the Teams page ── */
 .pagenav{display:flex; gap:4px; margin-top:14px}
 .pagenav button{background:transparent; border-color:transparent; color:var(--mut); border-radius:7px}
 .pagenav button.on{background:var(--panel2); border-color:var(--line); color:var(--ink)}
-#pageTeams .roster{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:16px}
-.rchip{display:inline-flex; align-items:center; gap:7px; border:1px solid var(--line2);
-  border-radius:20px; padding:3px 12px 3px 4px; font-size:12.5px}
-.rchip .avatar{width:22px; height:22px; font-size:9px; border-radius:50%}
-.rchip.spent{opacity:.35}
+/* Teams page: roster column (drag source) left, team grid right */
+.tcols{display:grid; grid-template-columns:minmax(215px, 250px) minmax(0, 1fr); gap:16px; align-items:start}
+@media(max-width:860px){ .tcols{grid-template-columns:1fr} }
+.rlist{display:flex; flex-direction:column; gap:6px; margin-bottom:10px}
+.rcard{display:grid; grid-template-columns:34px minmax(0,1fr) auto; grid-template-rows:auto auto;
+  gap:2px 8px; align-items:center; border:1px solid var(--line2); border-radius:9px;
+  background:var(--panel2); padding:6px 8px; cursor:grab; font-size:12.5px}
+.rcard:active{cursor:grabbing}
+.rcard.dragging{opacity:.45}
+.rcard.spent{opacity:.45}                 /* no energy left to join another team */
+.rcard.off{filter:saturate(.35)}          /* paused goal */
+.rcard .avatar{width:34px; height:34px; grid-row:1/3; font-size:12px; border-radius:8px}
+.rcard .rname{font-family:'Chakra Petch',sans-serif; font-weight:600; font-size:13px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.rcard .rlv{color:var(--mut); font-size:10.5px; justify-self:end; white-space:nowrap}
+.rcard .rwpn{grid-column:2/4; display:flex; align-items:center; gap:5px; min-width:0;
+  border:1px solid transparent; border-radius:6px; padding:1px 4px 1px 2px; margin-left:-2px;
+  background:transparent; font:inherit; font-size:10.5px; color:var(--mut); cursor:pointer; text-align:left}
+.rcard .rwpn:hover{border-color:var(--cyan); color:var(--ink)}
+.rcard .rwpn img{width:16px; height:16px; object-fit:contain; border-radius:3px; flex:none}
+.rcard .rwpn .wname{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.rcard .rwpn.none{color:var(--faint)}
+.energy{display:inline-flex; gap:2px; align-items:center}
+.energy i{width:6px; height:6px; border-radius:50%; background:var(--cyan); display:block}
+.energy i.spent{background:var(--line2)}
 .tgrid{display:grid; grid-template-columns:repeat(auto-fill, minmax(185px, 1fr)); gap:10px; margin-bottom:12px}
 .team{border:1px solid var(--line); border-radius:10px; padding:10px 12px}
-.team-h{display:flex; align-items:center; gap:8px; margin-bottom:8px;
+.team.dragging{opacity:.45}
+.team.drop-before{box-shadow:-2px 0 0 var(--cyan)}
+.team.drop-after{box-shadow:2px 0 0 var(--cyan)}
+.team.dropslot{border-color:var(--cyan)}   /* a roster card is hovering this team */
+.team-h{display:flex; align-items:center; gap:6px; margin-bottom:8px;
   font-family:'Chakra Petch',sans-serif; font-size:13px; letter-spacing:.04em}
-.team-h .tiny{margin-left:auto}
+.team-h .tname{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.team-h .tiny{padding:3px 6px}
 .slots{display:flex; flex-direction:column; gap:8px}
 .slot{display:flex; align-items:center; gap:8px; border:1px solid var(--line2); border-radius:8px;
   padding:6px 8px; min-height:46px; background:var(--panel2); cursor:pointer;
   font:inherit; font-size:13px; color:var(--ink); text-align:left}
-.slot:hover{border-color:var(--acc,var(--cyan))}
+.slot:hover, .slot.over{border-color:var(--acc,var(--cyan))}
 .slot.empty{border-style:dashed; color:var(--faint); justify-content:center; font-size:15px}
 .slot .avatar{width:26px; height:26px; font-size:10px; border-radius:7px; flex:none}
 .slot .sname{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
@@ -1801,9 +1836,52 @@ function sanitizeTeams(raw, rosterIds, energyOf = charEnergy){
       return id;
     });
     while(chars.length < 3) chars.push(null);
-    const name = typeof t.name === 'string' && t.name.trim() ? t.name.trim() : '';
-    return name ? {name, chars} : {chars};
+    return {chars};                    // teams are auto-named after their first member
   });
+}
+
+/* ── character ⇄ weapon link ──
+   A weapon goal may name the character it is FOR: `goal.owner = charId`. The
+   link lives on the weapon (not the character) because weapon goals may be
+   duplicated — pointing from the weapon is the only unambiguous direction, and
+   it survives reordering (no indices). Only weapons already in the ledger
+   (queued or completed) can be linked; a character owns at most one. */
+const isWpn = g => g && g.weapon !== undefined;
+const equipOf = (goals, charId) => goals.find(g => isWpn(g) && g.owner === charId) || null;
+
+/* repair links in place: an owner must be a roster character, and may own only
+   ONE weapon across the whole ledger (the first claim in list order wins).
+   Pass the queue's weapon goals ahead of the completed ones. */
+function sanitizeOwners(wpnGoals, rosterIds){
+  const roster = new Set(rosterIds), taken = new Set();
+  for(const g of wpnGoals){
+    const o = g.owner;
+    if(typeof o !== 'string' || !roster.has(o) || taken.has(o)) delete g.owner;
+    else taken.add(o);
+  }
+  return wpnGoals;
+}
+
+/* ── prioritize a team: its members to the front of the queue ──
+   The team's QUEUED characters (completed ones aren't in `goals` at all, so
+   they drop out for free) move to the front, keeping the relative order they
+   already had in the queue — and each one's linked weapon goal follows right
+   behind its owner. Everything else keeps its order behind that block.
+   Pure: returns {goals: reordered, moved: the goal objects that moved} — the
+   caller resumes the moved ones (prioritizing means "I'm building this now"). */
+function prioritizeQueue(goals, chars){
+  const want = new Set(chars.filter(Boolean));
+  const wpn = new Map();                                    // owner → their weapon goal
+  for(const g of goals) if(isWpn(g) && want.has(g.owner)) wpn.set(g.owner, g);
+  const front = [];
+  for(const g of goals){
+    if(g.char === undefined || !want.has(g.char)) continue; // queue order preserved
+    front.push(g);
+    const w = wpn.get(g.char);
+    if(w) front.push(w);
+  }
+  const moved = new Set(front);
+  return {goals: front.concat(goals.filter(g => !moved.has(g))), moved: front};
 }
 </script>
 
@@ -1948,7 +2026,9 @@ function sanitize(raw){
         if(!GAME.weapons[g.weapon]) continue;                    // duplicates allowed (multiple copies)
         const ord = x => clamp(Math.floor(+(x && x.ord)) || 0, 0, 13);
         const cur = {ord: ord(g.cur)}, tgt = {ord: Math.max(ord(g.tgt), ord(g.cur))};
-        into.push({weapon:g.weapon, cur, tgt, open:!!g.open, off});
+        const w = {weapon:g.weapon, cur, tgt, open:!!g.open, off};
+        if(typeof g.owner === 'string') w.owner = g.owner;      // repaired below, once the roster is known
+        into.push(w);
         continue;
       }
       if(!g || !GAME.characters[g.char] || charTaken(g.char)) continue;
@@ -1963,9 +2043,11 @@ function sanitize(raw){
   };
   intake(raw && raw.goals, st.goals, true);
   intake(raw && raw.done, st.done, false);
+  const rosterIds = st.goals.concat(st.done).filter(g => g.char !== undefined).map(g => g.char);
   // teams (Teams page — absent in old saves): repair against the roster
-  st.teams = sanitizeTeams(raw && raw.teams,
-    st.goals.concat(st.done).filter(g => g.char !== undefined).map(g => g.char));
+  st.teams = sanitizeTeams(raw && raw.teams, rosterIds);
+  // character→weapon links: queued weapons claim an owner before completed ones
+  sanitizeOwners(st.goals.concat(st.done).filter(isWpn), rosterIds);
   if(raw && raw.inv && typeof raw.inv === 'object')
     for(const [k,v] of Object.entries(raw.inv))
       if(MATS[k] && Math.floor(+v) > 0) st.inv[k] = Math.floor(+v);
@@ -2266,6 +2348,22 @@ const lvlLabel = g => g.cur.ord === g.tgt.ord
 /* a paused card is simply DIMMED (no tag — user's call): its tiles and bar show
    the FULL cost, since none of the inventory is allocated to it, so what it
    displays is exactly what resuming would cost */
+/* who this weapon is for (goal.owner). Click to assign or change — the palette
+   offers the roster; the same link drives the Teams page's weapon slots. */
+function ownerRow(g, i){
+  const ch = g.owner && GAME.characters[g.owner];
+  const body = ch
+    ? `<span class="avatar" style="background:${ch.elColor}">${ch.mono}${icoImg(ch.name, 'char', 'avatar-img')}</span>` +
+      `<span class="oname">for ${esc(ch.name)}</span>`
+    : `<span class="oname faint">＋ link to a character</span>`;
+  return `<div class="ownerrow">` +
+    `<button class="owner" data-act="own" data-g="${i}" ` +
+      `title="${ch ? esc(ch.name) + ' carries this weapon — click to reassign' : 'Not linked to a character — click to assign'}">` +
+      `${body}</button>` +
+    (ch ? `<button class="tiny" data-act="unown" data-g="${i}" title="Unlink from ${esc(ch.name)}">✕</button>` : '') +
+  `</div>`;
+}
+
 function wpnCard(g, i, wk, vw, ceOnly){
   const w = GAME.weapons[g.weapon];
   return `<div class="goal${g.off ? ' off' : ''}" data-g="${i}" style="--acc:var(--weapon)">
@@ -2275,7 +2373,7 @@ function wpnCard(g, i, wk, vw, ceOnly){
       <div class="gname" title="${esc(w.name)}">${esc(w.name)}${w.beta ? '<span class="badge">3.5 BETA</span>' : ''}</div>
       <div class="gctrl">${goalCtrls(i, !Object.keys(wk.need).length, g.off)}</div>
     </div>
-    <div class="gmeta">${w.rarity}★ ${w.wtype} weapon · ${lvlLabel(g)}</div>${readyBar(vw)}${goalMats(vw, ceOnly)}</div>`;
+    <div class="gmeta">${w.rarity}★ ${w.wtype} weapon · ${lvlLabel(g)}</div>${ownerRow(g, i)}${readyBar(vw)}${goalMats(vw, ceOnly)}</div>`;
 }
 
 function charCard(g, i, wk, vw, ceOnly){
@@ -2336,6 +2434,8 @@ function onAct(e){
   if(act === 'down') return moveGoal(i, i + 2);
   if(act === 'edit'){ editIdx = i; render(); return; }
   if(act === 'off') state.goals[i].off = !state.goals[i].off;   // pause / resume: reversible in one click, no undo entry
+  if(act === 'own')   return openPal({mode:'owner', g:i});      // who carries this weapon
+  if(act === 'unown') delete state.goals[i].owner;
   const fixEdit = () => {                     // keep the pop-up pointed at the same goal
     if(editIdx !== null){
       if(editIdx === i) editIdx = null;
@@ -2353,7 +2453,7 @@ function onAct(e){
     const nm = g.weapon !== undefined ? GAME.weapons[g.weapon].name : GAME.characters[g.char].name;
     return withUndo(`Removed ${nm}`, () => {
       state.goals.splice(i, 1);
-      pruneTeams();                           // deleted = out of the roster → off any team
+      pruneLinks();                           // deleted = out of the roster → off any team, no weapon link
       fixEdit();
     });
   }
@@ -2376,15 +2476,37 @@ function onField(e){
    a faint rarity tint. */
 let palSel = 0;
 const palIsOpen = () => !$('#palWrap').hidden;
-let palPick = null;          // {t, s}: the palette is picking a member for a team slot
+/* palPick — what the palette is picking, null = the normal add-goal palette:
+     {mode:'slot', t, s}    a member for a team slot   (roster chars with energy)
+     {mode:'owner', g}      a character for weapon goal #g   (Ledger owner row)
+     {mode:'equip', char}   a LEDGER weapon for a character   (Teams roster card)
+   'equip' entries carry `ref`, the weapon goal object itself — weapon goals may
+   be duplicated, so only the object identifies which copy was picked. */
+let palPick = null;
+const PAL_PH = {slot:'Pick a member…', owner:'Who carries this weapon?', equip:'Pick a weapon from your ledger…'};
 function paletteEntries(q){
   const out = [];
-  if(palPick){               // team-slot pick: roster characters with energy left
+  const mode = palPick && palPick.mode;
+  if(mode === 'slot'){       // team-slot pick: roster characters with energy left
     for(const g of rosterGoals()){
       if(energyLeft(state.teams, g.char) <= 0) continue;
       const ch = GAME.characters[g.char];
       const s = fuzzyScore(q, ch.name);
       if(s >= 0) out.push({score:s, kind:'char', id:g.char, name:ch.name, rarity:ch.rarity});
+    }
+  } else if(mode === 'owner'){   // any roster character (reassigning moves the link)
+    for(const g of rosterGoals()){
+      const ch = GAME.characters[g.char];
+      const s = fuzzyScore(q, ch.name);
+      if(s >= 0) out.push({score:s, kind:'char', id:g.char, name:ch.name, rarity:ch.rarity});
+    }
+  } else if(mode === 'equip'){   // weapons already in the ledger, free or already this character's
+    for(const g of wpnGoals()){
+      if(g.owner && g.owner !== palPick.char) continue;      // someone else carries it
+      const wp = GAME.weapons[g.weapon];
+      const s = fuzzyScore(q, wp.name);
+      if(s >= 0) out.push({score:s, kind:'wpn', id:g.weapon, ref:g, name:wp.name, rarity:wp.rarity,
+                           note: state.done.includes(g) ? 'completed' : 'queued'});
     }
   } else {
     for(const [id, ch] of Object.entries(GAME.characters)){
@@ -2403,19 +2525,26 @@ function paletteEntries(q){
 function openPal(pick){
   closeEdit(); closeOrd(); closeInv(); closeFarm();
   palPick = pick || null;
-  $('#palIn').placeholder = pick ? `Pick a member — Team ${pick.t + 1}` : 'Add a character or weapon…';
+  $('#palIn').placeholder = pick ? PAL_PH[pick.mode] : 'Add a character or weapon…';
   $('#palWrap').hidden = false; palSel = 0; renderPal(); $('#palIn').focus();
 }
 function closePal(){ $('#palWrap').hidden = true; $('#palIn').value = ''; palPick = null; }
 function renderPal(){
-  const list = paletteEntries($('#palIn').value.trim());
+  const q = $('#palIn').value.trim();
+  const list = paletteEntries(q);
   palSel = clamp(palSel, 0, Math.max(0, list.length - 1));
+  // only ledger weapons can be equipped, so say WHY there is nothing to pick
+  const empty = (palPick && palPick.mode === 'equip' && !q)
+    ? (wpnGoals().length
+        ? '<div class="empty">Every weapon in your ledger is already carried by someone else.</div>'
+        : '<div class="empty">No weapon in your ledger yet — add one as a goal first (Ctrl+K).</div>')
+    : '<div class="empty">No matches.</div>';
   $('#palList').innerHTML = list.length ? list.map((it, i) =>
     `<div class="pal-item r${it.rarity}${i === palSel ? ' on' : ''}" data-i="${i}">` +
       `<span class="ico-wrap">${icoImg(it.name, it.kind === 'wpn' ? 'weapon' : 'char')}</span>` +
       `${esc(it.name)}` +
-      `<span class="tag">${it.rarity}★ ${it.kind === 'wpn' ? 'weapon' : 'char'}</span>` +
-    `</div>`).join('') : '<div class="empty">No matches.</div>';
+      `<span class="tag">${it.note || it.rarity + '★ ' + (it.kind === 'wpn' ? 'weapon' : 'char')}</span>` +
+    `</div>`).join('') : empty;
   $('#palList').querySelectorAll('.pal-item').forEach(el => {
     el.addEventListener('click', () => palActivate(list[+el.dataset.i]));
     el.addEventListener('contextmenu', e => { e.preventDefault(); palActivate(list[+el.dataset.i], true); });
@@ -2439,13 +2568,22 @@ function maxTarget(g){
   }
   return g;
 }
+/* one character carries one weapon: linking a new weapon to `char` unlinks
+   whatever they were holding before (the link lives on the weapon goal) */
+function linkWeapon(wgoal, char){
+  for(const g of wpnGoals()) if(g.owner === char) delete g.owner;
+  if(wgoal) wgoal.owner = char;
+}
 /* max: add the goal fully maxed instead of from the rarity template
-   (right-click or Shift+Enter). Ignored in team-pick mode. */
+   (right-click or Shift+Enter). Ignored in every pick mode. */
 function palActivate(it, max){
   if(!it) return;
   const pick = palPick;                       // closePal clears it
   closePal();
-  if(pick){ state.teams[pick.t].chars[pick.s] = it.id; }
+  const mode = pick && pick.mode;
+  if(mode === 'slot')       state.teams[pick.t].chars[pick.s] = it.id;
+  else if(mode === 'owner') linkWeapon(state.goals[pick.g], it.id);
+  else if(mode === 'equip') linkWeapon(it.ref, pick.char);
   else{
     const g = it.kind === 'wpn' ? newWpnGoal(it.id, true) : newGoal(it.id, true, state.defaults);
     state.goals.push(max ? maxTarget(g) : g);
@@ -2533,7 +2671,14 @@ $('#ordWrap').addEventListener('click', e => { if(e.target === e.currentTarget) 
    Planning-only — teams never touch costs or totals. Routing is
    location.hash ('#teams'), so refresh/back keep the page. */
 const rosterGoals = () => state.goals.concat(state.done).filter(g => g.char !== undefined);
-function pruneTeams(){ state.teams = sanitizeTeams(state.teams, rosterGoals().map(g => g.char)); }
+const wpnGoals = () => state.goals.concat(state.done).filter(isWpn);   // queue first: it wins an owner clash
+/* a character leaving the roster (deleted goal / forgotten completion) takes
+   its team slots AND its weapon links with it */
+function pruneLinks(){
+  const ids = rosterGoals().map(g => g.char);
+  state.teams = sanitizeTeams(state.teams, ids);
+  sanitizeOwners(wpnGoals(), ids);
+}
 const curPage = () => location.hash === '#teams' ? 'teams' : 'ledger';
 function showPage(p){
   $('#pageLedger').hidden = p === 'teams';
@@ -2554,44 +2699,178 @@ function teamSlot(t, s, id){
     `<span class="avatar" style="background:${ch.elColor}">${ch.mono}${icoImg(ch.name, 'char', 'avatar-img')}</span>` +
     `<span class="sname">${esc(ch.name)}</span></button>`;
 }
+/* a team is named after its first member — positional "Team N" until slot 1
+   is filled (there is no custom name: old saves' `name` is dropped) */
+const teamName = (t, i) => (t.chars[0] && GAME.characters[t.chars[0]].name) || 'Team ' + (i + 1);
+
+/* roster card: icon · name · current level · linked weapon · energy left.
+   The whole card is the drag handle (drop it on a team slot); the weapon strip
+   inside it is a button that opens the palette over the LEDGER's weapons. */
+function rosterCard(g){
+  const ch = GAME.characters[g.char];
+  const left = energyLeft(state.teams, g.char), cap = charEnergy(g.char);
+  const w = equipOf(wpnGoals(), g.char);
+  const wp = w && GAME.weapons[w.weapon];
+  const pips = [...Array(cap).keys()]
+    .map(k => `<i class="${k < left ? '' : 'spent'}"></i>`).join('');
+  const done = state.done.includes(g);
+  return `<div class="rcard${left > 0 ? '' : ' spent'}${g.off ? ' off' : ''}" draggable="${left > 0}" ` +
+      `data-c="${g.char}" style="--acc:${ch.elColor}" ` +
+      `title="${esc(ch.name)} — ${done ? 'completed' : ORD_LABEL(g.cur.ord)}${g.off ? ' · paused' : ''} · ` +
+      `in ${cap - left} of ${cap} team${cap === 1 ? '' : 's'}${left > 0 ? ' · drag onto a slot' : ' · no energy left'}">` +
+    `<span class="avatar" style="background:${ch.elColor}">${ch.mono}${icoImg(ch.name, 'char', 'avatar-img')}</span>` +
+    `<span class="rname">${esc(ch.name)}</span>` +
+    `<span class="rlv num">${done ? '✓ done' : esc(ORD_LABEL(g.cur.ord))} <span class="energy">${pips}</span></span>` +
+    `<button class="rwpn${wp ? '' : ' none'}" data-eq="${g.char}" ` +
+      `title="${wp ? esc(wp.name) + ' — click to change the linked weapon' : 'No weapon linked — click to pick one from your ledger'}">` +
+      (wp ? icoImg(wp.name, 'weapon') + `<span class="wname">${esc(wp.name)}</span>`
+          : `<span class="wname">＋ weapon</span>`) +
+    `</button>` +
+  `</div>`;
+}
+
+let rosterDrag = null;                 // charId being dragged from the roster panel
+let teamDrag = null;                   // team index being dragged in the grid
+
 function renderTeams(){
   const box = $('#teams');
   const roster = rosterGoals();
-  const use = teamUsage(state.teams);
-  const chips = roster.map(g => {
-    const ch = GAME.characters[g.char];
-    const left = energyLeft(state.teams, g.char);
-    return `<span class="rchip${left > 0 ? '' : ' spent'}" ` +
-      `title="${esc(ch.name)} — energy ${charEnergy(g.char)} · in ${use[g.char] || 0} team${(use[g.char] || 0) === 1 ? '' : 's'}">` +
-      `<span class="avatar" style="background:${ch.elColor}">${ch.mono}${icoImg(ch.name, 'char', 'avatar-img')}</span>` +
-      `${esc(ch.name)}</span>`;
-  }).join('');
   const teams = state.teams.map((t, i) =>
-    `<div class="team">
-      <div class="team-h">${esc(t.name || 'Team ' + (i + 1))}
-        <button class="tiny danger" data-rmteam="${i}" title="Delete this team (members get their energy back)">✕</button></div>
+    `<div class="team" draggable="true" data-t="${i}">
+      <div class="team-h">
+        <span class="grip" title="Drag to reorder — earlier teams win a shared character's energy">⠿</span>
+        <span class="tname">${esc(teamName(t, i))}</span>
+        <button class="tiny" data-prio="${i}" title="Prioritize — move this team's characters (and their linked weapons) to the front of the queue">⚑</button>
+        <button class="tiny danger" data-rmteam="${i}" title="Delete this team (members get their energy back)">✕</button>
+      </div>
       <div class="slots">${t.chars.map((id, s) => teamSlot(i, s, id)).join('')}</div>
     </div>`).join('');
   box.innerHTML =
-    `<div class="gmeta" style="margin-bottom:8px">Roster — everyone on the Ledger, queued or completed. A dimmed chip has no energy left to join another team.</div>` +
-    (roster.length ? `<div class="roster">${chips}</div>`
-                   : '<div class="empty">No characters yet — add goals on the Ledger page first.</div>') +
-    (state.teams.length ? `<div class="tgrid">${teams}</div>` : '') +
-    `<button id="btnTeam"${roster.length ? '' : ' disabled'}>＋ Add team</button>`;
+    `<div class="tcols">
+      <aside>
+        <div class="gmeta" style="margin-bottom:6px">Roster — everyone on the Ledger. Drag onto a slot; a dimmed card has no energy left.</div>
+        ${roster.length ? `<div class="rlist">${roster.map(rosterCard).join('')}</div>`
+                        : '<div class="empty">No characters yet — add goals on the Ledger page first.</div>'}
+      </aside>
+      <div>
+        ${state.teams.length ? `<div class="tgrid">${teams}</div>`
+                             : '<div class="empty">No teams yet — add one below.</div>'}
+        <button id="btnTeam"${roster.length ? '' : ' disabled'}>＋ Add team</button>
+      </div>
+    </div>`;
+
   box.querySelector('#btnTeam').addEventListener('click', () => {
     state.teams.push({chars:[null, null, null]});
     save(); render();
   });
   box.querySelectorAll('[data-rmteam]').forEach(b => b.addEventListener('click', e => {
     const i = +e.currentTarget.dataset.rmteam;
-    withUndo(`Deleted ${state.teams[i].name || 'Team ' + (i + 1)}`, () => state.teams.splice(i, 1));
+    withUndo(`Deleted ${teamName(state.teams[i], i)}`, () => state.teams.splice(i, 1));
+  }));
+  box.querySelectorAll('[data-prio]').forEach(b => b.addEventListener('click', e =>
+    prioritizeTeam(+e.currentTarget.dataset.prio)));
+  box.querySelectorAll('[data-eq]').forEach(b => b.addEventListener('click', e => {
+    e.stopPropagation();
+    openPal({mode:'equip', char: e.currentTarget.dataset.eq});
   }));
   box.querySelectorAll('.slot').forEach(b => b.addEventListener('click', e => {
     const t = +e.currentTarget.dataset.t, s = +e.currentTarget.dataset.s;
     if(state.teams[t].chars[s]){ state.teams[t].chars[s] = null; save(); render(); }
-    else openPal({t, s});
+    else openPal({mode:'slot', t, s});
   }));
+  bindRosterDnD(box);
+  bindTeamDnD(box);
   bindIcons(box);
+}
+
+/* drag a roster card onto a slot. The slot takes the character (replacing
+   whoever sat there); sanitizeTeams then enforces the energy budget and the
+   no-dupes-within-a-team rule, so an illegal drop simply doesn't stick. */
+function bindRosterDnD(box){
+  box.querySelectorAll('.rcard[draggable="true"]').forEach(card => {
+    card.addEventListener('dragstart', e => {
+      rosterDrag = card.dataset.c;
+      card.classList.add('dragging');
+      if(e.dataTransfer){ e.dataTransfer.effectAllowed = 'copy'; e.dataTransfer.setData('text/plain', rosterDrag); }
+    });
+    card.addEventListener('dragend', () => { rosterDrag = null; card.classList.remove('dragging'); });
+  });
+  box.querySelectorAll('.slot').forEach(slot => {
+    slot.addEventListener('dragover', e => {
+      if(rosterDrag === null) return;
+      e.preventDefault();
+      if(e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+      slot.classList.add('over');
+    });
+    slot.addEventListener('dragleave', () => slot.classList.remove('over'));
+    slot.addEventListener('drop', e => {
+      e.preventDefault(); e.stopPropagation();
+      if(rosterDrag === null) return;
+      const t = +slot.dataset.t, s = +slot.dataset.s, id = rosterDrag;
+      rosterDrag = null;
+      state.teams[t].chars[s] = id;
+      pruneLinks();                      // repairs dupes / over-budget drops
+      save(); render();
+    });
+  });
+}
+
+/* reorder teams by dragging a card. Order is not cosmetic: sanitizeTeams
+   resolves the energy budget with EARLIER teams winning, so moving a team up
+   can evict a shared support from one below it. */
+function moveTeam(from, to){
+  if(from === to || from + 1 === to){ render(); return; }
+  const [t] = state.teams.splice(from, 1);
+  state.teams.splice(to > from ? to - 1 : to, 0, t);
+  pruneLinks();                          // the budget re-resolves in the new order
+  save(); render();
+}
+function bindTeamDnD(box){
+  box.querySelectorAll('.team').forEach(card => {
+    const i = +card.dataset.t;
+    card.addEventListener('dragstart', e => {
+      if(rosterDrag !== null) return;    // a roster drag started inside; not a team move
+      teamDrag = i;
+      card.classList.add('dragging');
+      if(e.dataTransfer){ e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', 'team' + i); }
+    });
+    card.addEventListener('dragend', () => { teamDrag = null; card.classList.remove('dragging'); });
+    card.addEventListener('dragover', e => {
+      if(teamDrag === null || teamDrag === i) return;
+      e.preventDefault();
+      if(e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+      const r = card.getBoundingClientRect();
+      const after = (e.clientX || 0) > r.left + r.width / 2;
+      card.classList.toggle('drop-after', after);
+      card.classList.toggle('drop-before', !after);
+    });
+    card.addEventListener('dragleave', () => card.classList.remove('drop-before','drop-after'));
+    card.addEventListener('drop', e => {
+      e.preventDefault();
+      if(teamDrag === null) return;
+      const r = card.getBoundingClientRect();
+      const after = (e.clientX || 0) > r.left + r.width / 2;
+      const from = teamDrag; teamDrag = null;
+      moveTeam(from, i + (after ? 1 : 0));
+    });
+  });
+}
+
+/* ⚑ Prioritize: the team's queued characters go to the front of the queue in
+   the order they already had, each followed by its linked weapon goal, and all
+   of them resume if paused. Completed members are already built — skipped.
+   One Ctrl+Z puts the queue back, and we land on the Ledger to show the result. */
+function prioritizeTeam(i){
+  const t = state.teams[i];
+  if(!t || !t.chars.some(Boolean)) return;
+  withUndo(`Prioritized ${teamName(t, i)}`, () => {
+    const {goals, moved} = prioritizeQueue(state.goals, t.chars);
+    state.goals = goals;
+    for(const g of moved) g.off = false;
+    editIdx = null;                       // indices shifted under the open editor
+  });
+  location.hash = '';
+  showPage('ledger');
 }
 
 /* ── inventory pop-up: game-style stock grid (Ctrl+I) ──
@@ -2905,7 +3184,7 @@ function renderSummary(){
       const nm = g.weapon !== undefined ? GAME.weapons[g.weapon].name : GAME.characters[g.char].name;
       withUndo(`Forgot ${nm}`, () => {
         state.done.splice(i, 1);
-        pruneTeams();                         // forgotten = out of the roster → off any team
+        pruneLinks();                         // forgotten = out of the roster → off any team, no weapon link
       });
     }));
     bindIcons(el);

@@ -11,7 +11,7 @@ eval(blocks.join('\n;\n') + `
   freshWpnState, maxedWpnState, wexpToCores, fmtShort, priorityMatIds, defaultGoalTgt, fuzzyScore,
   nodeShortfall, charEnergy, teamUsage, energyLeft, sanitizeTeams, expTopTier, wexpTopTier,
   waveplateEstimate, stripCE, craftFromPool, affordCost, poolPlan, spendCost, dailyPlan, familyIds, famLabel,
-  activeGoals,
+  activeGoals, equipOf, sanitizeOwners, prioritizeQueue,
   statNodesFor, forteStatTotals, overworldBag, isOverworld, weekStartMs});`);
 
 let pass = 0, fail = 0;
@@ -469,10 +469,11 @@ eq('stripCE never mutates its input', (() => {
      sanitizeTeams([{chars:['jinhsi', 'jinhsi', null]}, {chars:['jinhsi', null, null]},
                     {chars:['jinhsi', null, null]}], ROSTER, () => 2),
      [{chars:['jinhsi', null, null]}, {chars:['jinhsi', null, null]}, {chars:[null, null, null]}]);
-  eq('sanitizeTeams: a real name survives, junk names drop',
-     sanitizeTeams([{name:'  Tower A ', chars:[]}, {name:42, chars:[]}, {name:'   ', chars:[]}], ROSTER),
-     [{name:'Tower A', chars:[null, null, null]}, {chars:[null, null, null]},
-      {chars:[null, null, null]}]);
+  // teams are auto-named after their first member now — a stored `name` (old
+  // saves) is dropped on the way in
+  eq('sanitizeTeams: custom names are dropped (auto-named from slot 1)',
+     sanitizeTeams([{name:'Tower A', chars:['jinhsi']}, {name:42, chars:[]}], ROSTER),
+     [{chars:['jinhsi', null, null]}, {chars:[null, null, null]}]);
 }
 
 // ═══ 21. DAILY PLAN (today's waveplate budget → whole runs) ═══
@@ -828,6 +829,56 @@ eq('stripCE never mutates its input', (() => {
   eq('no contention → both rules give the same answer',
      farmNextWalk([gA, gB], plenty, true, 'priority').map(w => w.rem),
      farmNextWalk([gA, gB], plenty, true, 'reserve').map(w => w.rem));
+}
+
+// ═══ 22. CHARACTER ⇄ WEAPON LINK (goal.owner) ═══
+{
+  const ch = c => ({char:c, cur:freshState(), tgt:freshState()});
+  const wp = (w, owner) => owner ? {weapon:w, cur:freshWpnState(), tgt:freshWpnState(), owner}
+                                 : {weapon:w, cur:freshWpnState(), tgt:freshWpnState()};
+  const W1 = Object.keys(GAME.weapons)[0], W2 = Object.keys(GAME.weapons)[1];
+
+  eq('equipOf finds the weapon a character carries',
+     equipOf([ch('jinhsi'), wp(W1, 'jinhsi')], 'jinhsi').weapon, W1);
+  eq('equipOf: no link → null', equipOf([ch('jinhsi'), wp(W1)], 'jinhsi'), null);
+
+  // repair: owner must be a roster character, and may own only ONE weapon
+  const list = [wp(W1, 'jinhsi'), wp(W2, 'jinhsi'), wp(W1, 'nobody'), wp(W2, 42)];
+  sanitizeOwners(list, ['jinhsi', 'phoebe']);
+  eq('sanitizeOwners: first claim wins, later ones unlink',
+     list.map(g => g.owner), [ 'jinhsi', undefined, undefined, undefined ]);
+  const gone = [wp(W1, 'phoebe')];
+  sanitizeOwners(gone, ['jinhsi']);                 // phoebe left the roster
+  eq('sanitizeOwners: a non-roster owner is dropped', gone[0].owner, undefined);
+}
+
+// ═══ 22b. PRIORITIZE A TEAM: members to the front, weapons in tow ═══
+{
+  const ch = c => ({char:c, cur:freshState(), tgt:freshState()});
+  const wp = (w, owner) => ({weapon:w, cur:freshWpnState(), tgt:freshWpnState(), owner});
+  const W1 = Object.keys(GAME.weapons)[0], W2 = Object.keys(GAME.weapons)[1];
+  const name = g => g.char !== undefined ? g.char : 'w:' + g.weapon + '→' + (g.owner || '-');
+
+  // queue: jinhsi · W1(→jinhsi) · phoebe · carlotta · verina · W2(→carlotta)
+  const q = [ch('jinhsi'), wp(W1, 'jinhsi'), ch('phoebe'), ch('carlotta'), ch('verina'), wp(W2, 'carlotta')];
+  const r = prioritizeQueue(q, ['carlotta', 'verina', 'suisui']);   // suisui: completed, not queued
+  eq('members keep their queue order, each weapon right behind its owner',
+     r.goals.map(name),
+     ['carlotta', 'w:' + W2 + '→carlotta', 'verina',            // team block
+      'jinhsi', 'w:' + W1 + '→jinhsi', 'phoebe']);              // the rest, order kept
+  eq('moved = exactly the team block', r.moved.map(name),
+     ['carlotta', 'w:' + W2 + '→carlotta', 'verina']);
+  eq('a completed (non-queued) member is simply skipped',
+     r.goals.some(g => g.char === 'suisui'), false);
+  eq('prioritize is pure — the input array is untouched', q.map(name),
+     ['jinhsi', 'w:' + W1 + '→jinhsi', 'phoebe', 'carlotta', 'verina', 'w:' + W2 + '→carlotta']);
+
+  // an unlinked weapon stays put; an empty team is a no-op
+  const q2 = [ch('jinhsi'), wp(W1), ch('phoebe')];
+  eq('an unlinked weapon does not move', prioritizeQueue(q2, ['phoebe']).goals.map(name),
+     ['phoebe', 'jinhsi', 'w:' + W1 + '→-']);
+  eq('an empty team moves nothing', prioritizeQueue(q2, [null, null, null]).goals.map(name),
+     q2.map(name));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

@@ -506,6 +506,16 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
 .rstar{font-family:'Chakra Petch',sans-serif; font-weight:700; letter-spacing:-.02em}
 .rstar.r5{color:var(--r5)} .rstar.r4{color:var(--r4)} .rstar.r3{color:var(--r3)}
 
+/* Completed tab: collapsible section headers over each grid */
+.dsec{display:flex; align-items:center; gap:6px; width:100%; margin:2px 0 7px; padding:3px 2px;
+  background:transparent; border:0; border-bottom:1px solid var(--line); border-radius:0;
+  font-family:'Chakra Petch',sans-serif; font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--faint); cursor:pointer}
+.dsec:hover{color:var(--ink)}
+.dsec .caret{font-size:9px}
+.dsec .dn{margin-left:auto; letter-spacing:0; font-size:11px}
+.dsec + .dgrid{margin-bottom:12px}
+
 /* Completed tab: portrait tiles — big art, name under it, ↩ only on hover.
    A finished build needs no numbers (the detail lives in the tooltip). */
 .dgrid{display:grid; grid-template-columns:repeat(auto-fill, minmax(84px, 1fr)); gap:8px}
@@ -2427,6 +2437,10 @@ const lvlLabel = g => g.cur.ord === g.tgt.ord
 /* the game's own element / weapon-type glyphs (kind 'attr'), replacing the words
    in the card meta. Rarity moved onto the avatar as a colored ring (.avatar.rN),
    so the meta line is icons + level and nothing else. */
+/* every avatar sits on its RARITY ground (gold 5★ / purple 4★ / blue 3★), like
+   the game's own portrait frames — the element lives in the card accent (--acc:
+   readiness bar, priority number) and in the meta glyph, not the tile. */
+const avaBg = it => `var(--r${it.rarity})`;
 const attrIco = (name, what) =>
   `<span class="attr" title="${esc(name)} ${what}">${icoImg(name, 'attr', 'attr-img')}</span>`;
 
@@ -2437,7 +2451,7 @@ function ownerChip(g, i){
   return `<button class="ochip${ch ? '' : ' none'}" data-act="own" data-g="${i}" ` +
     `title="${ch ? esc(ch.name) + ' carries this — click to reassign, right-click to unlink'
                  : 'Not linked to a character — click to assign one'}">` +
-    (ch ? `<span class="avatar" style="background:${ch.elColor}">${ch.mono}${icoImg(ch.name, 'char', 'avatar-img')}</span>`
+    (ch ? `<span class="avatar" style="background:${avaBg(ch)}">${ch.mono}${icoImg(ch.name, 'char', 'avatar-img')}</span>`
         : `＋`) + `</button>`;
 }
 
@@ -2448,10 +2462,10 @@ function ownerChip(g, i){
    No rarity marker at all: the portrait art already sits on the game's own
    rarity-colored ground (gold 5★ / purple 4★), and the avatar tile behind it is
    tinted to match (user's call — the ring and the "5★" text both went). */
-function goalHead(g, i, it, acc, meta, fin){
+function goalHead(g, i, it, meta, fin){
   return `<div class="goal-top">
       <span class="prio">${i+1}</span>
-      <span class="avatar" style="background:${acc}">${it.mono}${icoImg(it.name, isWpn(g) ? 'weapon' : 'char', 'avatar-img')}</span>
+      <span class="avatar" style="background:${avaBg(it)}">${it.mono}${icoImg(it.name, isWpn(g) ? 'weapon' : 'char', 'avatar-img')}</span>
       <div class="gname" title="${esc(it.name)}">${esc(it.name)}${it.beta ? '<span class="badge">3.5 BETA</span>' : ''}</div>
       <div class="gctrl">${goalCtrls(i, fin, g.off)}</div>
     </div>
@@ -2462,7 +2476,7 @@ function wpnCard(g, i, wk, vw, ceOnly){
   const w = GAME.weapons[g.weapon];
   const meta = ownerChip(g, i) + attrIco(w.wtype, 'weapon');
   return `<div class="goal${g.off ? ' off' : ''}" data-g="${i}" style="--acc:var(--weapon)">` +
-    goalHead(g, i, w, `var(--r${w.rarity})`, meta, !Object.keys(wk.need).length) +
+    goalHead(g, i, w, meta, !Object.keys(wk.need).length) +
     `${readyBar(vw)}${goalMats(vw, ceOnly)}</div>`;
 }
 
@@ -2470,7 +2484,7 @@ function charCard(g, i, wk, vw, ceOnly){
   const ch = GAME.characters[g.char];
   const meta = attrIco(ch.element, 'element') + attrIco(ch.wtype, 'weapon type');
   return `<div class="goal${g.off ? ' off' : ''}" data-g="${i}" style="--acc:${ch.elColor}">` +
-    goalHead(g, i, ch, ch.elColor, meta, !Object.keys(wk.need).length) +
+    goalHead(g, i, ch, meta, !Object.keys(wk.need).length) +
     `${readyBar(vw)}${miniTree(g)}${goalMats(vw, ceOnly)}</div>`;
 }
 
@@ -2923,7 +2937,7 @@ function teamSlot(t, s, id){
   return `<div class="slot" data-t="${t}" data-s="${s}" style="--acc:${ch.elColor}">` +
     `<button class="smem" data-t="${t}" data-s="${s}" ` +
         `title="${esc(ch.name)}${wp ? ' · ' + esc(wp.name) : ''} — click to remove from the team">` +
-      `<span class="avatar" style="background:${ch.elColor}">${ch.mono}${icoImg(ch.name, 'char', 'avatar-img')}</span>` +
+      `<span class="avatar" style="background:${avaBg(ch)}">${ch.mono}${icoImg(ch.name, 'char', 'avatar-img')}</span>` +
       `<span class="sname">${esc(ch.name)}</span>` +
     `</button>` +
     `<button class="swpn${wp ? '' : ' none'}" data-eq="${id}" ` +
@@ -2950,7 +2964,7 @@ function rosterCard(g){
       `data-c="${g.char}" style="--acc:${ch.elColor}" ` +
       `title="${esc(ch.name)} — ${done ? 'completed' : ORD_LABEL(g.cur.ord)}${g.off ? ' · paused' : ''} · ` +
       `in ${cap - left} of ${cap} team${cap === 1 ? '' : 's'}${left > 0 ? ' · drag onto a slot' : ' · no energy left'}">` +
-    `<span class="avatar" style="background:${ch.elColor}">${ch.mono}${icoImg(ch.name, 'char', 'avatar-img')}</span>` +
+    `<span class="avatar" style="background:${avaBg(ch)}">${ch.mono}${icoImg(ch.name, 'char', 'avatar-img')}</span>` +
     `<span class="rname">${esc(ch.name)}</span>` +
     `<span class="rlv num">${done ? '✓ done' : esc(ORD_LABEL(g.cur.ord))}</span>` +
     `<span class="energy" title="Energy ${left}/${cap} — teams ${esc(ch.name)} can still join">` +
@@ -3424,36 +3438,59 @@ function renderSummary(){
 
   if(state.tab === 'done'){
     /* A finished build needs no numbers — a completed goal is completed. The tab
-       is a compact GRID of icon + name (the level / forte / node-plan detail
-       lives in the tooltip), and ↩ is the only action: it returns the goal to
-       the queue, where ✕ can still delete it. There is no "forget" button here —
-       in-game a build can't be un-done (user's call). */
+       is a GRID of portrait tiles (the level / forte / node-plan detail lives in
+       the tooltip), split into CHARACTERS and WEAPONS, each section sorted by
+       rarity (5★ first) then alphabetically, and each collapsible by its header
+       (`doneFold`, transient view state — a reload starts expanded). ↩ is the
+       only action: it returns the goal to the queue, where ✕ can still delete
+       it. There is no "forget" button — in-game a build can't be un-done. */
+    const doneTile = (g, i) => {
+      const isW = isWpn(g);
+      const it = isW ? GAME.weapons[g.weapon] : GAME.characters[g.char];
+      let tip = `${it.name} — ${it.rarity}★ · ${ORD_LABEL(g.tgt.ord)}`;
+      if(!isW){
+        const sk = g.cur.skills;
+        tip += ` · ${it.element} · forte ${sk.every(v => v === sk[0]) ? 'all ' + sk[0] : sk.join('/')}`;
+        const miss = nodeShortfall(g.cur, state.defaults[it.rarity]);   // live vs the template
+        const parts = [];
+        if(miss.minor) parts.push(`${miss.minor} minor stat node${miss.minor > 1 ? 's' : ''}`);
+        if(miss.major) parts.push(`${miss.major} major stat node${miss.major > 1 ? 's' : ''}`);
+        if(miss.inh1) parts.push('Inherent Ⅰ');
+        if(miss.inh2) parts.push('Inherent Ⅱ');
+        tip += parts.length ? ` · below the ${it.rarity}★ template: ${parts.join(', ')}`
+                            : ` · nodes cover the ${it.rarity}★ template`;
+      }
+      return `<div class="dcard r${it.rarity}" title="${esc(tip)}">` +
+        `<span class="avatar" style="background:${avaBg(it)}">${it.mono}${icoImg(it.name, isW ? 'weapon' : 'char', 'avatar-img')}</span>` +
+        `<span class="dname">${esc(it.name)}</span>` +
+        `<button class="tiny" data-undone="${i}" title="Return ${esc(it.name)} to the end of the queue">↩</button>` +
+      `</div>`;
+    };
+    // keep each goal's INDEX into state.done — the display order is not the stored order
+    const rows = state.done.map((g, i) => {
+      const isW = isWpn(g);
+      const it = isW ? GAME.weapons[g.weapon] : GAME.characters[g.char];
+      return {g, i, isW, rarity: it.rarity, name: it.name};
+    });
+    const section = (key, label, list) => {
+      if(!list.length) return '';
+      list = list.slice().sort((a, b) => b.rarity - a.rarity || (a.name < b.name ? -1 : 1));
+      const shut = !!doneFold[key];
+      return `<button class="dsec${shut ? ' shut' : ''}" data-fold="${key}" ` +
+          `title="${shut ? 'Show' : 'Hide'} these">` +
+          `<span class="caret">${shut ? '▸' : '▾'}</span>${label} <span class="dn">${list.length}</span></button>` +
+        (shut ? '' : `<div class="dgrid">${list.map(r => doneTile(r.g, r.i)).join('')}</div>`);
+    };
     el.innerHTML = state.done.length
       ? `<div class="gmeta" style="margin-bottom:8px">Finished builds — out of the queue and totals. ↩ returns one to the end of the queue (raise its target to keep going).</div>` +
-        `<div class="dgrid">` + state.done.map((g, i) => {
-          const isW = isWpn(g);
-          const it = isW ? GAME.weapons[g.weapon] : GAME.characters[g.char];
-          const bg = isW ? `var(--r${it.rarity})` : it.elColor;
-          let tip = `${it.name} — ${it.rarity}★ · ${ORD_LABEL(g.tgt.ord)}`;
-          if(!isW){
-            const sk = g.cur.skills;
-            tip += ` · ${it.element} · forte ${sk.every(v => v === sk[0]) ? 'all ' + sk[0] : sk.join('/')}`;
-            const miss = nodeShortfall(g.cur, state.defaults[it.rarity]);   // live vs the template
-            const parts = [];
-            if(miss.minor) parts.push(`${miss.minor} minor stat node${miss.minor > 1 ? 's' : ''}`);
-            if(miss.major) parts.push(`${miss.major} major stat node${miss.major > 1 ? 's' : ''}`);
-            if(miss.inh1) parts.push('Inherent Ⅰ');
-            if(miss.inh2) parts.push('Inherent Ⅱ');
-            tip += parts.length ? ` · below the ${it.rarity}★ template: ${parts.join(', ')}`
-                                : ` · nodes cover the ${it.rarity}★ template`;
-          }
-          return `<div class="dcard r${it.rarity}" title="${esc(tip)}">` +
-            `<span class="avatar" style="background:${bg}">${it.mono}${icoImg(it.name, isW ? 'weapon' : 'char', 'avatar-img')}</span>` +
-            `<span class="dname">${esc(it.name)}</span>` +
-            `<button class="tiny" data-undone="${i}" title="Return ${esc(it.name)} to the end of the queue">↩</button>` +
-          `</div>`;
-        }).join('') + `</div>`
+        section('char', 'Characters', rows.filter(r => !r.isW)) +
+        section('wpn',  'Weapons',    rows.filter(r =>  r.isW))
       : '<div class="empty">Nothing completed yet — a goal that needs nothing offers ✓, and “✓ Max goal” sends one straight here.</div>';
+    el.querySelectorAll('[data-fold]').forEach(b => b.addEventListener('click', e => {
+      const k = e.currentTarget.dataset.fold;
+      doneFold[k] = !doneFold[k];
+      renderSummary();                      // view-only: no save
+    }));
     el.querySelectorAll('[data-undone]').forEach(b => b.addEventListener('click', e => {
       state.goals.push(state.done.splice(+e.currentTarget.dataset.undone, 1)[0]);
       save(); render();
@@ -3557,6 +3594,7 @@ function renderSummary(){
    editIdx is transient UI state (never persisted). Live-apply: the modal's
    selects and node buttons reuse onField/onNode, which save() + render();
    render() re-renders the open modal in place. */
+let doneFold = {char:false, wpn:false};      // Completed tab: collapsed sections (view-only)
 let editIdx = null;
 let editTpl = null;                          // 4 | 5 → pop-up edits state.defaults[editTpl]
 function closeEdit(){ editIdx = null; editTpl = null; renderModal(); }
@@ -3585,7 +3623,7 @@ function renderModal(){
   const isW = g.weapon !== undefined;
   const it = isW ? GAME.weapons[g.weapon] : GAME.characters[g.char];
   let html = `<div class="modal-h">
-      <span class="avatar" style="background:${isW ? `var(--r${it.rarity})` : it.elColor}">${it.mono}${icoImg(it.name, isW ? 'weapon' : 'char', 'avatar-img')}</span>
+      <span class="avatar" style="background:${avaBg(it)}">${it.mono}${icoImg(it.name, isW ? 'weapon' : 'char', 'avatar-img')}</span>
       <div><div class="gname">${esc(it.name)}</div>
         <div class="gmeta">${isW ? it.rarity + '★ ' + it.wtype + ' weapon' : it.rarity + '★ ' + it.element + ' · ' + it.wtype}</div></div>
       <button class="tiny close" data-close title="Close">✕</button>

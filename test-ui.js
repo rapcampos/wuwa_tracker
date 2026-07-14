@@ -1089,6 +1089,35 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
      /below the 5★ template: 1 major stat node/.test(dcard().getAttribute('title')));
   w.eval('state.done[0].nodes[1][0] = 2; syncNodeCounts(state.done[0]); save(); render();');
   ok('re-owning the node clears it', /nodes cover the 5★ template/.test(dcard().getAttribute('title')));
+  // sections: characters and weapons, each rarity-then-alphabetical, collapsible
+  w.eval(`{ const D = state.defaults;
+            state.done.push(maxGoal(newGoal('baizhi', false, D)),      // 4★ char
+                            maxGoal(newGoal('carlotta', false, D)),    // 5★ char
+                            maxGoal(newWpnGoal('stringmaster', false)),
+                            maxGoal(newWpnGoal('agesOfHarvest', false)));
+            save(); render(); }`);
+  const secs = () => [...d.querySelectorAll('#summary .dsec')].map(s2 => s2.textContent);
+  const grid = k => [...d.querySelectorAll('#summary .dsec')]
+    .find(s2 => s2.dataset.fold === k).nextElementSibling;
+  const namesIn = k => [...grid(k).querySelectorAll('.dname')].map(n => n.textContent);
+  ok('completed splits into Characters and Weapons, each counted',
+     secs().length === 2 && /CHARACTERS/i.test(secs()[0]) && /3/.test(secs()[0]) &&
+     /WEAPONS/i.test(secs()[1]) && /2/.test(secs()[1]));
+  ok('each section sorts by rarity (5★ first) then alphabetically',
+     namesIn('char').join() === 'Carlotta,Phoebe,Baizhi' &&      // 5★ C, 5★ P, then 4★
+     namesIn('wpn').join() === 'Ages of Harvest,Stringmaster');
+  ok('↩ still targets the right goal after the re-sort (index ≠ display order)',
+     grid('char').querySelector('.dcard [data-undone]').dataset.undone ===
+       String(w.eval(`state.done.findIndex(g => g.char === 'carlotta')`)));
+  fire([...d.querySelectorAll('#summary .dsec')].find(s2 => s2.dataset.fold === 'wpn'), 'click');
+  ok('a section header collapses its grid',
+     d.querySelectorAll('#summary .dgrid').length === 1 &&
+     [...d.querySelectorAll('#summary .dsec')].find(s2 => s2.dataset.fold === 'wpn')
+       .classList.contains('shut'));
+  fire([...d.querySelectorAll('#summary .dsec')].find(s2 => s2.dataset.fold === 'wpn'), 'click');
+  ok('and expands it again', d.querySelectorAll('#summary .dgrid').length === 2);
+  w.eval(`state.done = state.done.filter(g => g.char === 'phoebe'); save(); render();`);
+
   ok('completed list persisted',
      JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).done.some(g => g.char === 'phoebe'));
   // completed characters are hidden from the add palette

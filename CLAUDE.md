@@ -151,7 +151,11 @@ it goes in block 2 with tests; presentation goes in block 3.
   the animation). `pulseDone()` flashes the Completed tab on arrival.
   The **Completed summary tab** is a GRID of portrait tiles (`.dgrid`/`.dcard`):
   big art, the name under it, rarity-tinted, and ↩ appearing only on hover —
-  a finished build needs no numbers (user's call). The level, forte levels and the **node-plan grade**
+  a finished build needs no numbers (user's call). It splits into **Characters
+  and Weapons sections** (`.dsec` headers, each with a count and collapsible via
+  `doneFold`, transient view state — a reload starts expanded), each sorted by
+  rarity (5★ first) then alphabetically. The display order is NOT the stored
+  order, so each tile carries its index into `state.done` for ↩. The level, forte levels and the **node-plan grade**
   (`nodeShortfall(cur, tpl)`, pure/engine — a LIVE comparison against the
   per-rarity template, so editing a template re-grades every completed build)
   all live in the card's tooltip. **↩ (restore to the queue) is the only

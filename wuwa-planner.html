@@ -418,7 +418,7 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
 .tcols{display:grid; grid-template-columns:minmax(215px, 250px) minmax(0, 1fr); gap:16px; align-items:start}
 @media(max-width:860px){ .tcols{grid-template-columns:1fr} }
 .rlist{display:flex; flex-direction:column; gap:6px; margin-bottom:10px}
-.rcard{display:grid; grid-template-columns:34px minmax(0,1fr) auto; grid-template-rows:auto auto;
+.rcard{display:grid; grid-template-columns:34px minmax(0,1fr) auto 5px; grid-template-rows:auto auto;
   gap:2px 8px; align-items:center; border:1px solid var(--line2); border-radius:9px;
   background:var(--panel2); padding:6px 8px; cursor:grab; font-size:12.5px}
 .rcard:active{cursor:grabbing}
@@ -436,9 +436,12 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
 .rcard .rwpn img{width:16px; height:16px; object-fit:contain; border-radius:3px; flex:none}
 .rcard .rwpn .wname{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .rcard .rwpn.none{color:var(--faint)}
-.energy{display:inline-flex; gap:2px; align-items:center}
-.energy i{width:6px; height:6px; border-radius:50%; background:var(--cyan); display:block}
-.energy i.spent{background:var(--line2)}
+/* energy: ONE vertical bar per point of budget (a support with energy 2 shows
+   two), stacked bottom-up and lit while that point is still free */
+.energy{grid-column:4; grid-row:1/3; justify-self:end; display:flex; flex-direction:column-reverse;
+  gap:2px; width:5px; height:34px}
+.energy i{flex:1; border-radius:3px; background:var(--line2)}
+.energy i.on{background:var(--cyan)}
 .tgrid{display:grid; grid-template-columns:repeat(auto-fill, minmax(185px, 1fr)); gap:10px; margin-bottom:12px}
 .team{border:1px solid var(--line); border-radius:10px; padding:10px 12px}
 .team.dragging{opacity:.45}
@@ -456,7 +459,10 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
 .slot:hover, .slot.over{border-color:var(--acc,var(--cyan))}
 .slot.empty{border-style:dashed; color:var(--faint); justify-content:center; font-size:15px}
 .slot .avatar{width:26px; height:26px; font-size:10px; border-radius:7px; flex:none}
-.slot .sname{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.slot .sname{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0}
+.slot .swpn{margin-left:auto; display:flex; flex:none}          /* the weapon they carry */
+.slot .swpn img{width:20px; height:20px; object-fit:contain; border-radius:4px}
+.slot .swpn .dot{width:14px; height:14px}
 
 /* Completed tab: node indicator — lit diamond = owned nodes cover the
    per-rarity template plan (live: template edits re-grade it) */
@@ -522,7 +528,7 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
   <div class="palette" role="dialog" aria-modal="true" aria-label="Add goal">
     <input id="palIn" type="text" placeholder="Add a character or weapon…" autocomplete="off" spellcheck="false">
     <div id="palList"></div>
-    <div id="palHint" class="pal-f">Enter adds from your template · right-click or Shift+Enter adds it maxed</div>
+    <div id="palHint" class="pal-f">Enter adds from your template · right-click or Shift+Enter adds it already built</div>
   </div>
 </div>
 
@@ -1848,15 +1854,22 @@ function sanitizeTeams(raw, rosterIds, energyOf = charEnergy){
    (queued or completed) can be linked; a character owns at most one. */
 const isWpn = g => g && g.weapon !== undefined;
 const equipOf = (goals, charId) => goals.find(g => isWpn(g) && g.owner === charId) || null;
+/* in-game rule: a weapon is usable only by characters of its own type — a Sword
+   is for Sword characters. The two vocabularies (GAME.characters[].wtype and
+   GAME.weapons[].wtype) are the same five words, so this is a plain compare. */
+const wtypeOfChar = id => (GAME.characters[id] || {}).wtype;
+const wtypeOfWpn  = id => (GAME.weapons[id] || {}).wtype;
+const canCarry = (charId, wpnId) => !!wtypeOfChar(charId) && wtypeOfChar(charId) === wtypeOfWpn(wpnId);
 
-/* repair links in place: an owner must be a roster character, and may own only
-   ONE weapon across the whole ledger (the first claim in list order wins).
-   Pass the queue's weapon goals ahead of the completed ones. */
+/* repair links in place: an owner must be a roster character who can actually
+   WIELD the weapon (same type), and may own only ONE weapon across the whole
+   ledger (the first claim in list order wins). Pass the queue's weapon goals
+   ahead of the completed ones. */
 function sanitizeOwners(wpnGoals, rosterIds){
   const roster = new Set(rosterIds), taken = new Set();
   for(const g of wpnGoals){
     const o = g.owner;
-    if(typeof o !== 'string' || !roster.has(o) || taken.has(o)) delete g.owner;
+    if(typeof o !== 'string' || !roster.has(o) || taken.has(o) || !canCarry(o, g.weapon)) delete g.owner;
     else taken.add(o);
   }
   return wpnGoals;
@@ -2296,10 +2309,10 @@ function deficitTiles(need, rem, order){
    ⏸/▶ pauses: the goal keeps its slot but stops consuming anything. */
 const goalCtrls = (i, fin, off) =>
   (fin && !off ? `<button class="tiny good" data-act="done" data-g="${i}" title="Mark completed — moves to the Completed tab">✓</button>` : '') +
-  `<button class="tiny" data-act="off" data-g="${i}" title="${off ? 'Resume — the goal counts again' : 'Pause — keep the goal in the queue, but stop it claiming inventory or waveplates'}">${off ? '▶' : '⏸'}</button>` +
   `<button class="tiny" data-act="edit" data-g="${i}" title="Edit levels &amp; forte">✎</button>` +
   `<button class="tiny" data-act="up" data-g="${i}" ${i === 0 ? 'disabled' : ''} title="Move up">▲</button>` +
   `<button class="tiny" data-act="down" data-g="${i}" ${i === state.goals.length - 1 ? 'disabled' : ''} title="Move down">▼</button>` +
+  `<button class="tiny" data-act="off" data-g="${i}" title="${off ? 'Resume — the goal counts again' : 'Pause — keep the goal in the queue, but stop it claiming inventory or waveplates'}">${off ? '▶' : '⏸'}</button>` +
   `<button class="tiny danger" data-act="del" data-g="${i}" title="Remove">✕</button>`;
 
 function goalCard(g, i, wk){
@@ -2483,7 +2496,14 @@ const palIsOpen = () => !$('#palWrap').hidden;
    'equip' entries carry `ref`, the weapon goal object itself — weapon goals may
    be duplicated, so only the object identifies which copy was picked. */
 let palPick = null;
-const PAL_PH = {slot:'Pick a member…', owner:'Who carries this weapon?', equip:'Pick a weapon from your ledger…'};
+const palType = () => palPick && (palPick.mode === 'owner'
+  ? wtypeOfWpn((state.goals[palPick.g] || {}).weapon)
+  : palPick.mode === 'equip' ? wtypeOfChar(palPick.char) : '');
+const PAL_PH = {
+  slot:  () => 'Pick a member…',
+  owner: () => `Which ${palType()} character carries this?`,
+  equip: () => `Pick a ${palType()} weapon from your ledger…`,
+};
 function paletteEntries(q){
   const out = [];
   const mode = palPick && palPick.mode;
@@ -2494,15 +2514,18 @@ function paletteEntries(q){
       const s = fuzzyScore(q, ch.name);
       if(s >= 0) out.push({score:s, kind:'char', id:g.char, name:ch.name, rarity:ch.rarity});
     }
-  } else if(mode === 'owner'){   // any roster character (reassigning moves the link)
+  } else if(mode === 'owner'){   // roster characters who can WIELD it (same weapon type)
+    const wid = (state.goals[palPick.g] || {}).weapon;
     for(const g of rosterGoals()){
+      if(!canCarry(g.char, wid)) continue;                   // a Sword is for Sword characters
       const ch = GAME.characters[g.char];
       const s = fuzzyScore(q, ch.name);
       if(s >= 0) out.push({score:s, kind:'char', id:g.char, name:ch.name, rarity:ch.rarity});
     }
-  } else if(mode === 'equip'){   // weapons already in the ledger, free or already this character's
+  } else if(mode === 'equip'){   // ledger weapons of this character's type, free or already theirs
     for(const g of wpnGoals()){
       if(g.owner && g.owner !== palPick.char) continue;      // someone else carries it
+      if(!canCarry(palPick.char, g.weapon)) continue;        // wrong weapon type for them
       const wp = GAME.weapons[g.weapon];
       const s = fuzzyScore(q, wp.name);
       if(s >= 0) out.push({score:s, kind:'wpn', id:g.weapon, ref:g, name:wp.name, rarity:wp.rarity,
@@ -2525,7 +2548,7 @@ function paletteEntries(q){
 function openPal(pick){
   closeEdit(); closeOrd(); closeInv(); closeFarm();
   palPick = pick || null;
-  $('#palIn').placeholder = pick ? PAL_PH[pick.mode] : 'Add a character or weapon…';
+  $('#palIn').placeholder = pick ? PAL_PH[pick.mode]() : 'Add a character or weapon…';
   $('#palWrap').hidden = false; palSel = 0; renderPal(); $('#palIn').focus();
 }
 function closePal(){ $('#palWrap').hidden = true; $('#palIn').value = ''; palPick = null; }
@@ -2533,11 +2556,15 @@ function renderPal(){
   const q = $('#palIn').value.trim();
   const list = paletteEntries(q);
   palSel = clamp(palSel, 0, Math.max(0, list.length - 1));
-  // only ledger weapons can be equipped, so say WHY there is nothing to pick
-  const empty = (palPick && palPick.mode === 'equip' && !q)
-    ? (wpnGoals().length
-        ? '<div class="empty">Every weapon in your ledger is already carried by someone else.</div>'
-        : '<div class="empty">No weapon in your ledger yet — add one as a goal first (Ctrl+K).</div>')
+  // both link modes filter hard (ledger-only, right weapon type) — say WHY the
+  // list is empty rather than showing a bare "no matches"
+  const t = palType();
+  const empty = (palPick && !q && palPick.mode === 'equip')
+      ? (wpnGoals().some(g => canCarry(palPick.char, g.weapon))
+          ? `<div class="empty">Every ${t} weapon in your ledger is already carried by someone else.</div>`
+          : `<div class="empty">No ${t} weapon in your ledger yet — add one as a goal first (Ctrl+K).</div>`)
+    : (palPick && !q && palPick.mode === 'owner')
+      ? `<div class="empty">No ${t} character on your Ledger — only ${t} users can carry this weapon.</div>`
     : '<div class="empty">No matches.</div>';
   $('#palList').innerHTML = list.length ? list.map((it, i) =>
     `<div class="pal-item r${it.rarity}${i === palSel ? ' on' : ''}" data-i="${i}">` +
@@ -2574,9 +2601,23 @@ function linkWeapon(wgoal, char){
   for(const g of wpnGoals()) if(g.owner === char) delete g.owner;
   if(wgoal) wgoal.owner = char;
 }
-/* max: add the goal fully maxed instead of from the rarity template
-   (right-click or Shift+Enter). Ignored in every pick mode. */
-function palActivate(it, max){
+/* current → target: the build is ALREADY DONE. Levels and skills snap to the
+   target, planned nodes flip to owned, skipped ones stay skipped — the goal
+   then costs nothing and its card offers ✓ Mark completed. Shared by the
+   editor's "✓ Max goal" button and the palette's right-click add. */
+function maxGoal(g){
+  g.cur.ord = g.tgt.ord;
+  if(g.weapon === undefined){
+    g.cur.skills = [...g.tgt.skills];
+    g.nodes = g.nodes.map(row => row.map(v => v === 1 ? 2 : v));
+    syncNodeCounts(g);
+  }
+  return g;
+}
+/* built: add the goal ALREADY LEVELLED (right-click or Shift+Enter) — a
+   character up to its template target, a weapon at Lv90 (newWpnGoal already
+   targets it). Ignored in every pick mode. */
+function palActivate(it, built){
   if(!it) return;
   const pick = palPick;                       // closePal clears it
   closePal();
@@ -2586,7 +2627,7 @@ function palActivate(it, max){
   else if(mode === 'equip') linkWeapon(it.ref, pick.char);
   else{
     const g = it.kind === 'wpn' ? newWpnGoal(it.id, true) : newGoal(it.id, true, state.defaults);
-    state.goals.push(max ? maxTarget(g) : g);
+    state.goals.push(built ? maxGoal(g) : g);
   }
   save(); render();
 }
@@ -2695,9 +2736,14 @@ window.addEventListener('hashchange', () => showPage(curPage()));
 function teamSlot(t, s, id){
   if(!id) return `<button class="slot empty" data-t="${t}" data-s="${s}" title="Add a member">＋</button>`;
   const ch = GAME.characters[id];
-  return `<button class="slot" data-t="${t}" data-s="${s}" style="--acc:${ch.elColor}" title="${esc(ch.name)} — click to remove">` +
+  const w = equipOf(wpnGoals(), id);                     // the weapon they carry, if any
+  const wp = w && GAME.weapons[w.weapon];
+  return `<button class="slot" data-t="${t}" data-s="${s}" style="--acc:${ch.elColor}" ` +
+      `title="${esc(ch.name)}${wp ? ' · ' + esc(wp.name) : ''} — click to remove">` +
     `<span class="avatar" style="background:${ch.elColor}">${ch.mono}${icoImg(ch.name, 'char', 'avatar-img')}</span>` +
-    `<span class="sname">${esc(ch.name)}</span></button>`;
+    `<span class="sname">${esc(ch.name)}</span>` +
+    (wp ? `<span class="swpn">${icoImg(wp.name, 'weapon')}</span>` : '') +
+  `</button>`;
 }
 /* a team is named after its first member — positional "Team N" until slot 1
    is filled (there is no custom name: old saves' `name` is dropped) */
@@ -2711,8 +2757,6 @@ function rosterCard(g){
   const left = energyLeft(state.teams, g.char), cap = charEnergy(g.char);
   const w = equipOf(wpnGoals(), g.char);
   const wp = w && GAME.weapons[w.weapon];
-  const pips = [...Array(cap).keys()]
-    .map(k => `<i class="${k < left ? '' : 'spent'}"></i>`).join('');
   const done = state.done.includes(g);
   return `<div class="rcard${left > 0 ? '' : ' spent'}${g.off ? ' off' : ''}" draggable="${left > 0}" ` +
       `data-c="${g.char}" style="--acc:${ch.elColor}" ` +
@@ -2720,7 +2764,9 @@ function rosterCard(g){
       `in ${cap - left} of ${cap} team${cap === 1 ? '' : 's'}${left > 0 ? ' · drag onto a slot' : ' · no energy left'}">` +
     `<span class="avatar" style="background:${ch.elColor}">${ch.mono}${icoImg(ch.name, 'char', 'avatar-img')}</span>` +
     `<span class="rname">${esc(ch.name)}</span>` +
-    `<span class="rlv num">${done ? '✓ done' : esc(ORD_LABEL(g.cur.ord))} <span class="energy">${pips}</span></span>` +
+    `<span class="rlv num">${done ? '✓ done' : esc(ORD_LABEL(g.cur.ord))}</span>` +
+    `<span class="energy" title="Energy ${left}/${cap} — teams ${esc(ch.name)} can still join">` +
+      [...Array(cap).keys()].map(k => `<i class="${k < left ? 'on' : ''}"></i>`).join('') + `</span>` +
     `<button class="rwpn${wp ? '' : ' none'}" data-eq="${g.char}" ` +
       `title="${wp ? esc(wp.name) + ' — click to change the linked weapon' : 'No weapon linked — click to pick one from your ledger'}">` +
       (wp ? icoImg(wp.name, 'weapon') + `<span class="wname">${esc(wp.name)}</span>`
@@ -3431,15 +3477,7 @@ function renderModal(){
   // Max goal: current snaps to target (the backlog "set current = target"
   // quick action) — planned nodes flip to owned, skipped ones stay skipped;
   // the goal then costs nothing and its card offers ✓ Mark completed
-  box.querySelector('[data-maxgoal]').addEventListener('click', () => {
-    g.cur.ord = g.tgt.ord;
-    if(!isW){
-      g.cur.skills = [...g.tgt.skills];
-      g.nodes = g.nodes.map(row => row.map(v => v === 1 ? 2 : v));
-      syncNodeCounts(g);
-    }
-    save(); render();
-  });
+  box.querySelector('[data-maxgoal]').addEventListener('click', () => { maxGoal(g); save(); render(); });
   box.querySelectorAll('[data-upg]').forEach(b => b.addEventListener('click', e => {
     const st = steps[+e.currentTarget.dataset.upg];
     if(!st || Object.keys(affordCost(state.inv, st.cost, state.synth)).length) return;

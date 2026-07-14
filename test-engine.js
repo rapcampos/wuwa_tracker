@@ -11,7 +11,7 @@ eval(blocks.join('\n;\n') + `
   freshWpnState, maxedWpnState, wexpToCores, fmtShort, priorityMatIds, defaultGoalTgt, fuzzyScore,
   nodeShortfall, charEnergy, teamUsage, energyLeft, sanitizeTeams, expTopTier, wexpTopTier,
   waveplateEstimate, stripCE, craftFromPool, affordCost, poolPlan, spendCost, dailyPlan, familyIds, famLabel,
-  activeGoals, equipOf, sanitizeOwners, prioritizeQueue,
+  activeGoals, equipOf, sanitizeOwners, prioritizeQueue, canCarry,
   statNodesFor, forteStatTotals, overworldBag, isOverworld, weekStartMs});`);
 
 let pass = 0, fail = 0;
@@ -836,18 +836,25 @@ eq('stripCE never mutates its input', (() => {
   const ch = c => ({char:c, cur:freshState(), tgt:freshState()});
   const wp = (w, owner) => owner ? {weapon:w, cur:freshWpnState(), tgt:freshWpnState(), owner}
                                  : {weapon:w, cur:freshWpnState(), tgt:freshWpnState()};
-  const W1 = Object.keys(GAME.weapons)[0], W2 = Object.keys(GAME.weapons)[1];
+  // jinhsi wields Broadblades; phoebe/suisui wield Rectifiers
+  const W1 = 'agesOfHarvest', W2 = 'verdantSummit', REC = 'stringmaster';
 
   eq('equipOf finds the weapon a character carries',
      equipOf([ch('jinhsi'), wp(W1, 'jinhsi')], 'jinhsi').weapon, W1);
   eq('equipOf: no link → null', equipOf([ch('jinhsi'), wp(W1)], 'jinhsi'), null);
 
-  // repair: owner must be a roster character, and may own only ONE weapon
-  const list = [wp(W1, 'jinhsi'), wp(W2, 'jinhsi'), wp(W1, 'nobody'), wp(W2, 42)];
+  // in-game rule: only a character of the weapon's own type may carry it
+  eq('canCarry: same weapon type', canCarry('jinhsi', W1), true);
+  eq('canCarry: wrong type', canCarry('jinhsi', REC), false);
+  eq('canCarry: unknown ids', [canCarry('nobody', W1), canCarry('jinhsi', 'nope')], [false, false]);
+
+  // repair: owner must be a roster character who can wield it, and may own
+  // only ONE weapon (first claim wins)
+  const list = [wp(W1, 'jinhsi'), wp(W2, 'jinhsi'), wp(REC, 'jinhsi'), wp(W1, 'nobody'), wp(W2, 42)];
   sanitizeOwners(list, ['jinhsi', 'phoebe']);
-  eq('sanitizeOwners: first claim wins, later ones unlink',
-     list.map(g => g.owner), [ 'jinhsi', undefined, undefined, undefined ]);
-  const gone = [wp(W1, 'phoebe')];
+  eq('sanitizeOwners: first claim wins; the wrong type and non-roster/junk owners drop',
+     list.map(g => g.owner), ['jinhsi', undefined, undefined, undefined, undefined]);
+  const gone = [wp(REC, 'phoebe')];
   sanitizeOwners(gone, ['jinhsi']);                 // phoebe left the roster
   eq('sanitizeOwners: a non-roster owner is dropped', gone[0].owner, undefined);
 }
@@ -856,7 +863,7 @@ eq('stripCE never mutates its input', (() => {
 {
   const ch = c => ({char:c, cur:freshState(), tgt:freshState()});
   const wp = (w, owner) => ({weapon:w, cur:freshWpnState(), tgt:freshWpnState(), owner});
-  const W1 = Object.keys(GAME.weapons)[0], W2 = Object.keys(GAME.weapons)[1];
+  const W1 = 'agesOfHarvest', W2 = 'stringmaster';   // owners below are illustrative; prioritizeQueue
   const name = g => g.char !== undefined ? g.char : 'w:' + g.weapon + '→' + (g.owner || '-');
 
   // queue: jinhsi · W1(→jinhsi) · phoebe · carlotta · verina · W2(→carlotta)

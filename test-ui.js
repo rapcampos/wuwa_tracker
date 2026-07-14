@@ -260,48 +260,62 @@ palIn.value = 'aoh'; fire(palIn, 'input');
 d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
 ok('Esc closes the palette', d.querySelector('#palWrap').hidden === true);
 
-// ── right-click / Shift+Enter add a fully maxed goal ──
+// ── right-click / Shift+Enter add a goal ALREADY BUILT ──
 {
-  const tgtOf = name => w.eval(`JSON.stringify(state.goals.find(g =>
-    g.char && GAME.characters[g.char].name === ${JSON.stringify(name)}).tgt)`);
-  const nodesOf = name => w.eval(`JSON.stringify(state.goals.find(g =>
-    g.char && GAME.characters[g.char].name === ${JSON.stringify(name)}).nodes)`);
-  ok('the palette advertises the maxed add', d.querySelector('#palHint').hidden === false &&
-     /right-click/.test(d.querySelector('#palHint').textContent));
+  const goalOf = name => w.eval(`JSON.stringify(state.goals.find(g =>
+    (g.char && GAME.characters[g.char].name === ${JSON.stringify(name)}) ||
+    (g.weapon && GAME.weapons[g.weapon].name === ${JSON.stringify(name)})))`);
+  ok('the palette advertises the already-built add', d.querySelector('#palHint').hidden === false &&
+     /right-click/.test(d.querySelector('#palHint').textContent) &&
+     /already built/.test(d.querySelector('#palHint').textContent));
 
-  // baseline: a plain click uses the rarity template (5★ → forte 6)
+  // baseline: a plain click adds an UNBUILT goal from the rarity template
   fire(d.querySelector('#btnAdd'), 'click');
   palIn.value = 'changli'; fire(palIn, 'input');
   fire([...d.querySelectorAll('#palList .pal-item')].find(x => x.textContent.includes('Changli')), 'click');
-  ok('a plain click adds from the template', JSON.parse(tgtOf('Changli')).skills.join() === '6,6,6,6,6');
+  const changli = JSON.parse(goalOf('Changli'));
+  ok('a plain click adds from the template, at Lv 1',
+     changli.tgt.skills.join() === '6,6,6,6,6' && changli.cur.ord === 0 && changli.cur.skills.join() === '1,1,1,1,1');
 
-  // right-click: Lv90, every skill 10, every node planned
+  // right-click: the same template target, but the build is already DONE
   fire(d.querySelector('#btnAdd'), 'click');
   palIn.value = 'camellya'; fire(palIn, 'input');
   [...d.querySelectorAll('#palList .pal-item')].find(x => x.textContent.includes('Camellya'))
     .dispatchEvent(new w.MouseEvent('contextmenu', {bubbles:true, cancelable:true}));
-  ok('right-click adds a maxed character goal', d.querySelector('#palWrap').hidden === true &&
-     JSON.parse(tgtOf('Camellya')).ord === 13 &&
-     JSON.parse(tgtOf('Camellya')).skills.join() === '10,10,10,10,10');
-  ok('…with every forte node at least planned',
-     JSON.parse(nodesOf('Camellya')).every(row => row.every(v => v >= 1)));
-  ok('…and the derived counts follow the matrix',
-     JSON.parse(tgtOf('Camellya')).minor === 4 && JSON.parse(tgtOf('Camellya')).major === 4 &&
-     JSON.parse(tgtOf('Camellya')).inh1 === 1 && JSON.parse(tgtOf('Camellya')).inh2 === 1);
+  const cam = JSON.parse(goalOf('Camellya'));
+  ok('right-click adds the character already levelled to its template target',
+     d.querySelector('#palWrap').hidden === true &&
+     cam.cur.ord === cam.tgt.ord && cam.cur.skills.join() === cam.tgt.skills.join());
+  ok('…with every planned node OWNED (not just planned)',
+     cam.nodes.every(row => row.every(v => v === 0 || v === 2)) &&
+     cam.nodes.some(row => row.some(v => v === 2)));
+  ok('…so it costs nothing and its card offers ✓ Mark completed',
+     w.eval(`Object.keys(costForGoal(state.goals.find(g => g.char === 'camellya'))).length`) === 0 &&
+     [...d.querySelectorAll('#goals .goal')].some(c =>
+        c.querySelector('.gname').textContent.includes('Camellya') && c.querySelector('[data-act="done"]')));
+
+  // weapons come in maxed the same way (they already target Lv90)
+  fire(d.querySelector('#btnAdd'), 'click');
+  palIn.value = 'stringmaster'; fire(palIn, 'input');
+  [...d.querySelectorAll('#palList .pal-item')].find(x => x.textContent.includes('Stringmaster'))
+    .dispatchEvent(new w.MouseEvent('contextmenu', {bubbles:true, cancelable:true}));
+  const sm = JSON.parse(goalOf('Stringmaster'));
+  ok('right-click adds a weapon at Lv 90, already built', sm.cur.ord === 13 && sm.tgt.ord === 13);
 
   // Shift+Enter is the keyboard equivalent
   fire(d.querySelector('#btnAdd'), 'click');
   palIn.value = 'zani'; fire(palIn, 'input');
   palIn.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Enter', shiftKey:true, bubbles:true}));
-  ok('Shift+Enter adds a maxed goal too', JSON.parse(tgtOf('Zani')).skills.join() === '10,10,10,10,10');
+  const zani = JSON.parse(goalOf('Zani'));
+  ok('Shift+Enter adds it already built too', zani.cur.ord === zani.tgt.ord);
 
-  // team-pick mode has no "maxed" concept
-  w.eval(`openPal({t:0, s:0})`);
+  // pick modes have no "already built" concept
+  w.eval(`openPal({mode:'slot', t:0, s:0})`);
   ok('the hint hides in team-pick mode', d.querySelector('#palHint').hidden === true);
   d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
 
-  w.eval(`state.goals = state.goals.filter(g => !g.char ||
-    !['Changli','Camellya','Zani'].includes(GAME.characters[g.char].name)); save(); render();`);
+  w.eval(`state.goals = state.goals.filter(g => !g.weapon && (!g.char ||
+    !['Changli','Camellya','Zani'].includes(GAME.characters[g.char].name))); save(); render();`);
   ok('scratch goals removed for the rest of the suite', texts('.gname').length === 3);
 }
 
@@ -1729,30 +1743,39 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   w.eval(`state.craftMode = 'reserve'; save();`);
 }
 
-// ── character⇄weapon link: owner row on weapon cards, one weapon per char ──
+// ── character⇄weapon link: owner row, weapon-type rule, one weapon per char ──
 {
-  reset();                                   // Jinhsi (P1) / Phoebe (P2) / Suisui (P3)
-  w.eval(`state.goals.push(newWpnGoal('agesOfHarvest', false), newWpnGoal('stringmaster', false));
+  reset();                                   // Jinhsi (Broadblade) / Phoebe, Suisui (Rectifier)
+  // P4 Ages of Harvest + P5 Verdant Summit are Broadblades; P6 Stringmaster is a Rectifier
+  w.eval(`state.goals.push(newWpnGoal('agesOfHarvest', false), newWpnGoal('verdantSummit', false),
+                           newWpnGoal('stringmaster', false));
           save(); render();`);
   const wcard = i => d.querySelector(`.goal[data-g="${i}"]`);
   const ownerBtn = i => wcard(i).querySelector('[data-act="own"]');
+  const palNames = () => [...d.querySelectorAll('#palList .pal-item')].map(e => e.textContent);
   ok('a weapon card starts unlinked and invites a link',
      ownerBtn(3).textContent.includes('link to a character') &&
      wcard(0).querySelector('[data-act="own"]') === null);   // character cards have no owner row
 
+  // a Broadblade offers only Broadblade characters (Jinhsi), never Phoebe/Suisui
   fire(ownerBtn(3), 'click');
-  const palNames = () => [...d.querySelectorAll('#palList .pal-item')].map(e => e.textContent);
-  ok('the owner palette offers the roster characters, no weapons',
+  ok('the owner palette offers only characters of the weapon’s type',
      d.querySelector('#palWrap').hidden === false &&
-     palNames().length === 3 && palNames().some(n => n.includes('Jinhsi')) &&
-     !palNames().some(n => n.includes('Harvest')));
-  fire([...d.querySelectorAll('#palList .pal-item')].find(e => e.textContent.includes('Jinhsi')), 'click');
+     palNames().length === 1 && palNames()[0].includes('Jinhsi') &&
+     /Broadblade character/.test(d.querySelector('#palIn').placeholder));
+  fire(d.querySelector('#palList .pal-item'), 'click');
   ok('picking an owner links it and shows the avatar row',
      w.eval(`state.goals[3].owner`) === 'jinhsi' && ownerBtn(3).textContent.includes('for Jinhsi'));
   ok('the link persists in the save',
      JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).goals[3].owner === 'jinhsi');
 
-  // one character carries ONE weapon: linking the second moves the link
+  // the Rectifier has no eligible owner in this roster… wait, Phoebe/Suisui are Rectifier users
+  fire(ownerBtn(5), 'click');
+  ok('a Rectifier offers the Rectifier users, not the Broadblade one',
+     palNames().length === 2 && !palNames().some(n => n.includes('Jinhsi')));
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
+
+  // one character carries ONE weapon: linking a second Broadblade moves the link
   fire(ownerBtn(4), 'click');
   fire([...d.querySelectorAll('#palList .pal-item')].find(e => e.textContent.includes('Jinhsi')), 'click');
   ok('linking a second weapon to the same character unlinks the first',
@@ -1761,6 +1784,13 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   fire(wcard(4).querySelector('[data-act="unown"]'), 'click');
   ok('✕ unlinks', w.eval(`state.goals[4].owner`) === undefined &&
      wcard(4).querySelector('[data-act="unown"]') === null);
+
+  // sanitize enforces the type rule on load (a hand-edited/older save can't smuggle one in)
+  ok('sanitize drops a link the character could never wield',
+     w.eval(`sanitize({goals:[{char:'jinhsi'}, {weapon:'stringmaster', owner:'jinhsi'}]})
+              .goals[1].owner`) === undefined &&
+     w.eval(`sanitize({goals:[{char:'jinhsi'}, {weapon:'agesOfHarvest', owner:'jinhsi'}]})
+              .goals[1].owner`) === 'jinhsi');
 
   // a character leaving the roster takes its links with it
   w.eval(`state.goals[3].owner = 'jinhsi'; save(); render();`);
@@ -1783,11 +1813,12 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   const rcard = n => rcards().find(c => c.dataset.c === n);
   const teamNames = () => [...d.querySelectorAll('#teams .team .tname')].map(e => e.textContent);
 
-  ok('roster cards carry level, energy pips and the linked weapon',
+  const bars = n => [...rcard(n).querySelectorAll('.energy i')];
+  ok('one energy bar per point of budget, lit while that point is free',
      rcard('jinhsi').querySelector('.rlv').textContent.includes('Lv 1') &&
-     rcard('jinhsi').querySelectorAll('.energy i').length === 1 &&      // energy 1 → one pip
-     rcard('jinhsi').querySelector('.rwpn .wname').textContent.includes('Ages of Harvest') &&
-     rcard('suisui').querySelectorAll('.energy i').length === 2);       // seeded support: energy 2
+     bars('jinhsi').length === 1 && bars('jinhsi').filter(b => b.classList.contains('on')).length === 0 &&
+     bars('suisui').length === 2 && bars('suisui').filter(b => b.classList.contains('on')).length === 2 &&
+     rcard('jinhsi').querySelector('.rwpn .wname').textContent.includes('Ages of Harvest'));
   ok('an unlinked character shows the empty weapon slot',
      rcard('phoebe').querySelector('.rwpn').classList.contains('none'));
   ok('a character already in a team has no energy left and cannot be dragged',
@@ -1795,19 +1826,26 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
      rcard('jinhsi').getAttribute('draggable') === 'false' &&
      rcard('suisui').getAttribute('draggable') === 'true');
   ok('teams are auto-named after their first member', teamNames().join() === 'Phoebe,Jinhsi');
+  const jSlot = [...d.querySelectorAll('#teams .slot')].find(s => /Jinhsi/.test(s.textContent));
+  ok('a team slot shows the weapon its character carries',
+     jSlot.querySelector('.swpn') !== null &&
+     /Ages of Harvest/.test(jSlot.getAttribute('title')) &&
+     [...d.querySelectorAll('#teams .slot')].filter(s => /Phoebe/.test(s.textContent))
+       .every(s => s.querySelector('.swpn') === null));   // Phoebe has no weapon linked yet
 
   // the roster card's weapon slot picks from the LEDGER's weapons only
-  // the ledger's only weapon is Jinhsi's, so there is nothing free to equip
+  // the ledger's only weapon is Jinhsi's Broadblade — nothing Phoebe could hold
   fire(rcard('phoebe').querySelector('.rwpn'), 'click');
-  ok('the equip palette offers no weapon someone else carries, and says why',
+  ok('the equip palette offers no weapon of the wrong type, and says why',
      d.querySelectorAll('#palList .pal-item').length === 0 &&
-     /already carried by someone else/.test(d.querySelector('#palList').textContent));
+     /No Rectifier weapon in your ledger/.test(d.querySelector('#palList').textContent));
   d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
   w.eval(`state.goals.push(newWpnGoal('stringmaster', false)); save(); render();`);
   fire(rcard('phoebe').querySelector('.rwpn'), 'click');
-  ok('a free LEDGER weapon shows up (not the 89-weapon catalog) and links on pick',
+  ok('a free LEDGER weapon of her type shows up (not the 89-weapon catalog)',
      d.querySelectorAll('#palList .pal-item').length === 1 &&
-     d.querySelector('#palList .pal-item').textContent.includes('Stringmaster'));
+     d.querySelector('#palList .pal-item').textContent.includes('Stringmaster') &&
+     /Rectifier weapon from your ledger/.test(d.querySelector('#palIn').placeholder));
   fire(d.querySelector('#palList .pal-item'), 'click');
   ok('the roster card now shows Phoebe’s weapon',
      w.eval(`equipOf(wpnGoals(), 'phoebe').weapon`) === 'stringmaster' &&

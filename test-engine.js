@@ -11,6 +11,7 @@ eval(blocks.join('\n;\n') + `
   freshWpnState, maxedWpnState, wexpToCores, fmtShort, priorityMatIds, defaultGoalTgt, fuzzyScore,
   nodeShortfall, charEnergy, teamUsage, energyLeft, sanitizeTeams, expTopTier, wexpTopTier,
   waveplateEstimate, stripCE, craftFromPool, affordCost, poolPlan, spendCost, dailyPlan, familyIds, famLabel,
+  activeGoals,
   statNodesFor, forteStatTotals, overworldBag, isOverworld, weekStartMs});`);
 
 let pass = 0, fail = 0;
@@ -766,6 +767,67 @@ eq('stripCE never mutates its input', (() => {
     eq('with weeklies exhausted the budget goes to the boss instead',
        p.runs.map(r => r.kind), ['boss']);
   }
+}
+
+// ═══ 20. PAUSED GOALS: in the queue, out of every calculation ═══
+{
+  const g1 = {char:'jinhsi', cur:{...freshState(), ord:1}, tgt:{...freshState(), ord:2}}; // 4 howler0 + 5k
+  const g2 = {char:'jinhsi', cur:{...freshState(), ord:1}, tgt:{...freshState(), ord:2}, off:true};
+  const g3 = {char:'phoebe', cur:{...freshState(), ord:1}, tgt:{...freshState(), ord:2}}; // 4 whisperin0 + 5k
+
+  eq('activeGoals drops the paused ones', activeGoals([g1, g2, g3]).length, 2);
+  eq('totalBag over the active list ignores the paused cost',
+     totalBag(activeGoals([g1, g2, g3])).credits, totalBag([g1, g3]).credits);
+
+  // the pool must flow PAST a paused goal: g2 (same char, same cost as g1) is
+  // paused, so g3 — not g2 — sees what g1 left behind
+  const walk = farmNextWalk([g1, g2, g3], {howler0: 4, whisperin0: 4, credits: 10000});
+  eq('walk: one entry per goal, paused included', walk.length, 3);
+  eq('walk: the active goal ahead is served', walk[0].ready, true);
+  eq('walk: the paused entry is flagged', walk[1].off, true);
+  eq('walk: a paused goal is never "ready"', walk[1].ready, false);
+  eq('walk: a paused entry reports its FULL cost as remaining', walk[1].rem, walk[1].need);
+  eq('walk: a paused goal spends none of the pool — the next active goal gets it',
+     walk[2].rem, {});                              // 4 whisperin0 + the other 5k credits, all covered
+
+  // crafting: a paused goal reserves nothing either
+  const gA = {char:'jinhsi', cur:{...freshState(), ord:6}, tgt:{...freshState(), ord:11}};   // 12× howler2
+  const gB = {char:'jinhsi', cur:freshState(), tgt:{...freshState(), inh1:1}, off:true};     // 3× howler1, paused
+  const wc = farmNextWalk([gA, gB], {howler1: 36}, true);
+  eq('walk-craft: a paused goal reserves nothing, so all 36 may craft',
+     wc[0].rem.howler2, undefined);
+  eq('walk-craft: the paused goal still shows its own full need', wc[1].rem.howler1, 3);
+}
+
+// ═══ 20b. CRAFT MODES: 'reserve' (cautious) vs 'priority' (greedy) ═══
+{
+  // goal 1 wants 12× howler2 (craftable from 36× howler1); goal 2 wants 3×
+  // howler1 directly. 38 in stock: enough for goal 2's 3 only if 36 craft… but
+  // 38 - 36 = 2 < 3. The two rules resolve the clash differently.
+  const gA = {char:'jinhsi', cur:{...freshState(), ord:6}, tgt:{...freshState(), ord:11}};
+  const gB = {char:'jinhsi', cur:freshState(), tgt:{...freshState(), inh1:1}};
+  const inv = {howler1: 38};
+
+  const res = farmNextWalk([gA, gB], inv, true, 'reserve');
+  eq('reserve: goal 2 keeps the 3 it needs directly — goal 1 ends 1 short',
+     [res[0].rem.howler2, res[1].rem.howler1], [1, undefined]);
+
+  const pri = farmNextWalk([gA, gB], inv, true, 'priority');
+  eq('priority: goal 1 crafts all 36 and finishes; goal 2 is left 1 short',
+     [pri[0].rem.howler2, pri[1].rem.howler1], [undefined, 1]);
+
+  eq('the default mode is the cautious one',
+     farmNextWalk([gA, gB], inv, true).map(w => w.rem), res.map(w => w.rem));
+  eq('mode is inert with crafting off',
+     farmNextWalk([gA, gB], inv, false, 'priority').map(w => w.rem),
+     farmNextWalk([gA, gB], inv, false, 'reserve').map(w => w.rem));
+
+  // with no contention the two rules agree (the greedy rule only bites when a
+  // later goal wanted the lower tier directly)
+  const plenty = {howler1: 39};
+  eq('no contention → both rules give the same answer',
+     farmNextWalk([gA, gB], plenty, true, 'priority').map(w => w.rem),
+     farmNextWalk([gA, gB], plenty, true, 'reserve').map(w => w.rem));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

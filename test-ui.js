@@ -25,7 +25,7 @@ const texts = sel => [...d.querySelectorAll(sel)].map(e => e.textContent);
 const reset = () => w.eval(`
   const D = {4: defaultGoalTgt(4), 5: defaultGoalTgt(5)};
   state = {goals: ['jinhsi','phoebe','suisui'].map(c => newGoal(c, false, D)),
-           done: [], inv: {}, synth: true, hideUn: false, skipCE: false,
+           done: [], inv: {}, synth: true, craftMode: 'reserve', hideUn: false, skipCE: false,
            tab: 'total', teams: [], defaults: D, week: freshWeek()};
   undoStack.length = 0; clearTimeout(undoTimer);
   editIdx = null; editTpl = null; palPick = null; palSel = 0;
@@ -1627,6 +1627,106 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
      dT.querySelectorAll('#teams .slot:not(.empty)').length === 2 &&
      dT.querySelectorAll('#teams .rchip.spent').length === 2);
   ok('old saves without teams default to none (jsdom main dom booted clean)', Array.isArray(savedT.teams));
+}
+
+// ── pause a goal: ⏸ keeps it in the queue but out of every calculation ──
+{
+  reset();                                   // Jinhsi (P1) / Phoebe (P2) / Suisui (P3)
+  const card = i => d.querySelector(`.goal[data-g="${i}"]`);
+  const totalCredits = () => {               // exact figure lives in the tile's tooltip
+    const t = [...d.querySelectorAll('#summary .tile')]
+      .find(x => (x.getAttribute('title') || '').startsWith('Shell Credit'));
+    return t ? +t.getAttribute('title').match(/([\d,]+) needed/)[1].replace(/,/g, '') : -1;
+  };
+  const before = totalCredits();
+  ok('every card starts active — no dimming, ⏸ offered', d.querySelectorAll('.goal.off').length === 0 &&
+     card(1).querySelector('[data-act="off"]').textContent === '⏸');
+
+  fire(card(1).querySelector('[data-act="off"]'), 'click');       // pause Phoebe
+  ok('the paused card stays in place, dimmed, and offers ▶',
+     d.querySelectorAll('.goal').length === 3 && card(1).classList.contains('off') &&
+     card(1).querySelector('[data-act="off"]').textContent === '▶');
+  ok('no PAUSED tag — dimming is the whole signal', d.querySelectorAll('.goal .badge').length === 0);
+  ok('a paused goal drops out of the Total aggregate', totalCredits() > 0 && totalCredits() < before);
+  ok('Total says how many goals it left out',
+     /for 2 goals/.test(d.querySelector('#summary').textContent) &&
+     /1 paused goal is left out/.test(d.querySelector('#summary').textContent));
+  ok('the paused card still shows its own full cost',
+     card(1).querySelectorAll('.goal-mats .tile').length > 5);
+  ok('paused survives a save/reload round-trip',
+     JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).goals.map(g => !!g.off).join() === 'false,true,false');
+
+  // the pool flows past it: stock the shared weekly and the paused P2 must not eat it
+  w.eval(`state.inv["wk:Sentinel's Dagger"] = 6; save(); render();`);
+  const wkTile = i => [...card(i).querySelectorAll('.tile')]
+    .find(t => (t.getAttribute('title') || '').includes("Sentinel's Dagger"));
+  ok('inventory is allocated past the paused goal — P1 still eats the stock',
+     wkTile(0).classList.contains('done') && !wkTile(1).classList.contains('done'));
+  ok('the paused goal claims none of it (shows all 6 of its own need)',
+     wkTile(1).textContent.trim().endsWith('6'));
+
+  // Farm next plans nothing for it: pause everything and the plan empties
+  w.eval(`state.inv = {}; state.goals.forEach(g => g.off = true); save(); render();`);
+  fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Total'), 'click');
+  ok('all paused → Total says so instead of showing an empty deficit',
+     /Every goal is paused/.test(d.querySelector('#summary').textContent));
+  fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Farm next'), 'click');
+  ok('all paused → Farm next proposes no runs', d.querySelectorAll('#summary .run').length === 0);
+  w.eval(`state.goals.forEach(g => g.off = false); state.tab = 'total'; save(); render();`);
+  ok('resuming brings the totals back', totalCredits() === before);
+
+  // paused is a queue-only state: marking a goal done clears it
+  w.eval(`{ const g = state.goals[0]; g.off = true; g.cur = JSON.parse(JSON.stringify(g.tgt));
+            g.nodes = g.nodes.map(r => r.map(v => v ? 2 : 0)); syncNodeCounts(g); save(); render(); }`);
+  ok('a paused-but-finished card offers no ✓ (resume it first)',
+     card(0).querySelector('[data-act="done"]') === null);
+  fire(card(0).querySelector('[data-act="off"]'), 'click');       // resume → ✓ appears
+  fire(card(0).querySelector('[data-act="done"]'), 'click');
+  ok('completing a goal drops the paused flag',
+     w.eval('state.done.length') === 1 && w.eval('!!state.done[0].off') === false);
+}
+
+// ── craft mode: the 3→1 rule is pickable (reserve ⇄ priority) ──
+{
+  reset();
+  const sel = () => d.querySelector('#craftMode');
+  ok('the picker sits on the Total tab, defaulting to the cautious rule',
+     sel() !== null && sel().value === 'reserve' &&
+     [...sel().options].map(o => o.value).join() === 'reserve,priority');
+
+  const synth = d.querySelector('#synthChk');
+  synth.checked = false; fire(synth, 'change');                   // crafting off
+  ok('with crafting off the picker is gone (the choice is meaningless)', sel() === null);
+  const synth2 = d.querySelector('#synthChk');
+  synth2.checked = true; fire(synth2, 'change');                  // back on
+  ok('turning crafting back on restores the picker', sel() !== null);
+
+  /* A real contention, both goals in the HOWLER family (Jinhsi and Jiyan share
+     it): P1 wants 12× howler2, craftable from 36× howler1; P2 needs 3× howler1
+     directly. Stock is 38 — one short of serving both, so the rules disagree. */
+  w.eval(`{ const D = {4: defaultGoalTgt(4), 5: defaultGoalTgt(5)};
+            const flat = g => { g.tgt.skills = [...g.cur.skills];
+                                g.nodes = [[0,0,0,0,0],[0,0,0,0,0]]; syncNodeCounts(g); return g; };
+            const j = flat(newGoal('jinhsi', false, D)); j.cur.ord = 6; j.tgt.ord = 11;  // 12× howler2
+            const y = flat(newGoal('jiyan',  false, D));                                 // 3× howler1
+            y.cur.ord = 0; y.tgt.ord = 0; y.tgt.inh1 = 1;   // Lv1, buying Inherent Ⅰ only
+            state.goals = [j, y]; state.inv = {howler1: 38}; save(); render(); }`);
+  const rem = (g, id) => +w.eval(`theWalk()[${g}].rem['${id}'] || 0`);
+  ok('reserve: P2 keeps the tier-1 stock it needs directly, so P1 ends 1 short',
+     rem(0, 'howler2') === 1 && rem(1, 'howler1') === 0);
+
+  sel().value = 'priority'; fire(sel(), 'change');
+  ok('priority: the top goal crafts all 36 and finishes; P2 is the one left short',
+     rem(0, 'howler2') === 0 && rem(1, 'howler1') === 1 && w.eval('state.craftMode') === 'priority');
+  ok('the choice persists in the save',
+     JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).craftMode === 'priority');
+  ok('the picker reflects the stored choice after a re-render',
+     (w.eval('render()'), d.querySelector('#craftMode').value === 'priority'));
+  ok('an unknown craftMode sanitizes back to reserve',
+     w.eval(`sanitize({craftMode: 'nonsense'}).craftMode`) === 'reserve' &&
+     w.eval(`sanitize({}).craftMode`) === 'reserve' &&
+     w.eval(`sanitize({craftMode: 'priority'}).craftMode`) === 'priority');
+  w.eval(`state.craftMode = 'reserve'; save();`);
 }
 
 dom.window.close();    // kill pending toast timers so Node exits promptly

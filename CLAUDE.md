@@ -135,6 +135,19 @@ it goes in block 2 with tests; presentation goes in block 3.
   end — raise the target to keep building) and ✕ (forget; the char becomes
   addable again). A character exists at most once across queue + done;
   `sanitize()` lets the queued copy win.
+- **Paused goals** (`goal.off`, ⏸/▶ on the card): the goal keeps its queue slot
+  but takes part in NOTHING — no totals, no inventory allocation, no waveplate
+  plan, no needer chips. The engine chokepoint is `activeGoals(goals)` (pure:
+  drops `off` goals), which every UI call site passes instead of `state.goals`
+  (`liveGoals()`); `farmNextWalk` is off-aware itself so its result stays
+  index-aligned with `state.goals` — a paused goal yields `{off:true, rem:
+  {...need}, ready:false}`, spends none of the pool and (with crafting on)
+  RESERVES nothing. Its card is simply DIMMED (`.goal.off`; no badge — user's
+  call, Jul 2026) and shows its FULL cost, which is exactly what resuming would
+  take. Paused is a queue-only state: ✓ is withheld from a paused card and
+  marking a goal done clears the flag (`sanitize` drops `off` inside `done`).
+  Pausing/resuming is one click each way, so it is deliberately NOT wrapped in
+  `withUndo`. All-paused is its own Total-tab empty state.
 - **Teams (matrix team builder)**: a second page (`#pageTeams`, header nav
   "Ledger | Teams", `location.hash === '#teams'` routing — nav clicks call
   `showPage` directly so jsdom needs no hashchange event; boot calls
@@ -161,9 +174,11 @@ it goes in block 2 with tests; presentation goes in block 3.
   current matrix) and repairs illegal states. Later-added top-level fields:
   `done` (completed goals), `hideUn` (legacy — the Hide-un-needed filter it
   drove is gone; still sanitized so old saves don't error), `skipCE`
-  ("Ignore credits & EXP"), `teams` (Teams page), and `week`
-  (`{start, used}` — weekly-boss claims spent this game week) — all default
-  safely when absent. A saved `tab:'left'` (the removed Inventory tab)
+  ("Ignore credits & EXP"), `teams` (Teams page), `week`
+  (`{start, used}` — weekly-boss claims spent this game week), `craftMode`
+  (`'reserve'|'priority'`, anything else sanitizes to `'reserve'`), and the
+  per-goal `off` (paused) — all default safely when absent. A saved
+  `tab:'left'` (the removed Inventory tab)
   migrates to Total. Never break old-save loading; add migrations instead.
   Storage is normalized (rewritten) once at boot.
 
@@ -373,21 +388,29 @@ visual aid, not a test — still be careful with CSS-only changes.
   allocate the pool in queue order (renderGoals runs `farmNextWalk`, so the
   first card that needs a material eats the stock and later cards see the
   leftovers — same rule as the Farm next tab). With the synthesis toggle
-  on, the walk also CRAFTS (`farmNextWalk(goals, inv, craft)` → pure
+  on, the walk also CRAFTS (`farmNextWalk(goals, inv, craft, mode)` → pure
   `craftFromPool`): each goal may cover family-tier deficits 3→1 from pool
-  surplus, but a `reserve` map holds every quantity any queued goal still
-  needs directly at each tier — those are never crafted away ("have 22,
-  need 10 → only 12 craft", user's rule). Chains (9× t0 → 1× t2) consume
-  exactly, wasting nothing on a short chain; low-tier deficits craft
-  before high. The Total tab nets the aggregate via `remainingBag`
-  (synthesis-aware as before). Covered mats stay visible as a dimmed ✓
-  (`.tile.done`), with the full requirement in the tooltip. The Inventory
-  tab's synth checkbox therefore also refreshes the goals grid.
+  surplus. **Two rules, picked by `state.craftMode`** (`craftMode()` in the
+  UI reads it defensively; the `.cmode` select sits beside the Craft 3→1
+  checkbox on the Total tab and only renders while crafting is ON):
+  `'reserve'` (default, cautious) builds a `reserve` map holding every
+  quantity any queued goal still needs directly at each tier — those are
+  never crafted away ("have 22, need 10 → only 12 craft", user's rule);
+  `'priority'` (greedy) skips the reserve entirely, so the top goal crafts
+  from every lower tier it can reach and finishes as early as possible and
+  later goals get what survives. The rules only diverge under contention
+  within one family; with crafting off `mode` is inert. Chains (9× t0 → 1×
+  t2) consume exactly, wasting nothing on a short chain; low-tier deficits
+  craft before high. The Total tab nets the aggregate via `remainingBag`
+  (synthesis-aware; order-free, so `craftMode` doesn't apply there). Covered
+  mats stay visible as a dimmed ✓ (`.tile.done`), with the full requirement
+  in the tooltip.
 - **Cards are read-only status views**: a header row (`.goal-top`: prio ·
-  avatar · name (grows) · `.gctrl` buttons ✎▲▼✕) with the meta on its OWN
-  full-width row below (`.goal .gmeta`) so the level range never wraps in a
-  narrow 3-col card. Level text is `lvlLabel(g)`: "Lv 1 → Lv 90" while
-  building, just "Lv 90" once `cur.ord === tgt.ord` (no "Lv 90 → Lv 90").
+  avatar · name (grows, ellipsis + title — 5 buttons leave it little room) ·
+  `.gctrl` buttons ⏸✎▲▼✕, with ✓ prepended on a finished goal) with the meta
+  on its OWN full-width row below (`.goal .gmeta`) so the level range never
+  wraps in a narrow 3-col card. Level text is `lvlLabel(g)`: "Lv 1 → Lv 90"
+  while building, just "Lv 90" once `cur.ord === tgt.ord` (no "Lv 90 → Lv 90").
   Then a mini forte tree (`miniTree`,
   span-based, no handlers) with per-column skill levels cur→tgt + an
   always-visible materials tile grid (`goalMats`). All editing happens in the ✎
@@ -473,9 +496,12 @@ visual aid, not a test — still be careful with CSS-only changes.
   HTML5 DnD is gone; `.grip` CSS now serves the pop-up rows only.)
 - Summary tabs (three now — Inventory tab removed): Total (aggregate deficit
   + waveplate line + the two global toggles: "Ignore credits & EXP" and
-  "Craft 3→1", the latter `#synthChk` moved here from the old tab, both
-  `save(); render()`) / Farm next (see below) / Completed (finished goals;
-  tab label carries a count when non-empty).
+  "Craft 3→1", the latter `#synthChk` moved here from the old tab, plus the
+  `#craftMode` rule select that appears next to it while it's on; all
+  `save(); render()`. The tab counts only ACTIVE goals and says how many
+  paused ones it left out; every-goal-paused is its own empty state) /
+  Farm next (see below) / Completed (finished goals; tab label carries a
+  count when non-empty).
 - **Farm next** answers "what do I do now": today's 240⚡ plan (`todayBox`),
   then a **"No waveplates needed"** section (`.freefarm`) listing every
   still-missing material that costs no stamina — Specialty pickups and common

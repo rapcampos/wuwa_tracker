@@ -90,11 +90,16 @@ label.chk{display:inline-flex; gap:6px; align-items:center; cursor:pointer; colo
 #goals{display:grid; grid-template-columns:repeat(auto-fill, minmax(min(320px,100%), 1fr)); gap:12px; align-items:start}
 #goals>.empty{grid-column:1/-1}
 .goal{border:1px solid var(--line); border-radius:10px; background:var(--panel2); overflow:hidden}
+/* paused: still in the queue, out of every calculation — dimmed, but its own
+   controls stay at full strength so ▶ is easy to find */
+.goal.off{opacity:.5; filter:saturate(.35)}
+.goal.off:hover{opacity:.78}
+.goal.off .gctrl{opacity:1; filter:none}
 .goal-mats{border-top:1px dashed var(--line); padding:4px 12px 10px}
 /* .grip lives on the reorder pop-up rows only; goal cards reorder via ▲▼ */
 .grip{cursor:grab; color:var(--faint); font-size:15px; padding:2px 3px; user-select:none; touch-action:none}
 .grip:active{cursor:grabbing}
-.goal-top{display:flex; align-items:center; gap:12px; padding:10px 12px 2px}
+.goal-top{display:flex; align-items:center; gap:9px; padding:10px 12px 2px}
 /* card meta on its own full-width row so the level range never wraps */
 .goal .gmeta{padding:0 12px 8px}
 .prio{font-family:'Chakra Petch'; font-weight:700; font-size:12px; color:var(--acc,var(--cyan)); width:26px; text-align:center}
@@ -115,11 +120,18 @@ label.chk{display:inline-flex; gap:6px; align-items:center; cursor:pointer; colo
 .ico-wrap img{width:22px; height:22px; object-fit:contain; border-radius:5px}
 .ico-wrap .dot{margin-right:0}
 #addMenu button img{width:18px; height:18px; vertical-align:-4px; margin-right:6px; border-radius:4px}
-.gname{font-family:'Chakra Petch'; font-weight:600; font-size:15px; flex:1; min-width:0}
+/* the card header carries 5 buttons now (⏸ joined ✎▲▼✕), so a long name must
+   ellipsis rather than run underneath them — the full name is in its title */
+.gname{font-family:'Chakra Petch'; font-weight:600; font-size:15px; flex:1; min-width:0;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .gmeta{font-size:11.5px; color:var(--mut)}
 .badge{display:inline-block; font-size:10px; font-weight:700; letter-spacing:.08em; padding:1px 6px;
   border-radius:4px; border:1px solid var(--gold); color:var(--gold); vertical-align:1px; margin-left:6px}
-.gctrl{margin-left:auto; display:flex; gap:5px}
+/* crafting-rule picker, beside the Craft 3→1 checkbox on the Total tab */
+.cmode{margin-left:6px; font-size:11.5px; padding:1px 4px; color:var(--mut);
+  background:var(--panel2); border:1px solid var(--line); border-radius:5px}
+.gctrl{margin-left:auto; display:flex; gap:4px; flex:none}
+.gctrl button.tiny{padding:3px 6px}
 .grid-ct{display:grid; grid-template-columns:1fr auto auto auto; gap:6px 10px; align-items:center; max-width:430px}
 .grid-ct .lbl{color:var(--mut); font-size:12.5px}
 .grid-ct .arrow{color:var(--faint)}
@@ -230,6 +242,7 @@ button.search kbd{margin-left:auto; font-family:inherit; font-size:10px; color:v
 .ord-item.r4{background:rgba(166,127,224,.09)}
 .ord-item.r3{background:rgba(92,168,222,.09)}
 .ord-item.dragging{opacity:.45}
+.ord-item.off{opacity:.5; filter:saturate(.35)}
 .ord-item.drop-before{box-shadow:0 -2px 0 var(--cyan)}
 .ord-item.drop-after{box-shadow:0 2px 0 var(--cyan)}
 .ord-item .ico-wrap{width:26px; height:26px; margin:0; flex:none}
@@ -1321,6 +1334,11 @@ function costForCharGoal(goal){
 
 const totalBag = goals => goals.reduce((acc,g) => bagMerge(acc, costForGoal(g)), {});
 
+/* a PAUSED goal (`off`) keeps its place in the queue but takes part in nothing:
+   no totals, no inventory allocation, no waveplate plan. Every engine call that
+   consumes the queue gets the active list. */
+const activeGoals = goals => goals.filter(g => !g.off);
+
 /* ── EXP → item plan: greedy from the top tier, minimal overflow ── */
 function expToItems(exp, source){
   const plan = {}; let rem = Math.max(0, exp);
@@ -1613,11 +1631,19 @@ function craftFromPool(pool, reserve, fid, tier, want){
 
 /* ── priority walk: allocate inventory to goals in queue order ──
    With `craft` on (the synthesis toggle), each goal may also craft its
-   remaining family-tier deficits 3→1 from pool surplus — but only from
-   stock that no queued goal (this one or any later one) still needs
-   directly: those amounts are held in `reserve` and never crafted away.
-   Returns [{goal, need, rem, ready}] */
-function farmNextWalk(goals, inv, craft = false){
+   remaining family-tier deficits 3→1 from pool surplus. Two rules, picked by
+   `mode` (state.craftMode):
+     'reserve' — the cautious default: only stock that NO queued goal (this one
+       or any later one) still needs directly may be crafted away; those amounts
+       are held in `reserve` ("have 22, need 10 → only 12 craft").
+     'priority' — the greedy rule: no reserve at all. The top goal crafts from
+       every lower tier it can reach and finishes as early as possible; later
+       goals see whatever survives.
+   Paused goals (`goal.off`) take no part: they neither draw from the pool nor
+   reserve anything, and their entry reports the FULL cost as remaining.
+   Returns [{goal, need, rem, ready, off}] — one entry per goal, paused included,
+   so callers can index it against state.goals. */
+function farmNextWalk(goals, inv, craft = false, mode = 'reserve'){
   const pool = {};
   for(const [k,v] of Object.entries(inv)) pool[k] = Math.max(0, Math.floor(v||0));
   let expPool  = GAME.expItems.reduce((s,it) => s + (pool[it.id]||0) * it.exp, 0);
@@ -1625,11 +1651,16 @@ function farmNextWalk(goals, inv, craft = false){
 
   const needs = goals.map(costForGoal);
   const reserve = {};                          // family stock the queue still needs directly
-  if(craft) for(const n of needs) for(const [id, q] of Object.entries(n))
-    if(MATS[id] && MATS[id].family) reserve[id] = (reserve[id] || 0) + q;
+  if(craft && mode !== 'priority')
+    for(const [gi, n] of needs.entries()){
+      if(goals[gi].off) continue;              // a paused goal reserves nothing
+      for(const [id, q] of Object.entries(n))
+        if(MATS[id] && MATS[id].family) reserve[id] = (reserve[id] || 0) + q;
+    }
 
   return goals.map((goal, gi) => {
     const need = needs[gi];
+    if(goal.off) return {goal, need, rem:{...need}, ready:false, off:true};
     const rem = {};
     for(const [id, qty] of Object.entries(need)){
       if(id === 'exp'){
@@ -1656,7 +1687,7 @@ function farmNextWalk(goals, inv, craft = false){
         else if(made > 0) rem[id] -= made;
       }
     }
-    return {goal, need, rem, ready: Object.keys(rem).length === 0};
+    return {goal, need, rem, ready: Object.keys(rem).length === 0, off:false};
   });
 }
 
@@ -1859,12 +1890,12 @@ function syncNodeCounts(goal){
 function newGoal(char, open, dflts){
   const ch = GAME.characters[char];
   const src = (dflts && dflts[ch.rarity]) || defaultGoalTgt(ch.rarity);
-  const g = {char, cur:freshState(), tgt:{...src, skills:[...src.skills]}, open:!!open};
+  const g = {char, cur:freshState(), tgt:{...src, skills:[...src.skills]}, open:!!open, off:false};
   g.nodes = nodesFrom(null, g.cur, g.tgt);
   syncNodeCounts(g);
   return g;
 }
-const newWpnGoal = (weapon, open) => ({weapon, cur:freshWpnState(), tgt:maxedWpnState(), open:!!open});
+const newWpnGoal = (weapon, open) => ({weapon, cur:freshWpnState(), tgt:maxedWpnState(), open:!!open, off:false});
 
 /* weekly-boss claims spent this game week. `start` is the week's identity
    (weekStartMs); when the stored week is not the current one the count is
@@ -1880,12 +1911,14 @@ function sanitizeWeek(raw){
 
 const defaultState = () => ({
   goals: [newGoal('jinhsi', true), newGoal('phoebe', false), newGoal('suisui', false)],
-  done: [], inv:{}, synth:true, hideUn:false, skipCE:false, tab:'total', teams: [],
+  done: [], inv:{}, synth:true, craftMode:'reserve', hideUn:false, skipCE:false, tab:'total', teams: [],
   defaults: {4: defaultGoalTgt(4), 5: defaultGoalTgt(5)}, week: freshWeek(),
 });
 
 function sanitize(raw){
   const st = {goals:[], done:[], inv:{}, synth: raw ? !!raw.synth : true,
+              // which 3→1 crafting rule the walk follows (absent in older saves)
+              craftMode: (raw && raw.craftMode === 'priority') ? 'priority' : 'reserve',
               hideUn: !!(raw && raw.hideUn), skipCE: !!(raw && raw.skipCE),
               week: sanitizeWeek(raw && raw.week),
               // the old 'left' (Inventory) tab is gone — fold it into Total
@@ -1905,28 +1938,31 @@ function sanitize(raw){
   };
   // a character may exist once across queue + completed; queue wins the tie
   const charTaken = id => st.goals.some(x => x.char === id) || st.done.some(x => x.char === id);
-  const intake = (rawList, into) => {
+  // `paused` only means anything in the queue — a completed goal consumes
+  // nothing either way, so `off` is dropped on the way into `done`
+  const intake = (rawList, into, paused) => {
     if(!Array.isArray(rawList)) return;
     for(const g of rawList){
+      const off = paused && !!(g && g.off);
       if(g && g.weapon !== undefined){                           // weapon goal: level+ascension only
         if(!GAME.weapons[g.weapon]) continue;                    // duplicates allowed (multiple copies)
         const ord = x => clamp(Math.floor(+(x && x.ord)) || 0, 0, 13);
         const cur = {ord: ord(g.cur)}, tgt = {ord: Math.max(ord(g.tgt), ord(g.cur))};
-        into.push({weapon:g.weapon, cur, tgt, open:!!g.open});
+        into.push({weapon:g.weapon, cur, tgt, open:!!g.open, off});
         continue;
       }
       if(!g || !GAME.characters[g.char] || charTaken(g.char)) continue;
       const cur = fix(g.cur), tgt = fix(g.tgt);
       tgt.ord = Math.max(tgt.ord, cur.ord);
       tgt.skills = tgt.skills.map((v,k) => Math.max(v, cur.skills[k]));
-      const goal = {char:g.char, cur, tgt, open:!!g.open};
+      const goal = {char:g.char, cur, tgt, open:!!g.open, off};
       goal.nodes = nodesFrom(g, cur, tgt);
       syncNodeCounts(goal);                                    // grid always wins
       into.push(goal);
     }
   };
-  intake(raw && raw.goals, st.goals);
-  intake(raw && raw.done, st.done);
+  intake(raw && raw.goals, st.goals, true);
+  intake(raw && raw.done, st.done, false);
   // teams (Teams page — absent in old saves): repair against the roster
   st.teams = sanitizeTeams(raw && raw.teams,
     st.goals.concat(st.done).filter(g => g.char !== undefined).map(g => g.char));
@@ -2041,10 +2077,18 @@ const coreText   = plan => planText(plan, GAME.wpnExpItems);
    the goal cards (P1 eats the stock first, later goals see the leftovers) —
    the hover popover must not invent a different allocation. `kind` drives the
    avatar's icon folder. Rebuilt once per render pass. */
+/* the one queue-order allocation every view shares: same goals, same inventory,
+   same crafting rule (state.craftMode). Paused goals ride along as `off` entries
+   so callers can index it against state.goals — filter them out for anything
+   that spends or plans. */
+const theWalk = () => farmNextWalk(state.goals, state.inv, state.synth, craftMode());
+const liveGoals = () => activeGoals(state.goals);
+
 let NEEDERS = {};
 function buildNeeders(){
   NEEDERS = {};
-  for(const w of farmNextWalk(state.goals, state.inv, state.synth)){
+  for(const w of theWalk()){
+    if(w.off) continue;                                    // a paused goal needs nothing
     const g = w.goal, isW = g.weapon !== undefined;
     const name = (isW ? GAME.weapons[g.weapon] : GAME.characters[g.char]).name;
     const kind = isW ? 'weapon' : 'char';
@@ -2127,6 +2171,20 @@ function miniTree(g){
 /* vw = the view-filtered walk entry (credits/EXP stripped when the toggle is
    on); ceOnly = the goal truly needs something, but only credits/EXP */
 const viewBag = bag => state.skipCE ? stripCE(bag) : bag;
+
+/* which 3→1 rule the walk follows — shown next to the Craft 3→1 checkbox,
+   only while it is on (the choice is meaningless with crafting off) */
+const CRAFT_MODES = [
+  {v:'reserve',  l:'spare what others need',
+   t:'Cautious: lower-tier stock that any queued goal still needs directly is never crafted away — “have 22, need 10 → only 12 may craft”.'},
+  {v:'priority', l:'top priority first',
+   t:'Greedy: the top goal crafts from every lower tier it can reach and finishes as early as possible; later goals get whatever survives.'},
+];
+const craftMode = () => state.craftMode === 'priority' ? 'priority' : 'reserve';   // absent ⇒ the cautious rule
+const craftModeSel = () =>
+  `<select id="craftMode" class="cmode" title="${esc(CRAFT_MODES.find(m => m.v === craftMode()).t)}">` +
+  CRAFT_MODES.map(m => `<option value="${m.v}"${m.v === craftMode() ? ' selected' : ''}>${m.l}</option>`).join('') +
+  '</select>';
 const goalMats = (vw, ceOnly) => `<div class="goal-mats">${deficitTiles(vw.need, vw.rem) ||
   `<div class="mats-note">${ceOnly ? 'Only credits & EXP left — ignored by the Total-tab toggle.'
                                    : 'Nothing needed — current already meets target.'}</div>`}</div>`;
@@ -2152,9 +2210,11 @@ function deficitTiles(need, rem, order){
 }
 
 /* fin = costForGoal is empty (current already meets target): offer ✓ to move
-   the goal to state.done — shown on the Completed summary tab, restorable */
-const goalCtrls = (i, fin) =>
-  (fin ? `<button class="tiny good" data-act="done" data-g="${i}" title="Mark completed — moves to the Completed tab">✓</button>` : '') +
+   the goal to state.done — shown on the Completed summary tab, restorable.
+   ⏸/▶ pauses: the goal keeps its slot but stops consuming anything. */
+const goalCtrls = (i, fin, off) =>
+  (fin && !off ? `<button class="tiny good" data-act="done" data-g="${i}" title="Mark completed — moves to the Completed tab">✓</button>` : '') +
+  `<button class="tiny" data-act="off" data-g="${i}" title="${off ? 'Resume — the goal counts again' : 'Pause — keep the goal in the queue, but stop it claiming inventory or waveplates'}">${off ? '▶' : '⏸'}</button>` +
   `<button class="tiny" data-act="edit" data-g="${i}" title="Edit levels &amp; forte">✎</button>` +
   `<button class="tiny" data-act="up" data-g="${i}" ${i === 0 ? 'disabled' : ''} title="Move up">▲</button>` +
   `<button class="tiny" data-act="down" data-g="${i}" ${i === state.goals.length - 1 ? 'disabled' : ''} title="Move down">▼</button>` +
@@ -2203,33 +2263,36 @@ const lvlLabel = g => g.cur.ord === g.tgt.ord
   ? ORD_LABEL(g.tgt.ord)
   : `${ORD_LABEL(g.cur.ord)} → ${ORD_LABEL(g.tgt.ord)}`;
 
+/* a paused card is simply DIMMED (no tag — user's call): its tiles and bar show
+   the FULL cost, since none of the inventory is allocated to it, so what it
+   displays is exactly what resuming would cost */
 function wpnCard(g, i, wk, vw, ceOnly){
   const w = GAME.weapons[g.weapon];
-  return `<div class="goal" data-g="${i}" style="--acc:var(--weapon)">
+  return `<div class="goal${g.off ? ' off' : ''}" data-g="${i}" style="--acc:var(--weapon)">
     <div class="goal-top">
       <span class="prio">P${i+1}</span>
       <span class="avatar" style="background:var(--r${w.rarity})">${w.mono}${icoImg(w.name, 'weapon', 'avatar-img')}</span>
-      <div class="gname">${esc(w.name)}${w.beta ? '<span class="badge">3.5 BETA</span>' : ''}</div>
-      <div class="gctrl">${goalCtrls(i, !Object.keys(wk.need).length)}</div>
+      <div class="gname" title="${esc(w.name)}">${esc(w.name)}${w.beta ? '<span class="badge">3.5 BETA</span>' : ''}</div>
+      <div class="gctrl">${goalCtrls(i, !Object.keys(wk.need).length, g.off)}</div>
     </div>
     <div class="gmeta">${w.rarity}★ ${w.wtype} weapon · ${lvlLabel(g)}</div>${readyBar(vw)}${goalMats(vw, ceOnly)}</div>`;
 }
 
 function charCard(g, i, wk, vw, ceOnly){
   const ch = GAME.characters[g.char];
-  return `<div class="goal" data-g="${i}" style="--acc:${ch.elColor}">
+  return `<div class="goal${g.off ? ' off' : ''}" data-g="${i}" style="--acc:${ch.elColor}">
     <div class="goal-top">
       <span class="prio">P${i+1}</span>
       <span class="avatar" style="background:${ch.elColor}">${ch.mono}${icoImg(ch.name, 'char', 'avatar-img')}</span>
-      <div class="gname">${esc(ch.name)}${ch.beta ? '<span class="badge">3.5 BETA</span>' : ''}</div>
-      <div class="gctrl">${goalCtrls(i, !Object.keys(wk.need).length)}</div>
+      <div class="gname" title="${esc(ch.name)}">${esc(ch.name)}${ch.beta ? '<span class="badge">3.5 BETA</span>' : ''}</div>
+      <div class="gctrl">${goalCtrls(i, !Object.keys(wk.need).length, g.off)}</div>
     </div>
     <div class="gmeta">${ch.rarity}★ ${ch.element} · ${ch.wtype} · ${lvlLabel(g)}</div>${readyBar(vw)}${miniTree(g)}${goalMats(vw, ceOnly)}</div>`;
 }
 
 function renderGoals(){
   const box = $('#goals');
-  const walk = farmNextWalk(state.goals, state.inv, state.synth);   // priority-ordered allocation + crafting
+  const walk = theWalk();                       // priority-ordered allocation + crafting
   box.innerHTML = state.goals.length
     ? state.goals.map((g, i) => goalCard(g, i, walk[i])).join('')
     : '<div class="empty">No goals yet — press Ctrl+K (or “⌕ Add goal…”) to queue a character or weapon.</div>';
@@ -2272,6 +2335,7 @@ function onAct(e){
   if(act === 'up')   return moveGoal(i, i - 1);
   if(act === 'down') return moveGoal(i, i + 2);
   if(act === 'edit'){ editIdx = i; render(); return; }
+  if(act === 'off') state.goals[i].off = !state.goals[i].off;   // pause / resume: reversible in one click, no undo entry
   const fixEdit = () => {                     // keep the pop-up pointed at the same goal
     if(editIdx !== null){
       if(editIdx === i) editIdx = null;
@@ -2280,6 +2344,7 @@ function onAct(e){
   };
   if(act === 'done'){
     const [g] = state.goals.splice(i, 1);
+    g.off = false;                            // paused is a queue-only state
     state.done.push(g);                       // reversible via ↩ on the Completed tab — no undo needed
     fixEdit();
   }
@@ -2412,12 +2477,12 @@ function renderOrder(){
   box.innerHTML = state.goals.length ? state.goals.map((g, i) => {
     const isW = g.weapon !== undefined;
     const it = isW ? GAME.weapons[g.weapon] : GAME.characters[g.char];
-    return `<div class="ord-item r${it.rarity}" draggable="true" data-i="${i}">` +
+    return `<div class="ord-item r${it.rarity}${g.off ? ' off' : ''}" draggable="true" data-i="${i}">` +
       `<span class="grip" title="Drag anywhere on the row">⠿</span>` +
       `<span class="prio">P${i + 1}</span>` +
       `<span class="ico-wrap">${icoImg(it.name, isW ? 'weapon' : 'char')}</span>` +
       `<span class="oname">${esc(it.name)}</span>` +
-      `<span class="tag">${it.rarity}★ ${isW ? 'weapon' : 'char'}</span>` +
+      `<span class="tag">${g.off ? 'paused' : it.rarity + '★ ' + (isW ? 'weapon' : 'char')}</span>` +
       `<span class="obtns">` +
         `<button class="tiny" data-om="${i}" data-to="${i - 1}" ${i === 0 ? 'disabled' : ''} title="Move up">▲</button>` +
         `<button class="tiny" data-om="${i}" data-to="${i + 2}" ${i === state.goals.length - 1 ? 'disabled' : ''} title="Move down">▼</button>` +
@@ -2849,7 +2914,12 @@ function renderSummary(){
 
   // the Inventory tab is a full stock editor, so it renders even with no goals
   if(!state.goals.length){ el.innerHTML = '<div class="empty">Add a goal to see totals.</div>'; return; }
-  const need = totalBag(state.goals);
+  const live = liveGoals();                     // paused goals are out of every number below
+  if(!live.length){
+    el.innerHTML = '<div class="empty">Every goal is paused — press ▶ on a card to count it again.</div>';
+    return;
+  }
+  const need = totalBag(live);
 
   if(state.tab === 'total'){
     const needV = viewBag(need);
@@ -2863,16 +2933,21 @@ function renderSummary(){
     const emptyMsg = state.skipCE && Object.keys(need).length
       ? '<div class="empty">Only credits & EXP left — ignored by the toggle above.</div>'
       : '<div class="empty">All targets already met.</div>';
+    const paused = state.goals.length - live.length;
     el.innerHTML =
       `<label class="chk" style="margin-bottom:8px" title="Applies everywhere: goal cards, this tab, Farm next, and the waveplate estimates.">` +
         `<input type="checkbox" id="ceChk"${state.skipCE ? ' checked' : ''}> Ignore credits &amp; EXP</label>` +
       `<label class="chk" style="margin-bottom:8px;margin-left:14px" title="Craft surplus lower-tier materials up 3→1 within a family when covering a deficit — applies to the cards, this tab, and Farm next.">` +
         `<input type="checkbox" id="synthChk"${state.synth ? ' checked' : ''}> Craft 3→1</label>` +
+      (state.synth ? craftModeSel() : '') +
       wpLine +
-      `<div class="gmeta" style="margin-bottom:8px">Everything still needed for ${state.goals.length} goal${state.goals.length > 1 ? 's' : ''} after inventory — ordered by queue priority. Hover a tile for exact amounts.</div>` +
-      (deficitTiles(needV, res.rem, priorityMatIds(state.goals)) || emptyMsg);
+      `<div class="gmeta" style="margin-bottom:8px">Everything still needed for ${live.length} goal${live.length > 1 ? 's' : ''} after inventory — ordered by queue priority. Hover a tile for exact amounts.` +
+        `${paused ? ` <b>${paused} paused</b> goal${paused > 1 ? 's are' : ' is'} left out.` : ''}</div>` +
+      (deficitTiles(needV, res.rem, priorityMatIds(live)) || emptyMsg);
     $('#ceChk').addEventListener('change', e => { state.skipCE = e.currentTarget.checked; save(); render(); });
     $('#synthChk').addEventListener('change', e => { state.synth = e.currentTarget.checked; save(); render(); });
+    const cm = $('#craftMode');
+    if(cm) cm.addEventListener('change', e => { state.craftMode = e.currentTarget.value; save(); render(); });
     bindIcons(el);
     bindTileClicks(el);
     return;
@@ -2881,10 +2956,10 @@ function renderSummary(){
   /* Farm next = what to do with today's stamina, then what needs none at all.
      The old per-goal walk rows are gone: they just restated the Ledger's
      priority order, which the cards and the Total tab already show. */
-  const walk = farmNextWalk(state.goals, state.inv, state.synth);
+  const walk = theWalk().filter(w => !w.off);           // paused goals farm nothing
   const rem = remainingBag(viewBag(need), state.inv, state.synth).rem;
   const free = overworldBag(rem);                       // costs no waveplates
-  const order = priorityMatIds(state.goals);
+  const order = priorityMatIds(live);
   // claims already spent this week shrink the 3/week cap the plan may book
   let html = todayBox(dailyPlan(walk.map(w => viewBag(w.rem)), GAME.waveplates.daily, state.week.used));
 

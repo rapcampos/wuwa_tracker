@@ -522,11 +522,17 @@ visual aid, not a test — still be careful with CSS-only changes.
   (never persisted); Esc/backdrop/✕ close; deleting the edited goal closes.
   `goal.open` still exists in saves but is legacy/unused.
 - **Upgrade transactions** (goal editor, below the Max buttons — never in
-  template mode): one row per next step — next level/ascension ordinal,
-  +1 per skill, each purchasable forte node — with its exact cost
-  (`costForGoal` between adjacent states) and an ⬆ button that spends
-  inventory and advances `cur` by that one step, wrapped in `withUndo`
-  (misclick = one Ctrl+Z). Affordability checks the user's **FULL stock —
+  template mode): grouped into horizontal TRACKS in preview order — Level, then
+  Forte nodes (one track), then each skill — each with a **+1** and a **Max**
+  button (`.trk`, indexed by `UPG_TRACKS`). +1 buys the next single step; Max
+  buys as far as the FULL stock affords in sequence and NAMES the level it
+  reaches ("Max → Lv 80" when partial, "→ +N nodes" for the node track). A
+  track's `steps` are ordered incremental costs (`costForGoal` between adjacent
+  states); the Forte-nodes track orders lowers before uppers so a Max run buys
+  in dependency order (Ⅱ lands owned only because Ⅰ precedes it). The pure engine
+  `affordableRun(inv, costs, craft)` settles the ordered costs against a scratch
+  inv and returns how many are affordable; the click then spends+applies exactly
+  that many, one step at a time, in a single `withUndo` (misclick = one Ctrl+Z). Affordability checks the user's **FULL stock —
   queue priority never gates spending** (user-explicit requirement; the
   walk's allocation is display-only), and with the synthesis toggle on it
   also **crafts lower tiers 3→1 to cover a missing tier** (the cost's own

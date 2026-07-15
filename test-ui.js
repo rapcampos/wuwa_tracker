@@ -1422,7 +1422,7 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok('backdrop click closes it', wrapI().hidden === true);
 }
 
-// ── upgrade transactions: editor buttons spend inventory, one Ctrl+Z away ──
+// ── upgrade tracks: horizontal Level/Nodes/Skill rows with +1 / Max ──
 {
   reset();
   // Phoebe (index 1, not the top of the queue) at Lv20, empty stock
@@ -1431,67 +1431,85 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
     save(); render();`);
   const gi = w.eval(`state.goals.findIndex(x => x.char === 'phoebe')`);
   fire(d.querySelector(`button[data-act="edit"][data-g="${gi}"]`), 'click');
-  const rows = () => [...mbox().querySelectorAll('.upg-row')];
-  ok('editor grows an upgrade section; next level step leads',
-     mbox().querySelector('.upg') !== null && rows()[0].textContent.includes('Lv 20 → Lv 20 ✦'));
-  ok('unaffordable step: disabled button, shortfall in the tooltip',
-     rows()[0].querySelector('[data-upg]').disabled === true &&
-     rows()[0].querySelector('[data-upg]').getAttribute('title').includes('Missing:') &&
-     rows()[0].querySelector('[data-upg]').getAttribute('title').includes('LF Whisperin Core'));
-  ok('node dependency: planned lowers offered, uppers gated on owned lowers',
-     rows().some(r => r.textContent.includes('Minor node')) &&
-     !rows().some(r => r.textContent.includes('Major node')) &&
-     rows().some(r => r.textContent.includes('Inherent Ⅰ')) &&
-     !rows().some(r => r.textContent.includes('Inherent Ⅱ')));
+  const trks = () => [...mbox().querySelectorAll('.trk')];
+  const trk = lbl => trks().find(r => r.querySelector('.trk-lbl').textContent === lbl);
+  const btn = (lbl, op) => trk(lbl).querySelector(`[data-op="${op}"]`);
 
-  // fund the ascension exactly (anchor: 4× LF Whisperin Core + 5,000 credits)
+  ok('upgrade section is grouped into tracks; Level leads with the current level',
+     mbox().querySelector('.upg') !== null &&
+     trks()[0].querySelector('.trk-lbl').textContent === 'Level' &&
+     trks()[0].querySelector('.trk-cur').textContent === 'Lv 20');
+  // preview order: Level (0), then Forte nodes (1), then the five skill tracks
+  const trkLabels = () => trks().map(r => r.querySelector('.trk-lbl').textContent);
+  ok('tracks appear in preview order: Level, Forte nodes, then skills',
+     trkLabels()[0] === 'Level' && trkLabels()[1] === 'Forte nodes' &&
+     trkLabels().length >= 3);
+  ok('a weapon-less character exposes a Forte nodes track with a remaining count',
+     /\d+ to buy/.test(trk('Forte nodes').querySelector('.trk-cur').textContent));
+
+  ok('unaffordable +1: disabled, shortfall named in the tooltip',
+     btn('Level', '1').disabled === true &&
+     btn('Level', '1').getAttribute('title').includes('Missing:') &&
+     btn('Level', '1').getAttribute('title').includes('LF Whisperin Core'));
+
+  // fund the first ascension exactly (anchor: 4× LF Whisperin Core + 5,000 credits)
   w.eval(`state.inv.whisperin0 = 4; state.inv.credits = 5000; save(); render();`);
-  ok('funded step enables', rows()[0].querySelector('[data-upg]').disabled === false);
-  ok('queue priority never gates spending — this goal is not at the top of the queue', gi > 0);
-  fire(rows()[0].querySelector('[data-upg]'), 'click');
-  ok('purchase advances current and drains the exact cost',
+  ok('funded +1 enables and previews the level it reaches',
+     btn('Level', '1').disabled === false &&
+     btn('Level', '1').getAttribute('title').includes('Lv 20 ✦'));
+  ok('queue priority never gates spending — this goal is not at the top', gi > 0);
+  fire(btn('Level', '1'), 'click');
+  ok('+1 advances one ordinal and drains the exact cost',
      w.eval(`state.goals[${gi}].cur.ord`) === 2 &&
      w.eval('state.inv.whisperin0 === undefined && state.inv.credits === undefined') === true);
-  ok('purchase arms the undo toast with the goal name',
+  ok('the purchase arms the undo toast with the goal name',
      d.querySelector('#undoBar').hidden === false &&
      d.querySelector('#undoMsg').textContent.includes('Phoebe'));
   d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'z', ctrlKey:true, bubbles:true}));
   ok('Ctrl+Z refunds both the level and the materials',
      w.eval(`state.goals[${gi}].cur.ord`) === 1 && w.eval('state.inv.whisperin0') === 4);
 
-  // buy Inherent Ⅰ (anchor: 3× T2 forge + 3× T2 common + 1 weekly + 10,000)
-  w.eval(`{ const ch = GAME.characters.phoebe;
-    state.inv[ch.forge + '1'] = 3; state.inv[ch.common + '1'] = 3;
-    state.inv['wk:' + ch.weekly] = 1; state.inv.credits = 10000; save(); render(); }`);
-  const inhRow = () => rows().find(r => r.textContent.includes('Inherent Ⅰ'));
-  ok('funded node step enables', inhRow().querySelector('[data-upg]').disabled === false);
-  fire(inhRow().querySelector('[data-upg]'), 'click');
-  ok('node purchase flips planned → owned and spends everything',
-     w.eval(`state.goals[${gi}].nodes[0][2]`) === 2 &&
-     w.eval('state.inv.credits === undefined') === true);
-  ok('Inherent Ⅱ becomes purchasable once Ⅰ is owned',
-     rows().some(r => r.textContent.includes('Inherent Ⅱ')));
-
-  // crafting-aware spending: hold a tier-1 line ONLY as tier-0 ×3
+  // Max on the Level track with abundant stock jumps straight to the target
   w.eval(`{ Object.keys(state.inv).forEach(k => delete state.inv[k]);
-    state.synth = true;                               // reset() leaves it on; be explicit anyway
+    for(const id of Object.keys(MATS)) state.inv[id] = 9999;
+    state.inv.exp4 = 9999; state.inv.credits = 9e8; save(); render(); }`);
+  ok('Max previews the level it can reach (the target here)',
+     btn('Level', 'max').getAttribute('title').includes('Lv 90') &&
+     btn('Level', 'max').textContent.includes('Lv 90'));
+  fire(btn('Level', 'max'), 'click');
+  ok('Max advances all the way to target in one click',
+     w.eval(`state.goals[${gi}].cur.ord`) === w.eval(`state.goals[${gi}].tgt.ord`));
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'z', ctrlKey:true, bubbles:true}));
+  ok('one Ctrl+Z reverts the whole Max jump', w.eval(`state.goals[${gi}].cur.ord`) === 1);
+
+  // Max on the Forte nodes track buys every planned node (lowers before uppers,
+  // so Inherent Ⅱ lands owned only because Ⅰ was bought first in the run)
+  fire(btn('Forte nodes', 'max'), 'click');
+  ok('Max buys every planned node, respecting the lower→upper gate',
+     w.eval(`state.goals[${gi}].nodes.every(row => row.every(v => v === 0 || v === 2))`) === true &&
+     w.eval(`state.goals[${gi}].nodes[1][2]`) === 2 &&      // Inherent Ⅱ owned
+     mbox().querySelector('.trk-lbl') !== null &&
+     [...mbox().querySelectorAll('.trk-lbl')].every(l => l.textContent !== 'Forte nodes'));  // track gone
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'z', ctrlKey:true, bubbles:true}));
+
+  // crafting-aware: a step affordable only by crafting 3→1 still buys
+  w.eval(`{ Object.keys(state.inv).forEach(k => delete state.inv[k]);
+    state.synth = true;
     const g = state.goals[${gi}];
-    g.cur.ord = 3;                                    // next step: rank-2 ascension
+    g.cur.ord = 3;                                          // next: a rank-2 ascension
     const cost = costForGoal({char:'phoebe', cur:g.cur, tgt:{...g.cur, ord:4, skills:[...g.cur.skills]}});
     window.__t1 = null;
     for(const [id, q] of Object.entries(cost)){
       if(id === 'exp') state.inv.exp4 = Math.ceil(q / 20000);
       else if(MATS[id] && MATS[id].family && MATS[id].tier === 1){
-        state.inv[MATS[id].family + '0'] = q * 3; window.__t1 = id;
+        state.inv[MATS[id].family + '0'] = q * 3; window.__t1 = id;   // held only as tier-0 ×3
       } else state.inv[id] = q;
     }
     save(); render(); }`);
   ok('craft scenario prepared (a tier-1 line held only as tier-0 ×3)', w.eval('window.__t1') !== null);
-  ok('synth on: the step is affordable through crafting, and says so',
-     rows()[0].querySelector('[data-upg]').disabled === false &&
-     rows()[0].querySelector('[data-upg]').getAttribute('title').includes('crafts lower tiers'));
-  fire(rows()[0].querySelector('[data-upg]'), 'click');
-  ok('purchase crafts the tier-0 stock away and advances',
+  ok('synth on: the step is affordable through crafting', btn('Level', '1').disabled === false);
+  fire(btn('Level', '1'), 'click');
+  ok('the purchase crafts the tier-0 stock away and advances',
      w.eval(`state.goals[${gi}].cur.ord`) === 4 &&
      w.eval('Object.keys(state.inv).every(k => !k.endsWith("0"))') === true);
 

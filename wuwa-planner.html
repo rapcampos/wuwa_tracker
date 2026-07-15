@@ -338,10 +338,13 @@ button.search kbd{margin-left:auto; font-family:inherit; font-size:10px; color:v
 /* ── editor upgrade rows (spend inventory) ── */
 .upg{margin-top:14px; border-top:1px solid var(--line); padding-top:10px}
 .upg-h{font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--faint); margin-bottom:6px}
-.upg-row{display:flex; align-items:center; gap:9px; padding:2px 0; font-size:12.5px}
-.upg-row button[disabled]{opacity:.35; cursor:default}
-.upg-lbl{white-space:nowrap}
-.upg-cost{margin-left:auto; color:var(--mut); font-size:11px; text-align:right; max-width:55%}
+.trk{display:flex; align-items:center; gap:8px; padding:3px 0; font-size:12.5px}
+.trk button[disabled]{opacity:.35; cursor:default}
+.trk-lbl{white-space:nowrap; min-width:118px; overflow:hidden; text-overflow:ellipsis}
+.trk-cur{color:var(--mut); font-size:11px; min-width:56px}
+.trk button{margin-left:0}
+.trk [data-op="max"]{margin-left:auto}
+.trk [data-op="max"] small{font-weight:400; opacity:.85; margin-left:2px}
 
 /* ── undo toast (Ctrl+Z) ── */
 #undoBar{position:fixed; left:50%; bottom:18px; transform:translateX(-50%); z-index:70;
@@ -1571,6 +1574,27 @@ function spendCost(inv, cost, craft){
   for(const k of Object.keys(inv)) delete inv[k];
   Object.assign(inv, next);
   return true;
+}
+
+/* ── how far a track's steps are affordable, in sequence ──
+   `costs` is an ORDERED list of incremental cost bags (level→level, +1 skill,
+   or one node). Settle them one at a time against a scratch copy of inv
+   (crafting-aware via payPlan); stop at the first that can't be paid. Returns
+   {n, cost} — n steps affordable and the merged bag of exactly those n. Priority
+   never blocks: this is the user's full stock. Pure — no state mutation. */
+function affordableRun(inv, costs, craft){
+  let scratch = {};
+  for(const [k, v] of Object.entries(inv)) scratch[k] = Math.max(0, Math.floor(v || 0));
+  const paid = {};
+  let n = 0;
+  for(const cost of costs){
+    const {inv: next, missing} = payPlan(scratch, cost, craft);
+    if(Object.keys(missing).length) break;
+    scratch = next;
+    bagMerge(paid, cost);
+    n++;
+  }
+  return {n, cost: paid};
 }
 
 /* ── waveplate estimate: the stamina cost of farming a deficit bag ──
@@ -3624,6 +3648,7 @@ function renderSummary(){
    selects and node buttons reuse onField/onNode, which save() + render();
    render() re-renders the open modal in place. */
 let doneFold = {char:false, wpn:false};      // Completed tab: collapsed sections (view-only)
+let UPG_TRACKS = [];                          // editor upgrade tracks, indexed by the +1/Max buttons
 let editIdx = null;
 let editTpl = null;                          // 4 | 5 → pop-up edits state.defaults[editTpl]
 function closeEdit(){ editIdx = null; editTpl = null; renderModal(); }
@@ -3694,52 +3719,75 @@ function renderModal(){
     <button class="tiny good" data-maxgoal title="Current → target${isW ? '' : ': levels, skills, and every planned node becomes owned'} — the build is done, so it moves straight to the Completed tab (Ctrl+Z undoes)">✓ Max goal</button>
   </div>`;
 
-  /* ── upgrade transactions: spend inventory, advance current one step ──
-     Mirrors the in-game upgrade screens: one button per next step, enabled
-     only when raw stock covers the cost (no auto-crafting there either);
-     every purchase runs through withUndo, so a misclick is one Ctrl+Z away.
-     The plain selects above stay free bookkeeping — they never spend. */
-  const steps = [];
+  /* ── upgrade transactions: spend inventory, advance current ──
+     One TRACK per upgradeable dimension, laid out in preview order (Level,
+     Forte nodes, then each skill) as a horizontal row with +1 and Max buttons.
+     +1 buys the next single step; Max buys as far as the FULL stock affords in
+     sequence (priority never blocks, crafting 3→1 when on) and names the level
+     it reaches. Every purchase runs through withUndo — one Ctrl+Z away. The
+     plain selects above stay free bookkeeping; they never spend. Each track's
+     `steps` are ordered incremental costs (see affordableRun). */
+  const tracks = [];
+  // Level — ordinal by ordinal (each step's cost is the ascension/level between
+  // adjacent ordinals; skills/nodes held equal so only the ord delta counts)
   if(g.cur.ord < g.tgt.ord){
-    const cost = costForGoal(isW
-      ? {weapon: g.weapon, cur: g.cur, tgt: {ord: g.cur.ord + 1}}
-      : {char: g.char, cur: g.cur, tgt: {...g.cur, ord: g.cur.ord + 1, skills: [...g.cur.skills]}});
-    steps.push({label: `${ORD_LABEL(g.cur.ord)} → ${ORD_LABEL(g.cur.ord + 1)}`, cost,
-                apply: () => { g.cur.ord++; }});
+    const steps = [];
+    for(let o = g.cur.ord + 1; o <= g.tgt.ord; o++){
+      const lo = isW ? {ord: o - 1} : {...g.cur, ord: o - 1, skills: [...g.cur.skills]};
+      const hi = isW ? {ord: o}     : {...g.cur, ord: o,     skills: [...g.cur.skills]};
+      steps.push({cost: costForGoal(isW ? {weapon: g.weapon, cur: lo, tgt: hi}
+                                        : {char: g.char, cur: lo, tgt: hi}),
+                  at: ORD_LABEL(o), apply: () => { g.cur.ord++; }});
+    }
+    tracks.push({label: 'Level', cur: ORD_LABEL(g.cur.ord), steps, reach: n => steps[n - 1].at});
   }
   if(!isW){
-    for(let sk = 0; sk < 5; sk++) if(g.cur.skills[sk] < g.tgt.skills[sk]){
-      const skTgt = {...g.cur, skills: g.cur.skills.map((v, k) => k === sk ? v + 1 : v)};
-      steps.push({label: `${GAME.skillNames[sk]} ${g.cur.skills[sk]} → ${g.cur.skills[sk] + 1}`,
-                  cost: costForGoal({char: g.char, cur: g.cur, tgt: skTgt}),
-                  apply: (k => () => { g.cur.skills[k]++; })(sk)});
-    }
+    // Forte nodes — one track, purchasable planned nodes ordered lower-before-
+    // upper so a Max run buys in dependency order (each node's cost is fixed)
+    const nsteps = [];
     for(let nc = 0; nc < 5; nc++) for(let nr = 0; nr < 2; nr++){
-      if(g.nodes[nr][nc] !== 1) continue;
-      if(nr === 1 && g.nodes[0][nc] !== 2) continue;      // in-game: upper needs the lower node OWNED
+      if(g.nodes[nr][nc] !== 1) continue;                 // only PLANNED, not-yet-owned nodes
       const inh = nc === INH_COL;
       const field = inh ? (nr ? 'inh2' : 'inh1') : (nr ? 'major' : 'minor');
       const ndTgt = {...g.cur, skills: [...g.cur.skills], [field]: (g.cur[field] || 0) + 1};
-      steps.push({label: inh ? `Inherent ${nr ? 'Ⅱ' : 'Ⅰ'}`
-                             : `${nr ? 'Major' : 'Minor'} node · col ${nc < INH_COL ? nc + 1 : nc}`,
-                  cost: costForGoal({char: g.char, cur: g.cur, tgt: ndTgt}),
-                  apply: ((r2, c2) => () => { g.nodes[r2][c2] = 2; syncNodeCounts(g); })(nr, nc)});
+      nsteps.push({cost: costForGoal({char: g.char, cur: g.cur, tgt: ndTgt}),
+                   apply: ((r2, c2) => () => { g.nodes[r2][c2] = 2; syncNodeCounts(g); })(nr, nc)});
+    }
+    if(nsteps.length)
+      tracks.push({label: 'Forte nodes', cur: `${nsteps.length} to buy`, steps: nsteps,
+                   reach: n => `+${n} node${n > 1 ? 's' : ''}`});
+    // Skills — one track each, level by level
+    for(let sk = 0; sk < 5; sk++) if(g.cur.skills[sk] < g.tgt.skills[sk]){
+      const steps = [];
+      for(let lv = g.cur.skills[sk] + 1; lv <= g.tgt.skills[sk]; lv++){
+        const lo = {...g.cur, skills: g.cur.skills.map((v, k) => k === sk ? lv - 1 : v)};
+        const hi = {...g.cur, skills: g.cur.skills.map((v, k) => k === sk ? lv     : v)};
+        steps.push({cost: costForGoal({char: g.char, cur: lo, tgt: hi}),
+                    at: `Lv ${lv}`, apply: (k => () => { g.cur.skills[k]++; })(sk)});
+      }
+      tracks.push({label: GAME.skillNames[sk], cur: `Lv ${g.cur.skills[sk]}`, steps,
+                   reach: n => steps[n - 1].at});
     }
   }
-  if(steps.length){
+  UPG_TRACKS = tracks;                                     // the click handler indexes this
+  if(tracks.length){
+    const runOf = tr => affordableRun(state.inv, tr.steps.map(s => s.cost), state.synth);
     html += `<div class="upg"><div class="upg-h">Upgrade — spends your FULL stock (priority never blocks it${
       state.synth ? ', lower tiers craft 3→1 as needed' : ''}) · one Ctrl+Z undoes</div>` +
-      steps.map((st, k) => {
-        const miss = affordCost(state.inv, st.cost, state.synth);
-        const can = !Object.keys(miss).length;
-        const drink = can && st.cost.exp ? ' · drinks ' + potionText(poolPlan(state.inv, st.cost.exp, GAME.expItems).plan)
-                    : can && st.cost.wexp ? ' · drinks ' + coreText(poolPlan(state.inv, st.cost.wexp, GAME.wpnExpItems).plan) : '';
-        const crafts = can && state.synth && Object.keys(affordCost(state.inv, st.cost, false)).length
-          ? ' · crafts lower tiers 3→1 to cover it' : '';
-        return `<div class="upg-row"><button class="tiny${can ? ' good' : ''}" data-upg="${k}"${can ? '' : ' disabled'} ` +
-          `title="${esc(can ? 'Spend and advance' + drink + crafts : 'Missing: ' + costText(miss))}">⬆</button>` +
-          `<span class="upg-lbl">${st.label}</span>` +
-          `<span class="upg-cost num">${esc(costText(st.cost))}</span></div>`;
+      tracks.map((tr, k) => {
+        const run = runOf(tr), n = run.n, one = tr.steps[0];
+        const canOne = n >= 1;
+        const mergedTip = m => { const c = {}; for(let j = 0; j < m; j++) bagMerge(c, tr.steps[j].cost); return costText(c); };
+        const oneTip = canOne ? `Buy 1 → ${tr.reach(1)} · ${mergedTip(1)}` : 'Missing: ' + costText(affordCost(state.inv, one.cost, state.synth));
+        const maxLbl = n >= 1 ? `Max <small>→ ${esc(tr.reach(n))}</small>` : 'Max';
+        const maxTip = n >= 1 ? `Buy ${n} → ${tr.reach(n)}${n < tr.steps.length ? ' (as far as stock allows)' : ' (target)'} · ${mergedTip(n)}`
+                              : 'Nothing affordable yet';
+        return `<div class="trk">` +
+          `<span class="trk-lbl">${esc(tr.label)}</span>` +
+          `<span class="trk-cur num">${esc(tr.cur)}</span>` +
+          `<button class="tiny${canOne ? ' good' : ''}" data-trk="${k}" data-op="1"${canOne ? '' : ' disabled'} title="${esc(oneTip)}">+1</button>` +
+          `<button class="tiny${n >= 1 ? ' good' : ''}" data-trk="${k}" data-op="max"${n >= 1 ? '' : ' disabled'} title="${esc(maxTip)}">${maxLbl}</button>` +
+        `</div>`;
       }).join('') + `</div>`;
   }
   const box = $('#modalBox');
@@ -3771,12 +3819,16 @@ function renderModal(){
   // the goal then costs nothing and its card offers ✓ Mark completed
   // ✓ Max goal: the build is done → close the editor, fly the card to Completed
   box.querySelector('[data-maxgoal]').addEventListener('click', () => { closeEdit(); completeGoal(g); });
-  box.querySelectorAll('[data-upg]').forEach(b => b.addEventListener('click', e => {
-    const st = steps[+e.currentTarget.dataset.upg];
-    if(!st || Object.keys(affordCost(state.inv, st.cost, state.synth)).length) return;
-    withUndo(`${it.name}: ${st.label}`, () => {
-      spendCost(state.inv, st.cost, state.synth);
-      st.apply();
+  box.querySelectorAll('[data-trk]').forEach(b => b.addEventListener('click', e => {
+    const tr = UPG_TRACKS[+e.currentTarget.dataset.trk];
+    if(!tr) return;
+    const run = affordableRun(state.inv, tr.steps.map(s => s.cost), state.synth);
+    const n = e.currentTarget.dataset.op === 'max' ? run.n : Math.min(1, run.n);
+    if(!n) return;
+    // spend + advance one step at a time — exactly the sequence affordableRun
+    // validated, so each spendCost is guaranteed to settle (crafting included)
+    withUndo(`${it.name}: ${tr.label} → ${tr.reach(n)}`, () => {
+      for(let j = 0; j < n; j++){ spendCost(state.inv, tr.steps[j].cost, state.synth); tr.steps[j].apply(); }
     });
   }));
   box.querySelectorAll('[data-skc]').forEach(b => b.addEventListener('click', e => {

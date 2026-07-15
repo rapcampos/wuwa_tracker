@@ -888,5 +888,58 @@ eq('stripCE never mutates its input', (() => {
      q2.map(name));
 }
 
+// ── echo builds (Echoes page): data shape + pure sum ──────────────────
+{
+  eq('5★ echo budget is 12', GAME.echo.budget, 12);
+  eq('three valid echo costs', GAME.echo.costs, [1, 3, 4]);
+  eq('35 named Sonata sets, all uniquely named', GAME.echo.sonata.length, 35);
+  eq('Sonata names are unique', new Set(GAME.echo.sonata.map(s => s.name)).size, 35);
+  eq('every echoStats key resolves to a label',
+     GAME.echoStatOrder.every(k => GAME.echoStats[k] && GAME.echoStats[k].label), true);
+  eq('flat and percent ATK are separate keys',
+     GAME.echoStats.atk.pct === false && GAME.echoStats.atkp.pct === true, true);
+  eq('4-cost Crit DMG main is 44.0%', echoMainVal(4, 'cd'), 44);
+  eq('a stat cannot be a main where its cost pool omits it', echoMainVal(4, 'er'), 0);
+  eq('secondary is fixed by cost (4-cost = flat ATK 150)', GAME.echo.secondary[4], {key:'atk', val:150});
+
+  // a fresh build costs exactly 12 (4-3-3-1-1)
+  const fresh = freshBuild();
+  eq('freshBuild is a legal 12-cost layout', buildCost(fresh), 12);
+  eq('fresh echoes have no substats yet', fresh.echoes.every(e => e.subs.length === 0), true);
+
+  // snapSub picks the nearest legal roll
+  eq('substat value snaps to nearest roll', snapSub('cr', 7.4), 7.5);
+  eq('an out-of-range substat snaps in', snapSub('cd', 999), 21.0);
+
+  // sanitizeBuild repairs illegal input
+  const dirty = sanitizeBuild({set:'Nonexistent Set', lead:99,
+    echoes:[{cost:2, main:'zzz', subs:[{key:'cr', val:7.4}, {key:'bad', val:5}]}]});
+  eq('unknown set drops to null', dirty.set, null);
+  eq('lead clamps into 0–4', dirty.lead, 4);
+  eq('illegal cost falls back to the slot default (4)', dirty.echoes[0].cost, 4);
+  eq('a main invalid for the cost resets to the pool head', dirty.echoes[0].main, 'atkp');
+  eq('good substats survive (snapped), bad ones drop',
+     dirty.echoes[0].subs, [{key:'cr', val:7.5}]);
+  eq('missing echoes are padded to five', dirty.echoes.length, 5);
+
+  // buildTotals folds echoes + set 2pc + forte onto one vocabulary
+  const b = freshBuild();
+  b.echoes[0].main = 'cd';                    // 4-cost Crit DMG 44
+  b.echoes[0].subs = [{key:'cr', val:8.1}, {key:'cd', val:19.8}];
+  b.set = 'Freezing Frost';                   // 2pc +10% Glacio
+  const forte = [{key:'critRate', label:'Crit. Rate', pct:8}, {key:'atk', label:'ATK', pct:12}];
+  const tot = Object.fromEntries(buildTotals(b, forte).map(t => [t.key, t.val]));
+  eq('Crit DMG = main 44 + sub 19.8', tot.cd, 63.8);
+  eq('Crit Rate = sub 8.1 + forte 8', tot.cr, 16.1);
+  eq('forte ATK% (12) folds into ATK% total', tot.atkp, 30 + 30 + 12);   // two 3-cost atkp mains
+  eq('Glacio comes from the 2pc set only', tot.glacio, 10);
+  eq('flat ATK secondaries: 150 + 100 + 100', tot.atk, 350);
+  eq('a 3pc/1pc set contributes nothing numeric',
+     buildTotals(Object.assign(freshBuild(), {set:'Law of Harmony'}), null)
+       .every(t => t.key !== 'skill' || t.val > 0), true);
+  eq('buildTotals with null forte still sums the gear',
+     buildTotals(b, null).find(t => t.key === 'cd').val, 63.8);
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -560,6 +560,60 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
 .nodechk.on{background:var(--acc,var(--cyan)); border-color:var(--acc,var(--cyan));
   box-shadow:0 0 7px var(--acc,var(--cyan))}
 .st.ready{color:var(--green)} .st.miss{color:var(--red)}
+
+/* ── Echoes page: roster column left, build sheet right (reuses .tcols) ── */
+.ecard{display:grid; grid-template-columns:34px minmax(0,1fr) auto; gap:2px 8px;
+  align-items:center; border:1px solid var(--line2); border-radius:9px;
+  background:var(--panel2); padding:6px 8px; cursor:pointer; font-size:12.5px}
+.ecard:hover{border-color:var(--acc,var(--cyan))}
+.ecard.sel{border-color:var(--acc,var(--cyan)); box-shadow:inset 0 0 0 1px var(--acc,var(--cyan))}
+.ecard.off{filter:saturate(.35)}
+.ecard .avatar{width:34px; height:34px; font-size:12px; border-radius:8px}
+.ecard .rname{font-family:'Chakra Petch',sans-serif; font-weight:600; font-size:13px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.ecard .rlv{color:var(--mut); font-size:10.5px; justify-self:end; white-space:nowrap}
+.ecard .ebadge{color:var(--cyan); font-size:10px; justify-self:end}
+
+.esheet{min-width:0}
+.ehead{display:flex; align-items:center; gap:12px; margin-bottom:12px}
+.ehead .avatar{width:56px; height:56px; font-size:17px; border-radius:12px; flex:none}
+.ehname{font-family:'Chakra Petch',sans-serif; font-weight:700; font-size:19px}
+.ehwpn{display:flex; align-items:center; gap:5px; font-size:12px; color:var(--mut); margin-top:3px}
+.ehwpn img{width:17px; height:17px; object-fit:contain; border-radius:4px}
+.ehwpn .faint{color:var(--faint)}
+
+.erow{display:flex; align-items:center; gap:9px; flex-wrap:wrap; margin-bottom:14px}
+.erow .elab{font-size:12px; color:var(--mut); font-family:'Chakra Petch',sans-serif}
+.erow .enote{font-size:11.5px; color:var(--faint)}
+.ebudget{margin-left:auto; font-variant-numeric:tabular-nums; font-size:13px;
+  padding:3px 9px; border-radius:7px; border:1px solid var(--line2); color:var(--mut)}
+.ebudget.over{color:var(--red); border-color:var(--red)}
+
+.egrid{display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); gap:8px; margin-bottom:16px}
+@media(max-width:760px){ .egrid{grid-template-columns:repeat(2, minmax(0,1fr))} }
+.ecol{border:1px solid var(--line2); border-radius:10px; padding:8px; background:var(--panel2);
+  display:flex; flex-direction:column; gap:7px}
+.ecol.lead{border-color:var(--cyan); box-shadow:0 0 0 1px var(--cyan) inset}
+.ecol-h{display:flex; align-items:center; justify-content:space-between; gap:4px}
+.ecol-h select{padding:2px 4px; font-size:11.5px}
+.ecol-h .elead{display:inline-flex; align-items:center; gap:3px; font-size:10.5px; color:var(--mut); cursor:pointer}
+.emain select{width:100%; font-size:11.5px; padding:3px 4px}
+.emval{font-size:11px; color:var(--mut); font-variant-numeric:tabular-nums; margin-top:3px}
+.emval b{color:var(--ink); font-weight:700; font-size:12.5px}
+.emval .esec{color:var(--faint)}
+.esubs{display:flex; flex-direction:column; gap:4px; border-top:1px solid var(--line2); padding-top:6px}
+.esub{display:grid; grid-template-columns:1fr 58px; gap:4px}
+.esub select{font-size:10.5px; padding:2px 3px; min-width:0}
+
+.etotals{border:1px solid var(--line); border-radius:11px; padding:12px 14px; background:var(--panel)}
+.et-h{font-family:'Chakra Petch',sans-serif; font-weight:700; margin-bottom:9px}
+.et-h .sub{font-weight:400; color:var(--faint); font-size:11.5px; margin-left:6px}
+.etgrid{display:grid; grid-template-columns:repeat(auto-fill, minmax(160px,1fr)); gap:4px 18px}
+.etrow{display:flex; align-items:baseline; justify-content:space-between; gap:8px;
+  border-bottom:1px dotted var(--line2); padding-bottom:2px}
+.etk{color:var(--mut); font-size:12.5px}
+.etv{color:var(--ink); font-weight:700; text-align:right; font-variant-numeric:tabular-nums}
+.etnote{color:var(--faint); font-size:11px; margin-top:10px}
 </style>
 </head>
 <body>
@@ -573,6 +627,7 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
   <nav class="pagenav">
     <button data-page="ledger" class="on">Ledger</button>
     <button data-page="teams">Teams</button>
+    <button data-page="echoes">Echoes</button>
   </nav>
   <div class="toolbar">
     <button class="search" id="btnAdd" title="Fuzzy-search characters and weapons (Ctrl+K)">⌕ Add goal…<kbd>Ctrl K</kbd></button>
@@ -608,6 +663,11 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
 <section class="panel" id="pageTeams" hidden>
   <div class="panel-h"><h2>Teams</h2><span class="sub">3 per team · energy caps how many teams a character joins</span></div>
   <div class="panel-b" id="teams"></div>
+</section>
+
+<section class="panel" id="pageEcho" hidden>
+  <div class="panel-h"><h2>Echoes</h2><span class="sub">gear sheet per character · 5 echoes · planning only</span></div>
+  <div class="panel-b" id="echoBody"></div>
 </section>
 
 <div id="modalWrap" hidden>
@@ -1274,6 +1334,117 @@ const GAME = {
     somnoireAnchor: {name:'Somnoire Anchor', mono:'SA', rarity:4, wtype:'Sword',
       common:'howler', forge:'drip', beta:false},   // Somnium Labyrinth
   },
+
+  /* ── Echo build data (Echoes page) — 5★ echoes at +25 ──────────────
+     Canonical stat vocabulary shared by echo mains/secondaries/substats,
+     Sonata 2pc bonuses AND the forte grants (via FORTE_CANON in block 2):
+     one key space so build totals are a plain sum. Flat vs percent keys
+     are SEPARATE (atk = flat ATK, atkp = ATK%). `pct` drives formatting.
+     Values verified Jul 2026 against Game8, cross-checked wutheringwaves.gg
+     + Wuthering Insight (see echoes-tab-plan / the data table in-session).
+     Softer-verified: Energy-Regen substat ladder, flat ATK/DEF tiers,
+     Sun-sinking Eclipse's identity — re-check at a phase-2 pass. */
+  echoStats: {
+    cr:      {label:'Crit Rate',                  pct:true},
+    cd:      {label:'Crit DMG',                   pct:true},
+    atkp:    {label:'ATK',                        pct:true},
+    atk:     {label:'ATK',                        pct:false},
+    hpp:     {label:'HP',                         pct:true},
+    hp:      {label:'HP',                         pct:false},
+    defp:    {label:'DEF',                        pct:true},
+    def:     {label:'DEF',                        pct:false},
+    er:      {label:'Energy Regen',               pct:true},
+    heal:    {label:'Healing Bonus',              pct:true},
+    glacio:  {label:'Glacio DMG',                 pct:true},
+    fusion:  {label:'Fusion DMG',                 pct:true},
+    electro: {label:'Electro DMG',                pct:true},
+    aero:    {label:'Aero DMG',                   pct:true},
+    spectro: {label:'Spectro DMG',                pct:true},
+    havoc:   {label:'Havoc DMG',                  pct:true},
+    basic:   {label:'Basic Attack DMG',           pct:true},
+    heavy:   {label:'Heavy Attack DMG',           pct:true},
+    skill:   {label:'Resonance Skill DMG',        pct:true},
+    lib:     {label:'Resonance Liberation DMG',   pct:true},
+  },
+  /* display/total order for the canonical keys above */
+  echoStatOrder: ['cr','cd','atkp','atk','hpp','hp','defp','def','er','heal',
+    'glacio','fusion','electro','aero','spectro','havoc','basic','heavy','skill','lib'],
+
+  echo: {
+    budget: 12,                                   // Data Bank Lv9+ total cost
+    costs: [1, 3, 4],                             // the three echo cost slots
+    slots: 5,                                     // echoes equipped per build
+    layouts: [[4,3,3,1,1], [4,4,1,1,1]],          // the two standard 12-budget shapes
+    // flat secondary stat fixed by cost (+25)
+    secondary: {1:{key:'hp', val:2280}, 3:{key:'atk', val:100}, 4:{key:'atk', val:150}},
+    // selectable MAIN-stat pool per cost, [{key, val}] at +25 (val fixed by cost+key)
+    mains: {
+      1: [{key:'hpp', val:22.8}, {key:'atkp', val:18}, {key:'defp', val:18}],
+      3: [{key:'atkp', val:30}, {key:'hpp', val:30}, {key:'defp', val:38}, {key:'er', val:32},
+          {key:'glacio', val:30}, {key:'fusion', val:30}, {key:'electro', val:30},
+          {key:'aero', val:30}, {key:'spectro', val:30}, {key:'havoc', val:30}],
+      4: [{key:'atkp', val:33}, {key:'hpp', val:33}, {key:'defp', val:41.8},
+          {key:'cr', val:22}, {key:'cd', val:44}, {key:'heal', val:26.4}],
+    },
+    // substat tiered roll values (canonical key → ascending rolls). The four
+    // skill-DMG bonuses share the ATK%/HP% ladder. 13 substat types.
+    subs: {
+      cr:   [6.3, 6.9, 7.5, 8.1, 8.7, 9.3, 9.9, 10.5],
+      cd:   [12.6, 13.8, 15.0, 16.2, 17.4, 18.6, 19.8, 21.0],
+      atkp: [6.4, 7.1, 7.9, 8.6, 9.4, 10.1, 10.9, 11.6],
+      hpp:  [6.4, 7.1, 7.9, 8.6, 9.4, 10.1, 10.9, 11.6],
+      defp: [8.1, 9.0, 10.0, 10.9, 11.9, 12.8, 13.8, 14.7],
+      basic:[6.4, 7.1, 7.9, 8.6, 9.4, 10.1, 10.9, 11.6],
+      heavy:[6.4, 7.1, 7.9, 8.6, 9.4, 10.1, 10.9, 11.6],
+      skill:[6.4, 7.1, 7.9, 8.6, 9.4, 10.1, 10.9, 11.6],
+      lib:  [6.4, 7.1, 7.9, 8.6, 9.4, 10.1, 10.9, 11.6],
+      er:   [6.8, 7.6, 8.4, 9.2, 10.0, 10.8, 11.6, 12.4],
+      hp:   [320, 360, 390, 430, 470, 510, 540, 580],
+      atk:  [30, 40, 50, 60],
+      def:  [40, 50, 60, 70],
+    },
+    /* Sonata sets. `k`/`v` is the 2pc numeric bonus that folds into MVP
+       totals (v percent); `thr` flags the newer 3pc/1pc-threshold sets,
+       whose bonus is conditional/non-flat and contributes nothing numeric
+       at MVP (k:null). 5pc effect text is a phase-2 addition. */
+    sonata: [
+      {name:'Freezing Frost',            k:'glacio',  v:10},
+      {name:'Molten Rift',               k:'fusion',  v:10},
+      {name:'Void Thunder',              k:'electro', v:10},
+      {name:'Sierra Gale',               k:'aero',    v:10},
+      {name:'Celestial Light',           k:'spectro', v:10},
+      {name:'Havoc Eclipse',             k:'havoc',   v:10},
+      {name:'Sun-sinking Eclipse',       k:'havoc',   v:10},
+      {name:'Moonlit Clouds',            k:'er',      v:10},
+      {name:'Lingering Tunes',           k:'atkp',    v:10},
+      {name:'Rejuvenating Glow',         k:'heal',    v:10},
+      {name:'Midnight Veil',             k:'havoc',   v:10},
+      {name:'Empyrean Anthem',           k:'er',      v:10},
+      {name:'Tidebreaking Courage',      k:'er',      v:10},
+      {name:'Gusts of Welkin',           k:'aero',    v:10},
+      {name:'Flaming Clawprint',         k:'fusion',  v:10},
+      {name:'Frosty Resolve',            k:'skill',   v:12},
+      {name:'Eternal Radiance',          k:'spectro', v:10},
+      {name:'Wishes of Quiet Snowfall',  k:'glacio',  v:10},
+      {name:'Windward Pilgrimage',       k:'aero',    v:10},
+      {name:'Rite of Gilded Revelation', k:'spectro', v:10},
+      {name:'Pact of Neonlight Leap',    k:'spectro', v:10},
+      {name:'Reel of Spliced Memories',  k:'atkp',    v:10},
+      {name:'Sound of True Name',        k:'aero',    v:10},
+      {name:"Heart of Evil's Purge",     k:'aero',    v:10},
+      {name:'Trailblazing Star',         k:'fusion',  v:10},
+      {name:'Halo of Starry Radiance',   k:'heal',    v:10},
+      {name:'Chromatic Foam',            k:'fusion',  v:10},
+      {name:'Lamp of Nether Road',       k:'hpp',     v:10},
+      {name:'Song of Feathered Trace',   k:'er',      v:10},
+      {name:"Flamewing's Shadow",        k:null, v:0, thr:'3pc'},
+      {name:'Dream of the Lost',         k:null, v:0, thr:'3pc'},
+      {name:'Law of Harmony',            k:null, v:0, thr:'3pc'},
+      {name:'Crown of Valor',            k:null, v:0, thr:'3pc'},
+      {name:'Thread of Severed Fate',    k:null, v:0, thr:'3pc'},
+      {name:'Shadow of Shattered Dreams', k:null, v:0, thr:'1pc'},
+    ],
+  },
 };
 
 /* level-state ordinals: 0=Lv1, 1=20, 2=20✦, 3=40, 4=40✦, 5=50, 6=50✦,
@@ -1397,6 +1568,100 @@ function forteStatTotals(goal, side = 'tgt'){
   });
   return order.filter(s => sum[s.key] > 0)
     .map(s => ({key: s.key, label: s.label, pct: Math.round(sum[s.key] * 100) / 100}));
+}
+
+/* ── Echo builds (Echoes page) — pure engine over GAME.echo ──────────
+   A build records the gear a character wears: one Sonata set, five echoes
+   (cost + selectable main + up to five substats) and which echo is the
+   lead. Planning-only, like Teams — it never touches costs or the queue.
+   Save shape: state.builds[charId] = {set, lead, echoes:[{cost, main, subs}×5]}
+   — `main` is a canonical stat KEY (its +25 value is fixed by cost, derived
+   not stored), `subs` are {key, val} where val is one of the tiered rolls.
+   Everything folds onto the ONE canonical vocabulary (GAME.echoStats), so
+   totals are a plain sum. FORTE_CANON (block 2) bridges forte grants in. */
+
+// forte stat keys → canonical echo keys (forte ATK/HP/DEF nodes are percent)
+const FORTE_CANON = {critRate:'cr', critDmg:'cd', atk:'atkp', hp:'hpp', def:'defp',
+  healing:'heal', glacioDmg:'glacio', fusionDmg:'fusion', electroDmg:'electro',
+  aeroDmg:'aero', spectroDmg:'spectro', havocDmg:'havoc'};
+
+// the +25 main-stat value for (cost, canonical key), or 0 if that key can't be a main there
+function echoMainVal(cost, key){
+  const pool = GAME.echo.mains[cost] || [];
+  const hit = pool.find(m => m.key === key);
+  return hit ? hit.val : 0;
+}
+// snap a substat value to the nearest legal roll for its key (keeps saved builds honest)
+function snapSub(key, val){
+  const ladder = GAME.echo.subs[key];
+  if(!ladder) return null;
+  const v = +val;
+  if(!Number.isFinite(v)) return ladder[0];
+  return ladder.reduce((best, r) => Math.abs(r - v) < Math.abs(best - v) ? r : best, ladder[0]);
+}
+// a fresh empty echo at a given cost (main defaults to the pool's first entry)
+function freshEcho(cost){
+  const c = GAME.echo.costs.includes(cost) ? cost : 1;
+  return {cost: c, main: GAME.echo.mains[c][0].key, subs: []};
+}
+function freshBuild(){
+  return {set: null, lead: 0, echoes: [freshEcho(4), freshEcho(3), freshEcho(3), freshEcho(1), freshEcho(1)]};
+}
+
+/* Repair a raw build into the canonical shape: 5 echoes, legal costs, a main
+   valid for each echo's cost, ≤5 substats snapped to real rolls, a known set
+   (or null), a lead in 0–4. Pure — mirrors sanitize()'s defensive style. */
+function sanitizeBuild(raw){
+  const b = freshBuild();
+  if(!raw || typeof raw !== 'object') return b;
+  const setOk = GAME.echo.sonata.some(s => s.name === raw.set);
+  b.set = setOk ? raw.set : null;
+  const rawE = Array.isArray(raw.echoes) ? raw.echoes : [];
+  b.echoes = b.echoes.map((def, i) => {
+    const r = rawE[i];
+    if(!r || typeof r !== 'object') return def;
+    const cost = GAME.echo.costs.includes(+r.cost) ? +r.cost : def.cost;
+    const mains = GAME.echo.mains[cost].map(m => m.key);
+    const main = mains.includes(r.main) ? r.main : mains[0];
+    const subs = (Array.isArray(r.subs) ? r.subs : []).slice(0, 5)
+      .map(s => s && GAME.echo.subs[s.key] ? {key: s.key, val: snapSub(s.key, s.val)} : null)
+      .filter(Boolean);
+    return {cost, main, subs};
+  });
+  b.lead = Math.min(GAME.echo.slots - 1, Math.max(0, Math.floor(+raw.lead) || 0));
+  return b;
+}
+
+// total echo cost of a build (sum of the five echo costs)
+function buildCost(build){
+  return build.echoes.reduce((s, e) => s + e.cost, 0);
+}
+
+/* Sum a build's gear grant onto the canonical vocabulary: every echo's main +
+   fixed secondary + substats, plus the Sonata 2pc bonus, plus the forte grant
+   passed in (forteStatTotals output — mapped through FORTE_CANON). Returns an
+   ordered [{key, label, pct, val}] in GAME.echoStatOrder, val rounded to kill
+   float noise; percent and flat keys stay separate lines. `forte` may be null.
+   Pure — phase 2 will add base stats + weapon + 5pc onto the same map. */
+function buildTotals(build, forte){
+  const sum = {};
+  const add = (key, val) => { if(key && GAME.echoStats[key]) sum[key] = (sum[key] || 0) + val; };
+  for(const e of build.echoes){
+    add(e.main, echoMainVal(e.cost, e.main));
+    const sec = GAME.echo.secondary[e.cost];
+    if(sec) add(sec.key, sec.val);
+    for(const s of e.subs) add(s.key, s.val);
+  }
+  if(build.set){
+    const set = GAME.echo.sonata.find(s => s.name === build.set);
+    if(set && set.k) add(set.k, set.v);
+  }
+  if(Array.isArray(forte))
+    for(const g of forte) add(FORTE_CANON[g.key], g.pct);
+  return GAME.echoStatOrder.filter(k => sum[k] > 0).map(k => ({
+    key: k, label: GAME.echoStats[k].label, pct: GAME.echoStats[k].pct,
+    val: Math.round(sum[k] * 100) / 100,
+  }));
 }
 
 /* ── core: materials to move one goal from `cur` to `tgt` ──
@@ -2129,7 +2394,7 @@ function sanitizeWeek(raw){
 const defaultState = () => ({
   goals: [newGoal('jinhsi', true), newGoal('phoebe', false), newGoal('suisui', false)],
   done: [], inv:{}, synth:true, craftMode:'reserve', hideUn:false, skipCE:false, tab:'total', teams: [],
-  defaults: {4: defaultGoalTgt(4), 5: defaultGoalTgt(5)}, week: freshWeek(),
+  builds: {}, defaults: {4: defaultGoalTgt(4), 5: defaultGoalTgt(5)}, week: freshWeek(),
 });
 
 function sanitize(raw){
@@ -2200,6 +2465,12 @@ function sanitize(raw){
   };
   const rawDef = (raw && raw.defaults) || {};
   st.defaults = {4: defTgt(rawDef[4], 4), 5: defTgt(rawDef[5], 5)};
+  // per-character echo builds (Echoes page — absent in old saves): keep only
+  // builds whose character is still on the roster, repaired into shape
+  st.builds = {};
+  const rawB = (raw && raw.builds && typeof raw.builds === 'object') ? raw.builds : {};
+  for(const id of new Set(rosterIds))
+    if(rawB[id]) st.builds[id] = sanitizeBuild(rawB[id]);
   return st;
 }
 
@@ -2962,16 +3233,19 @@ function pruneLinks(){
   const ids = rosterGoals().map(g => g.char);
   state.teams = sanitizeTeams(state.teams, ids);
   sanitizeOwners(wpnGoals(), ids);
+  for(const id of Object.keys(state.builds || {})) if(!ids.includes(id)) delete state.builds[id];
 }
-const curPage = () => location.hash === '#teams' ? 'teams' : 'ledger';
+const PAGES = ['ledger', 'teams', 'echoes'];
+const curPage = () => { const h = location.hash.replace('#', ''); return PAGES.includes(h) ? h : 'ledger'; };
 function showPage(p){
-  $('#pageLedger').hidden = p === 'teams';
+  $('#pageLedger').hidden = p !== 'ledger';
   $('#pageTeams').hidden = p !== 'teams';
+  $('#pageEcho').hidden = p !== 'echoes';
   document.querySelectorAll('.pagenav button').forEach(b => b.classList.toggle('on', b.dataset.page === p));
 }
 document.querySelectorAll('.pagenav button').forEach(b => b.addEventListener('click', e => {
   const p = e.currentTarget.dataset.page;
-  if(curPage() !== p) location.hash = p === 'teams' ? '#teams' : '';
+  if(curPage() !== p) location.hash = p === 'ledger' ? '' : '#' + p;
   showPage(p);
 }));
 window.addEventListener('hashchange', () => showPage(curPage()));
@@ -3215,6 +3489,186 @@ function prioritizeTeam(i){
   });
   location.hash = '';
   showPage('ledger');
+}
+
+/* ── Echoes page: per-character echo build sheet ─────────────────────
+   Roster column (queued + completed characters) on the left; picking one
+   opens its build sheet on the right. Planning-only, like Teams — nothing
+   here touches costs or the queue. State: state.builds[charId] (see the
+   engine block); echoSel/echoFilter are transient (a reload starts empty). */
+let echoSel = null;                    // charId whose build sheet is open
+let echoFilter = '';                   // transient fuzzy filter over the roster
+
+const echoNum = v => (Math.round(v * 100) / 100).toString();
+const statStr = (key, val) => echoNum(val) + (GAME.echoStats[key].pct ? '%' : '');
+
+function ensureBuild(id){
+  if(!state.builds[id]) state.builds[id] = freshBuild();
+  return state.builds[id];
+}
+
+/* roster in ledger order, narrowed + ranked by the fuzzy filter (same
+   fuzzyScore as Teams / the inventory pop-up) */
+function echoRosterGoals(){
+  const q = echoFilter.trim();
+  return rosterGoals()
+    .map(g => ({g, s: fuzzyScore(q, GAME.characters[g.char].name)}))
+    .filter(x => x.s >= 0)
+    .sort((a, b) => q ? a.s - b.s : 0)
+    .map(x => x.g);
+}
+function echoRosterCard(g){
+  const ch = GAME.characters[g.char];
+  const done = state.done.includes(g);
+  const has = !!state.builds[g.char];
+  return `<div class="ecard${g.char === echoSel ? ' sel' : ''}${g.off ? ' off' : ''}" ` +
+      `data-ec="${g.char}" style="--acc:${ch.elColor}" title="${esc(ch.name)}${has ? ' · build saved' : ''}">` +
+    `<span class="avatar" style="background:${avaBg(ch)}">${ch.mono}${icoImg(ch.name, 'char', 'avatar-img')}</span>` +
+    `<span class="rname">${esc(ch.name)}</span>` +
+    (has ? `<span class="ebadge" title="Build saved">◆</span>`
+         : `<span class="rlv num">${done ? '✓' : esc(ORD_LABEL(g.cur.ord))}</span>`) +
+  `</div>`;
+}
+/* rebuilt per keystroke — SAFE because the filter input lives OUTSIDE #eroster */
+function renderEchoRoster(){
+  const list = $('#eroster');
+  if(!list) return;
+  const roster = echoRosterGoals();
+  list.innerHTML = roster.length ? roster.map(echoRosterCard).join('')
+    : `<div class="empty">${echoFilter.trim() ? 'No character matches that.'
+                                              : 'No characters yet — add goals on the Ledger page first.'}</div>`;
+  list.querySelectorAll('.ecard').forEach(c => c.addEventListener('click', () => {
+    echoSel = c.dataset.ec; render();
+  }));
+  bindIcons(list);
+}
+
+// the 2pc note for a chosen Sonata set (or its 3pc/1pc phase-2 flag)
+function echoSetNote(name){
+  if(!name) return '';
+  const s = GAME.echo.sonata.find(x => x.name === name);
+  if(!s) return '';
+  return `<span class="enote">${esc(s.k ? `2pc +${s.v}% ${GAME.echoStats[s.k].label}`
+                                        : `${s.thr} set — no total yet`)}</span>`;
+}
+
+function echoSubRow(sub, ei, si){
+  const key = sub ? sub.key : '';
+  const keyOpts = `<option value="">— substat —</option>` +
+    GAME.echoStatOrder.filter(k => GAME.echo.subs[k]).map(k =>
+      `<option value="${k}"${k === key ? ' selected' : ''}>${esc(GAME.echoStats[k].label)}</option>`).join('');
+  const valOpts = (key ? GAME.echo.subs[key] : []).map(v =>
+    `<option value="${v}"${sub && sub.val === v ? ' selected' : ''}>${statStr(key, v)}</option>`).join('');
+  return `<div class="esub">` +
+    `<select data-ei="${ei}" data-si="${si}" data-esub>${keyOpts}</select>` +
+    `<select data-ei="${ei}" data-si="${si}" data-eval${key ? '' : ' disabled'}>${valOpts}</select>` +
+  `</div>`;
+}
+function echoCol(e, ei, lead){
+  const sec = GAME.echo.secondary[e.cost];
+  const mv = echoMainVal(e.cost, e.main);
+  return `<div class="ecol${lead === ei ? ' lead' : ''}">` +
+    `<div class="ecol-h">` +
+      `<select data-ei="${ei}" data-ecost>${GAME.echo.costs.map(c =>
+        `<option value="${c}"${c === e.cost ? ' selected' : ''}>${c}-cost</option>`).join('')}</select>` +
+      `<label class="elead" title="Mark this echo as the build's lead"><input type="radio" name="elead" ` +
+        `value="${ei}"${lead === ei ? ' checked' : ''} data-elead>lead</label>` +
+    `</div>` +
+    `<div class="emain"><select data-ei="${ei}" data-emain>${GAME.echo.mains[e.cost].map(m =>
+        `<option value="${m.key}"${m.key === e.main ? ' selected' : ''}>${esc(GAME.echoStats[m.key].label)}</option>`).join('')}</select>` +
+      `<div class="emval"><b>${statStr(e.main, mv)}</b>${sec ? ` <span class="esec">+ ${echoNum(sec.val)} ${esc(GAME.echoStats[sec.key].label)}</span>` : ''}</div>` +
+    `</div>` +
+    `<div class="esubs">${[0,1,2,3,4].map(si => echoSubRow(e.subs[si], ei, si)).join('')}</div>` +
+  `</div>`;
+}
+
+function echoSheet(){
+  const g = rosterGoals().find(x => x.char === echoSel);
+  if(!g) return `<div class="empty">Pick a character on the left to record their echo build.</div>`;
+  const ch = GAME.characters[g.char];
+  const build = state.builds[g.char] || freshBuild();   // preview fresh; materialize on first edit
+  const w = equipOf(wpnGoals(), g.char);
+  const wp = w && GAME.weapons[w.weapon];
+  const cost = buildCost(build), over = cost > GAME.echo.budget;
+  const totals = buildTotals(build, forteStatTotals(g, 'tgt'));
+  return `<div class="ehead">` +
+    `<span class="avatar" style="background:${avaBg(ch)}">${ch.mono}${icoImg(ch.name, 'char', 'avatar-img')}</span>` +
+    `<div><div class="ehname">${esc(ch.name)}</div>` +
+      `<div class="gmeta">${attrIco(ch.element, 'element')}${attrIco(ch.wtype, 'weapon type')}<span class="lvl">· ${lvlLabel(g)}</span></div>` +
+      `<div class="ehwpn">${wp ? icoImg(wp.name, 'weapon') + esc(wp.name) : '<span class="faint">no weapon linked</span>'}</div>` +
+    `</div></div>` +
+    `<div class="erow"><span class="elab">Sonata set</span>` +
+      `<select data-eset><option value="">— none —</option>${GAME.echo.sonata.map(s =>
+        `<option value="${esc(s.name)}"${s.name === build.set ? ' selected' : ''}>${esc(s.name)}${s.thr ? ` (${s.thr})` : ''}</option>`).join('')}</select>` +
+      echoSetNote(build.set) +
+      `<span class="ebudget${over ? ' over' : ''}" title="Total echo cost — the standard cap is 12">${cost} / ${GAME.echo.budget}</span>` +
+    `</div>` +
+    `<div class="egrid">${build.echoes.map((e, ei) => echoCol(e, ei, build.lead)).join('')}</div>` +
+    `<div class="etotals"><div class="et-h">Gear totals<span class="sub">echoes + set 2pc + forte grant</span></div>` +
+      (totals.length ? `<div class="etgrid">${totals.map(t =>
+          `<div class="etrow"><span class="etk">${esc(t.label)}</span><span class="etv">${echoNum(t.val)}${t.pct ? '%' : ''}</span></div>`).join('')}</div>`
+        : `<div class="empty">Fill in echoes to see totals.</div>`) +
+      `<div class="etnote">MVP — gear stats only. Base character &amp; weapon stats come in a later phase.</div>` +
+    `</div>`;
+}
+
+// re-read all five substat rows of one echo from the DOM, densified (empty
+// rows dropped, values snapped to a legal roll) — the source of truth on edit
+function readEchoSubs(box, ei){
+  const out = [];
+  for(let si = 0; si < 5; si++){
+    const k = box.querySelector(`[data-esub][data-ei="${ei}"][data-si="${si}"]`);
+    const v = box.querySelector(`[data-eval][data-ei="${ei}"][data-si="${si}"]`);
+    if(k && k.value && GAME.echo.subs[k.value])
+      out.push({key: k.value, val: snapSub(k.value, v && v.value !== '' ? v.value : GAME.echo.subs[k.value][0])});
+  }
+  return out;
+}
+
+function bindEchoSheet(box){
+  const id = echoSel;
+  if(!id || !rosterGoals().some(g => g.char === id)) return;
+  const set = box.querySelector('[data-eset]');
+  if(set) set.addEventListener('change', e => { ensureBuild(id).set = e.target.value || null; save(); render(); });
+  box.querySelectorAll('[data-ecost]').forEach(s => s.addEventListener('change', e => {
+    const echo = ensureBuild(id).echoes[+e.target.dataset.ei], cost = +e.target.value;
+    echo.cost = cost;
+    if(!GAME.echo.mains[cost].some(m => m.key === echo.main)) echo.main = GAME.echo.mains[cost][0].key;
+    save(); render();
+  }));
+  box.querySelectorAll('[data-emain]').forEach(s => s.addEventListener('change', e => {
+    ensureBuild(id).echoes[+e.target.dataset.ei].main = e.target.value; save(); render();
+  }));
+  box.querySelectorAll('[data-elead]').forEach(r => r.addEventListener('change', e => {
+    ensureBuild(id).lead = +e.target.value; save(); render();
+  }));
+  box.querySelectorAll('[data-esub], [data-eval]').forEach(s => s.addEventListener('change', e => {
+    ensureBuild(id).echoes[+e.target.dataset.ei].subs = readEchoSubs(box, +e.target.dataset.ei);
+    save(); render();
+  }));
+}
+
+function renderEcho(){
+  const box = $('#echoBody');
+  if(!box) return;
+  if(echoSel && !rosterGoals().some(g => g.char === echoSel)) echoSel = null;   // left the roster
+  box.innerHTML =
+    `<div class="tcols">
+      <aside>
+        <div class="gmeta" style="margin-bottom:6px">Roster — everyone on the Ledger. Pick one to record its echoes.</div>
+        <input id="echoFind" class="rfind" type="text" placeholder="Filter roster…"
+               autocomplete="off" spellcheck="false" value="${esc(echoFilter)}">
+        <div class="rlist" id="eroster"></div>
+      </aside>
+      <div class="esheet">${echoSheet()}</div>
+    </div>`;
+  box.querySelector('#echoFind').addEventListener('input', e => {
+    echoFilter = e.currentTarget.value;
+    renderEchoRoster();
+  });
+  bindEchoSheet(box);
+  renderEchoRoster();
+  bindIcons(box);
 }
 
 /* ── inventory pop-up: game-style stock grid (Ctrl+I) ──
@@ -4106,7 +4560,7 @@ function renderFooter(){
   $('#footer').innerHTML = pills +
     `<details class="foot-help"><summary>How this works</summary><p>${help}</p></details>`;
 }
-function render(){ hideTip(); buildNeeders(); renderGoals(); renderSummary(); renderFooter(); renderModal(); renderOrder(); renderTeams(); }
+function render(){ hideTip(); buildNeeders(); renderGoals(); renderSummary(); renderFooter(); renderModal(); renderOrder(); renderTeams(); renderEcho(); }
 render();
 showPage(curPage());
 if(storageOK){

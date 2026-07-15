@@ -26,9 +26,10 @@ const reset = () => w.eval(`
   const D = {4: defaultGoalTgt(4), 5: defaultGoalTgt(5)};
   state = {goals: ['jinhsi','phoebe','suisui'].map(c => newGoal(c, false, D)),
            done: [], inv: {}, synth: true, craftMode: 'reserve', hideUn: false, skipCE: false,
-           tab: 'total', teams: [], defaults: D, week: freshWeek()};
+           tab: 'total', teams: [], builds: {}, defaults: D, week: freshWeek()};
   undoStack.length = 0; clearTimeout(undoTimer);
   editIdx = null; editTpl = null; palPick = null; palSel = 0;
+  echoSel = null; echoFilter = '';
   farmId = null; ordDrag = null; invFilter = '';
   for(const s of ['#modalWrap','#palWrap','#ordWrap','#invWrap','#farmWrap','#undoBar'])
     $(s).hidden = true;
@@ -2089,6 +2090,81 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok('Esc closes the sheet first, leaving the palette open',
      wrap().hidden === true && d.querySelector('#palWrap').hidden === false);
   d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
+}
+
+// ── Echoes page: roster column + build sheet, live-applied and persisted ──
+{
+  reset();
+  const echoTab = () => d.querySelector('.pagenav [data-page="echoes"]');
+  fire(echoTab(), 'click');
+  ok('Echoes nav opens the page', d.querySelector('#pageEcho').hidden === false &&
+     d.querySelector('#pageLedger').hidden === true && echoTab().classList.contains('on'));
+  ok('the roster lists every ledger character', d.querySelectorAll('#eroster .ecard').length === 3);
+  ok('no build sheet until a character is picked',
+     /Pick a character/.test(d.querySelector('.esheet').textContent));
+
+  fire(d.querySelector('#eroster .ecard[data-ec="jinhsi"]'), 'click');
+  ok('picking a character opens its sheet with the identity header',
+     d.querySelector('.ehname').textContent === 'Jinhsi' &&
+     d.querySelectorAll('.egrid .ecol').length === 5);
+  ok('a fresh sheet shows the 12/12 budget', /12 \/ 12/.test(d.querySelector('.ebudget').textContent) &&
+     !d.querySelector('.ebudget').classList.contains('over'));
+  ok('no build is materialized just by viewing', w.eval('state.builds.jinhsi === undefined'));
+
+  // pick a Sonata set → live-applies, persists, notes the 2pc
+  const setSel = d.querySelector('[data-eset]');
+  setSel.value = 'Freezing Frost'; fire(setSel, 'change');
+  ok('choosing a set materializes + saves the build',
+     w.eval("state.builds.jinhsi && state.builds.jinhsi.set === 'Freezing Frost'"));
+  ok('the 2pc note shows for the chosen set', /2pc \+10% Glacio DMG/.test(d.querySelector('.enote').textContent));
+  ok('the Glacio 2pc lands in the gear totals',
+     /Glacio DMG/.test(d.querySelector('.etotals').textContent));
+
+  // set echo 0 main to Crit DMG, add two substats
+  const main0 = d.querySelector('[data-emain][data-ei="0"]');
+  main0.value = 'cd'; fire(main0, 'change');
+  const subK = d.querySelector('[data-esub][data-ei="0"][data-si="0"]');
+  subK.value = 'cr'; fire(subK, 'change');
+  const subV = d.querySelector('[data-eval][data-ei="0"][data-si="0"]');
+  subV.value = '8.1'; fire(subV, 'change');
+  ok('substat persists densified onto the build',
+     w.eval("JSON.stringify(state.builds.jinhsi.echoes[0].subs) === JSON.stringify([{key:'cr',val:8.1}])"));
+  ok('Crit Rate total = substat 8.1 + forte grant 8',
+     /Crit Rate/.test(d.querySelector('.etotals').textContent) &&
+     w.eval("buildTotals(state.builds.jinhsi, forteStatTotals(state.goals.find(g=>g.char==='jinhsi'),'tgt')).find(t=>t.key==='cr').val") === 16.1);
+
+  // lead radio
+  const lead1 = d.querySelector('[data-elead][value="1"]');
+  lead1.checked = true; fire(lead1, 'change');
+  ok('the lead echo persists and highlights its column',
+     w.eval('state.builds.jinhsi.lead === 1') &&
+     d.querySelectorAll('.egrid .ecol')[1].classList.contains('lead'));
+
+  // changing a cost resets an now-illegal main to the pool head
+  const cost0 = d.querySelector('[data-ecost][data-ei="0"]');
+  cost0.value = '1'; fire(cost0, 'change');
+  ok('lowering the cost repairs a main the new cost cannot carry',
+     w.eval("state.builds.jinhsi.echoes[0].cost === 1 && state.builds.jinhsi.echoes[0].main === 'hpp'"));
+  ok('the budget drops below 12 and is not flagged over',
+     w.eval('buildCost(state.builds.jinhsi)') === 9);
+
+  // the build survives a save/reload round-trip
+  w.eval('save(); state = sanitize(JSON.parse(localStorage.getItem(STORE_KEY))); render();');
+  ok('the build round-trips through sanitize',
+     w.eval("state.builds.jinhsi && state.builds.jinhsi.set === 'Freezing Frost' && state.builds.jinhsi.lead === 1"));
+
+  // a build is pruned when its character leaves the roster
+  w.eval("state.builds.phoebe = freshBuild(); state.goals = state.goals.filter(g => g.char !== 'phoebe'); pruneLinks(); save();");
+  ok('a departing character drops its build', w.eval('state.builds.phoebe === undefined'));
+  ok("but a remaining character's build is untouched", w.eval('!!state.builds.jinhsi'));
+
+  // filter box narrows the roster without losing focus (input outside #eroster)
+  const find = d.querySelector('#echoFind');
+  find.value = 'suisui'; fire(find, 'input');
+  ok('the fuzzy filter narrows the roster list',
+     d.querySelectorAll('#eroster .ecard').length === 1 &&
+     d.querySelector('#eroster .ecard').dataset.ec === 'suisui');
+  reset();
 }
 
 dom.window.close();    // kill pending toast timers so Node exits promptly

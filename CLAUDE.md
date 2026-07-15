@@ -258,6 +258,42 @@ it goes in block 2 with tests; presentation goes in block 3.
   for free; an unlinked weapon doesn't move. It returns `{goals, moved}` and
   mutates nothing — the caller clears `off`. Afterwards the UI switches to the
   Ledger (that's what changed) and drops `editIdx` (indices shifted).
+- **Echoes page (per-character gear sheet)**: a third page (`#pageEcho`, nav
+  "Ledger | Teams | Echoes"; `location.hash === '#echoes'` — routing widened to
+  the `PAGES` list). Records the ECHO build a character wears; planning-only,
+  like Teams — it never touches costs, totals, or the queue. `state.builds` =
+  `{charId: {set, lead:0-4, echoes:[{cost:1|3|4, main:<canonical key>,
+  subs:[{key,val}…≤5]} ×5]}}` — the `main` VALUE and each echo's flat SECONDARY
+  are fixed by cost, so they're derived (`echoMainVal`, `GAME.echo.secondary`),
+  never stored. A build is materialized only on the first edit (`ensureBuild`);
+  viewing a character renders a `freshBuild()` preview without saving. `pruneLinks`
+  drops a build when its character leaves the roster; `sanitize` keeps only
+  roster builds and repairs each via `sanitizeBuild`.
+  **The MVP is gear-stat totals** (no character base stats — that's a later,
+  additive phase). Everything folds onto ONE canonical stat vocabulary
+  (`GAME.echoStats`, ordered by `GAME.echoStatOrder`): flat vs percent are
+  SEPARATE keys (`atk` = flat ATK, `atkp` = ATK%; `pct` flag drives formatting).
+  `buildTotals(build, forte)` (engine, pure) sums every echo's main + fixed
+  secondary + substats, the Sonata **2pc** bonus, and the forte grant
+  (`forteStatTotals` output, mapped through `FORTE_CANON`) into one ordered
+  `[{key,label,pct,val}]`. Only 2/5 Sonata sets contribute numerically at MVP;
+  the newer 3pc/1pc-threshold sets carry `k:null` and add nothing yet.
+  Engine (pure, tested): `freshBuild`, `freshEcho`, `sanitizeBuild`,
+  `buildCost`, `echoMainVal`, `snapSub` (snaps a substat to the nearest legal
+  roll), `buildTotals`. UI: `renderEcho` mirrors the Teams layout (`.tcols` —
+  a fuzzy-filtered roster column left, the build sheet right; the `#echoFind`
+  input sits OUTSIDE `#eroster` so `renderEchoRoster` redraws the list per
+  keystroke without losing focus). The sheet is a 5-column `.egrid`: each echo
+  has a cost select, a `lead` radio, a main-stat select (options = that cost's
+  pool) showing its derived value + secondary, and five substat rows
+  (stat select + tabled value select). Every control live-applies
+  (`bindEchoSheet` → `ensureBuild` → `save(); render()`); substats are re-read
+  from the DOM densified (`readEchoSubs` drops empty rows, snaps values). A
+  `.ebudget` chip shows total cost / 12 and reddens when over — a WARN, never a
+  block. `echoSel`/`echoFilter` are transient (a reload starts empty). Echo
+  data (5★ +25) verified Jul 2026 vs Game8 / wutheringwaves.gg / Wuthering
+  Insight; softer-verified: the Energy-Regen substat ladder, flat ATK/DEF
+  tiers, and Sun-sinking Eclipse's identity (re-check at a phase-2 pass).
 - **Save format** lives in localStorage key `wuwa-planner-v1`. `sanitize()`
   migrates all older generations (v1 counts → v2 `{minor,major,inh}` arrays →
   current matrix) and repairs illegal states. Later-added top-level fields:
@@ -267,7 +303,8 @@ it goes in block 2 with tests; presentation goes in block 3.
   (`{start, used}` — weekly-boss claims spent this game week), `craftMode`
   (`'reserve'|'priority'`, anything else sanitizes to `'reserve'`), the
   per-goal `off` (paused) and, on weapon goals, `owner` (the character who
-  carries it) — all default safely when absent. A team's old custom `name` is
+  carries it), plus `builds` (the Echoes page — a `{charId: build}` map, kept
+  only for roster characters) — all default safely when absent. A team's old custom `name` is
   DROPPED on load (teams are auto-named after their first member now). A saved
   `tab:'left'` (the removed Inventory tab)
   migrates to Total. Never break old-save loading; add migrations instead.
@@ -703,12 +740,20 @@ visual aid, not a test — still be careful with CSS-only changes.
    are dropped from file names.) The 2026-07-10 launch checkpoint is done —
    see the provenance section. Note: the Dimbreath/WutheringData datamine
    is abandoned at 3.1.0 — verify post-3.1 data via Game8/prydwen instead.
-2. Backlog (user-approved ideas, unscheduled): "buy all affordable steps"
-   in the goal editor, `iconSlug` duplicated between the app and `fetch-icons.js`,
-   legacy unused `goal.open`. **Not doing:** Echo XP / tuners (user declined,
-   Jul 2026). No farming-schedule/day-of-week features — WuWa domains are
-   always open (user-confirmed). Per-block test isolation via `reset()` is
-   DONE (see Testing).
+2. **Echoes page — phase 2 (unscheduled):** the MVP (gear-stat totals) shipped
+   Jul 2026 (see the Echoes-page bullet in Core model). Additive next steps,
+   all designed to fold onto the SAME canonical vocabulary so nothing is a
+   rewrite: per-character base ATK/HP/DEF + weapon stats (max-level, fetched
+   later) → final numbers; 5pc Sonata effect text; stat GOALS ("CR 65%+")
+   compared against the build; cost TEMPLATES (43311/44111) as a fill
+   convenience. Softer-verified data to re-check then: Energy-Regen substat
+   ladder, flat ATK/DEF tiers, Sun-sinking Eclipse's identity.
+3. Backlog (user-approved ideas, unscheduled): `iconSlug` duplicated between
+   the app and `fetch-icons.js`, legacy unused `goal.open`. **Not doing:** Echo
+   XP / tuners (user declined, Jul 2026). No farming-schedule/day-of-week
+   features — WuWa domains are always open (user-confirmed). "Buy all affordable
+   steps" (the upgrade tracks) and per-block test isolation via `reset()` are
+   both DONE.
 
 ## Working agreements with this user
 

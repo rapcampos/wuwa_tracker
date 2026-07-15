@@ -206,6 +206,26 @@ button.search kbd{margin-left:auto; font-family:inherit; font-size:10px; color:v
   display:flex; justify-content:center; align-items:flex-start; padding:12vh 16px 16px}
 .palette{background:var(--panel); border:1px solid var(--line2); border-radius:12px;
   width:min(480px,94vw); box-shadow:0 18px 50px rgba(0,0,0,.55); overflow:hidden}
+
+/* shortcuts cheat sheet: a NON-BLOCKING panel anchored bottom-right (the page
+   stays usable behind it — it's a reference, not a modal). Toggle with Ctrl+/,
+   the ✕, or Esc. The wrap passes clicks through; only the panel catches them. */
+#keysWrap{position:fixed; inset:0; z-index:60; pointer-events:none; display:flex;
+  justify-content:flex-end; align-items:flex-end; padding:16px}
+.keys-pop{pointer-events:auto; width:min(370px,94vw); max-height:min(76vh,640px);
+  display:flex; flex-direction:column; animation:keysIn .16s ease-out}
+@keyframes keysIn{ from{ opacity:0; transform:translateY(8px) } to{ opacity:1; transform:none } }
+#keysBody{overflow:auto; overscroll-behavior:contain; padding:6px 14px 12px}
+.keys-grp{margin-top:10px}
+.keys-grp h4{margin:0 0 5px; font-family:'Chakra Petch',sans-serif; font-size:10.5px;
+  letter-spacing:.14em; text-transform:uppercase; color:var(--faint); font-weight:700}
+.keys-row{display:flex; align-items:baseline; gap:10px; padding:3px 0; font-size:12.5px}
+.keys-k{flex:none; display:inline-flex; align-items:center; gap:3px; min-width:96px; justify-content:flex-end}
+.keys-plus{color:var(--faint); font-size:10px}
+.keys-d{color:var(--mut); line-height:1.35}
+.keys-pop kbd{font-family:'IBM Plex Mono','Chakra Petch',monospace; font-size:10.5px; line-height:1;
+  padding:3px 5px; border:1px solid var(--line2); border-bottom-width:2px; border-radius:5px;
+  background:var(--panel2); color:var(--ink); white-space:nowrap}
 .palette input{width:100%; border:none; border-bottom:1px solid var(--line); border-radius:0;
   background:var(--panel2); padding:12px 14px; font:inherit; font-size:14px; color:var(--ink); outline:none}
 #palList{max-height:320px; overflow:auto; overscroll-behavior:contain}
@@ -556,6 +576,7 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
     <button class="ghost" id="btnTpl" title="Edit the default goal templates for new 4★/5★ characters">Templates</button>
     <button class="ghost" id="btnOrder" title="Reorder the priority queue in a compact drag list (Ctrl+P)">⇅ Reorder</button>
     <button class="ghost" id="btnInv" title="Your materials — every item as a grid of icon + quantity (Ctrl+I)">☷ Inventory</button>
+    <button class="ghost" id="btnKeys" title="Shortcuts &amp; hidden power features (Ctrl+/)">⌨ Shortcuts</button>
     <span class="spacer"></span>
     <button class="ghost" id="btnExport">Export JSON</button>
     <button class="ghost" id="btnImport">Import JSON</button>
@@ -629,6 +650,14 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
       <button class="tiny close" id="farmClose" title="Close (Esc)">✕</button>
       <span class="sub">+1 / +5 log a farm session · Shift subtracts · closing applies everywhere</span></div>
     <div id="farmList"></div>
+  </div>
+</div>
+
+<div id="keysWrap" hidden>
+  <div class="palette keys-pop" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts and power features">
+    <div class="ord-h">Shortcuts &amp; power features <span class="sub">Ctrl/⌘ + / toggles this</span>
+      <button class="tiny close" id="keysClose" title="Close (Esc)">✕</button></div>
+    <div id="keysBody"></div>
   </div>
 </div>
 
@@ -3825,17 +3854,64 @@ function renderTplModal(wrap){
 }
 
 $('#modalWrap').addEventListener('click', e => { if(e.target === e.currentTarget) closeEdit(); });
+/* ── shortcuts & power-features cheat sheet (Ctrl/⌘ + /) ──
+   Many actions are keyboard/right-click only and were undiscoverable; this is
+   the one place they're written down. Grouped, built from a plain table so a
+   new shortcut is one row. `<kbd>` bits render as keycaps. */
+const KEYS = [
+  ['Shortcuts', [
+    [['Ctrl','K'], 'Add a character or weapon (fuzzy search + filters)'],
+    [['Ctrl','P'], 'Reorder the priority queue'],
+    [['Ctrl','I'], 'Open the inventory'],
+    [['Ctrl','Z'], 'Undo the last change (steps back through the stack)'],
+    [['Ctrl','/'], 'Show or hide this list'],
+    [['Esc'],      'Close the open pop-up'],
+  ]],
+  ['In the add palette', [
+    [['↑','↓'],          'Move · Enter adds from your template'],
+    [['Shift','Enter'],  'Add ALREADY BUILT — straight to Completed'],
+    [['right-click'],    'Same: add a result already built'],
+    [['the chip row'],   'Filter by rarity · element · weapon type'],
+  ]],
+  ['Weapon links', [
+    [['click the owner'], 'Assign / change who carries a weapon (same type only)'],
+    [['right-click it'],  'Unlink the carrier'],
+  ]],
+  ['Materials & farming', [
+    [['click any tile'],  'Log what dropped (farm pop-up on that family)'],
+    [['hover a tile'],    'Who needs it and how each goal is doing'],
+    [['✓ Max goal'],      'Mark a build done — it flies to the Completed tab'],
+  ]],
+];
+const keysIsOpen = () => !$('#keysWrap').hidden;
+function renderKeys(){
+  const cap = k => /^[A-Za-z↑↓/]$|^(Ctrl|Shift|Esc|Enter)$/.test(k) ? `<kbd>${esc(k)}</kbd>` : esc(k);
+  $('#keysBody').innerHTML = KEYS.map(([title, rows]) =>
+    `<div class="keys-grp"><h4>${esc(title)}</h4>` + rows.map(([keys, what]) =>
+      `<div class="keys-row"><span class="keys-k">${keys.map(cap).join('<span class="keys-plus">+</span>')}</span>` +
+      `<span class="keys-d">${esc(what)}</span></div>`).join('') + `</div>`).join('');
+}
+/* independent & non-blocking: opening it leaves any other pop-up in place (it
+   just floats bottom-right over the page), so it can be a live lookup */
+function openKeys(){ renderKeys(); $('#keysWrap').hidden = false; }
+function closeKeys(){ $('#keysWrap').hidden = true; }
+$('#keysClose').addEventListener('click', closeKeys);
+$('#keysWrap').addEventListener('click', e => { if(e.target === e.currentTarget) closeKeys(); });
+$('#btnKeys').addEventListener('click', () => keysIsOpen() ? closeKeys() : openKeys());
+
 document.addEventListener('keydown', e => {
   if((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')){ e.preventDefault(); openPal(); return; }
   if((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')){ e.preventDefault(); openOrd(); return; }
   if((e.ctrlKey || e.metaKey) && (e.key === 'i' || e.key === 'I')){ e.preventDefault(); openInv(); return; }
+  if((e.ctrlKey || e.metaKey) && e.key === '/'){ e.preventDefault(); keysIsOpen() ? closeKeys() : openKeys(); return; }
   if((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'z' || e.key === 'Z')){
     const tag = (e.target && e.target.tagName) || '';
     if(!/^(INPUT|TEXTAREA|SELECT)$/.test(tag)){ e.preventDefault(); doUndo(); }   // inputs keep native undo
     return;
   }
   if(e.key === 'Escape'){
-    if(palIsOpen()) closePal();
+    if(keysIsOpen()) closeKeys();            // top layer — a lookup over whatever's beneath
+    else if(palIsOpen()) closePal();
     else if(ordIsOpen()) closeOrd();
     else if(farmIsOpen()) closeFarm();       // the farm pop-up layers over everything
     else if(invIsOpen()) closeInv();

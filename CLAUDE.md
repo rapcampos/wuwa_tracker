@@ -101,6 +101,15 @@ it goes in block 2 with tests; presentation goes in block 3.
   the toolbar ("Templates" → the same
   pop-up in template mode via `editTpl`, with a 4★/5★ switch and a reset
   button; template nodes toggle skip↔planned only — no "owned" there).
+- **Shortcuts cheat sheet** (`#keysWrap`, Ctrl/⌘+/ or the toolbar "⌨ Shortcuts"
+  button): a NON-BLOCKING reference panel anchored bottom-right — the page stays
+  usable behind it (the wrap is `pointer-events:none`, only `.keys-pop` catches
+  clicks), so it can float as a live lookup over any other pop-up. `openKeys`
+  deliberately does NOT close the others. Content is the `KEYS` table (grouped
+  rows of keycaps + description — a new shortcut is one row); `<kbd>` renders as
+  keycaps. Esc treats it as the top layer (closes it before the palette beneath).
+  This is the one place the keyboard/right-click-only power features are written
+  down. No persistence — a reload starts closed.
 - **Add-goal palette**: the toolbar search button and Ctrl/Cmd+K open a
   floating fuzzy-search palette (`#palWrap`) over characters + weapons.
   `fuzzyScore` (engine, pure, tested) is subsequence matching with gap/

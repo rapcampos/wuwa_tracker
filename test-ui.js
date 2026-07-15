@@ -2042,6 +2042,37 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
 }
 
+// ── shortcuts / power-features cheat sheet (Ctrl+/ or the toolbar button) ──
+{
+  reset();
+  const wrap = () => d.querySelector('#keysWrap');
+  ok('the cheat sheet starts hidden', wrap().hidden === true);
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'/', ctrlKey:true, bubbles:true}));
+  ok('Ctrl+/ opens it, anchored as a non-blocking panel (wrap passes clicks through)',
+     wrap().hidden === false &&
+     w.getComputedStyle(wrap()).pointerEvents === 'none' &&
+     d.querySelector('.keys-pop') !== null);
+  ok('it lists the grouped shortcuts with keycaps',
+     d.querySelectorAll('#keysBody .keys-grp').length === 4 &&
+     d.querySelectorAll('#keysBody .keys-row').length >= 12 &&
+     d.querySelector('#keysBody kbd') !== null &&
+     /Add a character/.test(d.querySelector('#keysBody').textContent) &&
+     /ALREADY BUILT/.test(d.querySelector('#keysBody').textContent));
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'/', ctrlKey:true, bubbles:true}));
+  ok('Ctrl+/ again toggles it shut', wrap().hidden === true);
+  fire(d.querySelector('#btnKeys'), 'click');
+  ok('the toolbar button opens it too', wrap().hidden === false);
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
+  ok('Esc closes it', wrap().hidden === true);
+  // Esc treats it as the TOP layer: open the palette, then the sheet over it
+  fire(d.querySelector('#btnAdd'), 'click');
+  fire(d.querySelector('#btnKeys'), 'click');
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
+  ok('Esc closes the sheet first, leaving the palette open',
+     wrap().hidden === true && d.querySelector('#palWrap').hidden === false);
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
+}
+
 dom.window.close();    // kill pending toast timers so Node exits promptly
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

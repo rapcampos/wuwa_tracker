@@ -561,23 +561,21 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
   box-shadow:0 0 7px var(--acc,var(--cyan))}
 .st.ready{color:var(--green)} .st.miss{color:var(--red)}
 
-/* ── Echoes page: roster column left, build sheet right (reuses .tcols) ── */
-.ecard{display:grid; grid-template-columns:34px minmax(0,1fr) auto; gap:2px 8px;
-  align-items:center; border:1px solid var(--line2); border-radius:9px;
-  background:var(--panel2); padding:6px 8px; cursor:pointer; font-size:12.5px}
-.ecard:hover{border-color:var(--acc,var(--cyan))}
-.ecard.sel{border-color:var(--acc,var(--cyan)); box-shadow:inset 0 0 0 1px var(--acc,var(--cyan))}
-.ecard.off{filter:saturate(.35)}
-.ecard .avatar{width:34px; height:34px; font-size:12px; border-radius:8px}
-.ecard .rname{font-family:'Chakra Petch',sans-serif; font-weight:600; font-size:13px;
-  overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-.ecard .rlv{color:var(--mut); font-size:10.5px; justify-self:end; white-space:nowrap}
-.ecard .ebadge{color:var(--cyan); font-size:10px; justify-self:end}
+/* ── Echoes page: a top filter row + a grid of per-character build cards
+   that tile up to 2 per row on wide screens (auto-fit caps it there) ── */
+.efilter-row{display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:12px}
+.efilter-row .rfind{width:260px; margin-bottom:0}
+.efilter-row .sub{color:var(--faint); font-size:11.5px}
+.esheets{display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 640px), 1fr));
+  gap:16px; align-items:start}
+.ebuild{border:1px solid var(--line); border-radius:12px; padding:14px; background:var(--panel);
+  min-width:0; border-left:3px solid var(--acc,var(--cyan))}
 
-.esheet{min-width:0}
 .ehead{display:flex; align-items:center; gap:12px; margin-bottom:12px}
-.ehead .avatar{width:56px; height:56px; font-size:17px; border-radius:12px; flex:none}
-.ehname{font-family:'Chakra Petch',sans-serif; font-weight:700; font-size:19px}
+.ehead .avatar{width:52px; height:52px; font-size:16px; border-radius:12px; flex:none}
+.ehmeta{min-width:0}
+.ehname{font-family:'Chakra Petch',sans-serif; font-weight:700; font-size:18px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .ehwpn{display:flex; align-items:center; gap:5px; font-size:12px; color:var(--mut); margin-top:3px}
 .ehwpn img{width:17px; height:17px; object-fit:contain; border-radius:4px}
 .ehwpn .faint{color:var(--faint)}
@@ -585,12 +583,11 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
 .erow{display:flex; align-items:center; gap:9px; flex-wrap:wrap; margin-bottom:14px}
 .erow .elab{font-size:12px; color:var(--mut); font-family:'Chakra Petch',sans-serif}
 .erow .enote{font-size:11.5px; color:var(--faint)}
-.ebudget{margin-left:auto; font-variant-numeric:tabular-nums; font-size:13px;
-  padding:3px 9px; border-radius:7px; border:1px solid var(--line2); color:var(--mut)}
+.ebudget{margin-left:auto; align-self:flex-start; font-variant-numeric:tabular-nums; font-size:13px;
+  padding:3px 9px; border-radius:7px; border:1px solid var(--line2); color:var(--mut); flex:none}
 .ebudget.over{color:var(--red); border-color:var(--red)}
 
-.egrid{display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); gap:8px; margin-bottom:16px}
-@media(max-width:760px){ .egrid{grid-template-columns:repeat(2, minmax(0,1fr))} }
+.egrid{display:grid; grid-template-columns:repeat(auto-fill, minmax(112px, 1fr)); gap:8px; margin-bottom:16px}
 .ecol{border:1px solid var(--line2); border-radius:10px; padding:8px; background:var(--panel2);
   display:flex; flex-direction:column; gap:7px}
 .ecol.lead{border-color:var(--cyan); box-shadow:0 0 0 1px var(--cyan) inset}
@@ -602,7 +599,7 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
 .emval b{color:var(--ink); font-weight:700; font-size:12.5px}
 .emval .esec{color:var(--faint)}
 .esubs{display:flex; flex-direction:column; gap:4px; border-top:1px solid var(--line2); padding-top:6px}
-.esub{display:grid; grid-template-columns:1fr 58px; gap:4px}
+.esub{display:grid; grid-template-columns:1fr 54px; gap:3px}
 .esub select{font-size:10.5px; padding:2px 3px; min-width:0}
 
 .etotals{border:1px solid var(--line); border-radius:11px; padding:12px 14px; background:var(--panel)}
@@ -1347,11 +1344,11 @@ const GAME = {
   echoStats: {
     cr:      {label:'Crit Rate',                  pct:true},
     cd:      {label:'Crit DMG',                   pct:true},
-    atkp:    {label:'ATK',                        pct:true},
+    atkp:    {label:'ATK%',                       pct:true},
     atk:     {label:'ATK',                        pct:false},
-    hpp:     {label:'HP',                         pct:true},
+    hpp:     {label:'HP%',                        pct:true},
     hp:      {label:'HP',                         pct:false},
-    defp:    {label:'DEF',                        pct:true},
+    defp:    {label:'DEF%',                       pct:true},
     def:     {label:'DEF',                        pct:false},
     er:      {label:'Energy Regen',               pct:true},
     heal:    {label:'Healing Bonus',              pct:true},
@@ -3491,13 +3488,13 @@ function prioritizeTeam(i){
   showPage('ledger');
 }
 
-/* ── Echoes page: per-character echo build sheet ─────────────────────
-   Roster column (queued + completed characters) on the left; picking one
-   opens its build sheet on the right. Planning-only, like Teams — nothing
-   here touches costs or the queue. State: state.builds[charId] (see the
-   engine block); echoSel/echoFilter are transient (a reload starts empty). */
-let echoSel = null;                    // charId whose build sheet is open
-let echoFilter = '';                   // transient fuzzy filter over the roster
+/* ── Echoes page: a GRID of per-character build sheets ───────────────
+   Every rostered character (queued + completed) gets a build card; on a
+   wide screen they tile 2 per row. Planning-only, like Teams — nothing
+   here touches costs or the queue. State: state.builds[charId] (engine
+   block). A build materializes only on the first edit (viewing shows a
+   fresh preview). echoFilter is transient (a reload starts empty). */
+let echoFilter = '';                   // transient fuzzy filter over the cards
 
 const echoNum = v => (Math.round(v * 100) / 100).toString();
 const statStr = (key, val) => echoNum(val) + (GAME.echoStats[key].pct ? '%' : '');
@@ -3517,31 +3514,6 @@ function echoRosterGoals(){
     .sort((a, b) => q ? a.s - b.s : 0)
     .map(x => x.g);
 }
-function echoRosterCard(g){
-  const ch = GAME.characters[g.char];
-  const done = state.done.includes(g);
-  const has = !!state.builds[g.char];
-  return `<div class="ecard${g.char === echoSel ? ' sel' : ''}${g.off ? ' off' : ''}" ` +
-      `data-ec="${g.char}" style="--acc:${ch.elColor}" title="${esc(ch.name)}${has ? ' · build saved' : ''}">` +
-    `<span class="avatar" style="background:${avaBg(ch)}">${ch.mono}${icoImg(ch.name, 'char', 'avatar-img')}</span>` +
-    `<span class="rname">${esc(ch.name)}</span>` +
-    (has ? `<span class="ebadge" title="Build saved">◆</span>`
-         : `<span class="rlv num">${done ? '✓' : esc(ORD_LABEL(g.cur.ord))}</span>`) +
-  `</div>`;
-}
-/* rebuilt per keystroke — SAFE because the filter input lives OUTSIDE #eroster */
-function renderEchoRoster(){
-  const list = $('#eroster');
-  if(!list) return;
-  const roster = echoRosterGoals();
-  list.innerHTML = roster.length ? roster.map(echoRosterCard).join('')
-    : `<div class="empty">${echoFilter.trim() ? 'No character matches that.'
-                                              : 'No characters yet — add goals on the Ledger page first.'}</div>`;
-  list.querySelectorAll('.ecard').forEach(c => c.addEventListener('click', () => {
-    echoSel = c.dataset.ec; render();
-  }));
-  bindIcons(list);
-}
 
 // the 2pc note for a chosen Sonata set (or its 3pc/1pc phase-2 flag)
 function echoSetNote(name){
@@ -3554,7 +3526,7 @@ function echoSetNote(name){
 
 function echoSubRow(sub, ei, si){
   const key = sub ? sub.key : '';
-  const keyOpts = `<option value="">— substat —</option>` +
+  const keyOpts = `<option value="">＋ stat</option>` +
     GAME.echoStatOrder.filter(k => GAME.echo.subs[k]).map(k =>
       `<option value="${k}"${k === key ? ' selected' : ''}>${esc(GAME.echoStats[k].label)}</option>`).join('');
   const valOpts = (key ? GAME.echo.subs[key] : []).map(v =>
@@ -3564,14 +3536,15 @@ function echoSubRow(sub, ei, si){
     `<select data-ei="${ei}" data-si="${si}" data-eval${key ? '' : ' disabled'}>${valOpts}</select>` +
   `</div>`;
 }
-function echoCol(e, ei, lead){
+// one echo column. `cid` scopes the lead radio group so cards don't collide.
+function echoCol(e, ei, lead, cid){
   const sec = GAME.echo.secondary[e.cost];
   const mv = echoMainVal(e.cost, e.main);
   return `<div class="ecol${lead === ei ? ' lead' : ''}">` +
     `<div class="ecol-h">` +
       `<select data-ei="${ei}" data-ecost>${GAME.echo.costs.map(c =>
         `<option value="${c}"${c === e.cost ? ' selected' : ''}>${c}-cost</option>`).join('')}</select>` +
-      `<label class="elead" title="Mark this echo as the build's lead"><input type="radio" name="elead" ` +
+      `<label class="elead" title="Mark this echo as the build's lead"><input type="radio" name="elead-${cid}" ` +
         `value="${ei}"${lead === ei ? ' checked' : ''} data-elead>lead</label>` +
     `</div>` +
     `<div class="emain"><select data-ei="${ei}" data-emain>${GAME.echo.mains[e.cost].map(m =>
@@ -3582,93 +3555,104 @@ function echoCol(e, ei, lead){
   `</div>`;
 }
 
-function echoSheet(){
-  const g = rosterGoals().find(x => x.char === echoSel);
-  if(!g) return `<div class="empty">Pick a character on the left to record their echo build.</div>`;
+// one character's full build card. `data-ec` scopes every control inside.
+function echoBuildCard(g){
   const ch = GAME.characters[g.char];
   const build = state.builds[g.char] || freshBuild();   // preview fresh; materialize on first edit
   const w = equipOf(wpnGoals(), g.char);
   const wp = w && GAME.weapons[w.weapon];
   const cost = buildCost(build), over = cost > GAME.echo.budget;
   const totals = buildTotals(build, forteStatTotals(g, 'tgt'));
-  return `<div class="ehead">` +
-    `<span class="avatar" style="background:${avaBg(ch)}">${ch.mono}${icoImg(ch.name, 'char', 'avatar-img')}</span>` +
-    `<div><div class="ehname">${esc(ch.name)}</div>` +
-      `<div class="gmeta">${attrIco(ch.element, 'element')}${attrIco(ch.wtype, 'weapon type')}<span class="lvl">· ${lvlLabel(g)}</span></div>` +
-      `<div class="ehwpn">${wp ? icoImg(wp.name, 'weapon') + esc(wp.name) : '<span class="faint">no weapon linked</span>'}</div>` +
-    `</div></div>` +
+  return `<div class="ebuild" data-ec="${g.char}" style="--acc:${ch.elColor}">` +
+    `<div class="ehead">` +
+      `<span class="avatar" style="background:${avaBg(ch)}">${ch.mono}${icoImg(ch.name, 'char', 'avatar-img')}</span>` +
+      `<div class="ehmeta"><div class="ehname">${esc(ch.name)}</div>` +
+        `<div class="gmeta">${attrIco(ch.element, 'element')}${attrIco(ch.wtype, 'weapon type')}<span class="lvl">· ${lvlLabel(g)}</span></div>` +
+        `<div class="ehwpn">${wp ? icoImg(wp.name, 'weapon') + esc(wp.name) : '<span class="faint">no weapon linked</span>'}</div>` +
+      `</div>` +
+      `<span class="ebudget${over ? ' over' : ''}" title="Total echo cost — the standard cap is 12">${cost} / ${GAME.echo.budget}</span>` +
+    `</div>` +
     `<div class="erow"><span class="elab">Sonata set</span>` +
       `<select data-eset><option value="">— none —</option>${GAME.echo.sonata.map(s =>
         `<option value="${esc(s.name)}"${s.name === build.set ? ' selected' : ''}>${esc(s.name)}${s.thr ? ` (${s.thr})` : ''}</option>`).join('')}</select>` +
       echoSetNote(build.set) +
-      `<span class="ebudget${over ? ' over' : ''}" title="Total echo cost — the standard cap is 12">${cost} / ${GAME.echo.budget}</span>` +
     `</div>` +
-    `<div class="egrid">${build.echoes.map((e, ei) => echoCol(e, ei, build.lead)).join('')}</div>` +
+    `<div class="egrid">${build.echoes.map((e, ei) => echoCol(e, ei, build.lead, g.char)).join('')}</div>` +
     `<div class="etotals"><div class="et-h">Gear totals<span class="sub">echoes + set 2pc + forte grant</span></div>` +
       (totals.length ? `<div class="etgrid">${totals.map(t =>
           `<div class="etrow"><span class="etk">${esc(t.label)}</span><span class="etv">${echoNum(t.val)}${t.pct ? '%' : ''}</span></div>`).join('')}</div>`
         : `<div class="empty">Fill in echoes to see totals.</div>`) +
-      `<div class="etnote">MVP — gear stats only. Base character &amp; weapon stats come in a later phase.</div>` +
-    `</div>`;
+    `</div>` +
+  `</div>`;
 }
 
-// re-read all five substat rows of one echo from the DOM, densified (empty
-// rows dropped, values snapped to a legal roll) — the source of truth on edit
-function readEchoSubs(box, ei){
+// re-read all five substat rows of one echo (scoped to its card), densified
+// (empty rows dropped, values snapped to a legal roll) — source of truth on edit
+function readEchoSubs(card, ei){
   const out = [];
   for(let si = 0; si < 5; si++){
-    const k = box.querySelector(`[data-esub][data-ei="${ei}"][data-si="${si}"]`);
-    const v = box.querySelector(`[data-eval][data-ei="${ei}"][data-si="${si}"]`);
+    const k = card.querySelector(`[data-esub][data-ei="${ei}"][data-si="${si}"]`);
+    const v = card.querySelector(`[data-eval][data-ei="${ei}"][data-si="${si}"]`);
     if(k && k.value && GAME.echo.subs[k.value])
       out.push({key: k.value, val: snapSub(k.value, v && v.value !== '' ? v.value : GAME.echo.subs[k.value][0])});
   }
   return out;
 }
 
-function bindEchoSheet(box){
-  const id = echoSel;
-  if(!id || !rosterGoals().some(g => g.char === id)) return;
-  const set = box.querySelector('[data-eset]');
-  if(set) set.addEventListener('change', e => { ensureBuild(id).set = e.target.value || null; save(); render(); });
-  box.querySelectorAll('[data-ecost]').forEach(s => s.addEventListener('change', e => {
-    const echo = ensureBuild(id).echoes[+e.target.dataset.ei], cost = +e.target.value;
-    echo.cost = cost;
-    if(!GAME.echo.mains[cost].some(m => m.key === echo.main)) echo.main = GAME.echo.mains[cost][0].key;
-    save(); render();
-  }));
-  box.querySelectorAll('[data-emain]').forEach(s => s.addEventListener('change', e => {
-    ensureBuild(id).echoes[+e.target.dataset.ei].main = e.target.value; save(); render();
-  }));
-  box.querySelectorAll('[data-elead]').forEach(r => r.addEventListener('change', e => {
-    ensureBuild(id).lead = +e.target.value; save(); render();
-  }));
-  box.querySelectorAll('[data-esub], [data-eval]').forEach(s => s.addEventListener('change', e => {
-    ensureBuild(id).echoes[+e.target.dataset.ei].subs = readEchoSubs(box, +e.target.dataset.ei);
-    save(); render();
-  }));
+// wire every card in the grid; each control resolves its character from the
+// enclosing .ebuild card, so many sheets coexist on one page
+function bindEchoSheet(grid){
+  grid.querySelectorAll('.ebuild').forEach(card => {
+    const id = card.dataset.ec;
+    const set = card.querySelector('[data-eset]');
+    if(set) set.addEventListener('change', e => { ensureBuild(id).set = e.target.value || null; save(); render(); });
+    card.querySelectorAll('[data-ecost]').forEach(s => s.addEventListener('change', e => {
+      const echo = ensureBuild(id).echoes[+e.target.dataset.ei], cost = +e.target.value;
+      echo.cost = cost;
+      if(!GAME.echo.mains[cost].some(m => m.key === echo.main)) echo.main = GAME.echo.mains[cost][0].key;
+      save(); render();
+    }));
+    card.querySelectorAll('[data-emain]').forEach(s => s.addEventListener('change', e => {
+      ensureBuild(id).echoes[+e.target.dataset.ei].main = e.target.value; save(); render();
+    }));
+    card.querySelectorAll('[data-elead]').forEach(r => r.addEventListener('change', e => {
+      ensureBuild(id).lead = +e.target.value; save(); render();
+    }));
+    card.querySelectorAll('[data-esub], [data-eval]').forEach(s => s.addEventListener('change', e => {
+      ensureBuild(id).echoes[+e.target.dataset.ei].subs = readEchoSubs(card, +e.target.dataset.ei);
+      save(); render();
+    }));
+  });
+}
+
+/* rebuilt on every filter keystroke — SAFE because the filter input lives
+   OUTSIDE #esheets (the same rule Teams / the inventory pop-up follow) */
+function renderEchoSheets(){
+  const grid = $('#esheets');
+  if(!grid) return;
+  const roster = echoRosterGoals();
+  grid.innerHTML = roster.length ? roster.map(echoBuildCard).join('')
+    : `<div class="empty">${echoFilter.trim() ? 'No character matches that.'
+                                              : 'No characters yet — add goals on the Ledger page first.'}</div>`;
+  bindEchoSheet(grid);
+  bindIcons(grid);
 }
 
 function renderEcho(){
   const box = $('#echoBody');
   if(!box) return;
-  if(echoSel && !rosterGoals().some(g => g.char === echoSel)) echoSel = null;   // left the roster
   box.innerHTML =
-    `<div class="tcols">
-      <aside>
-        <div class="gmeta" style="margin-bottom:6px">Roster — everyone on the Ledger. Pick one to record its echoes.</div>
-        <input id="echoFind" class="rfind" type="text" placeholder="Filter roster…"
-               autocomplete="off" spellcheck="false" value="${esc(echoFilter)}">
-        <div class="rlist" id="eroster"></div>
-      </aside>
-      <div class="esheet">${echoSheet()}</div>
-    </div>`;
+    `<div class="efilter-row">
+       <input id="echoFind" class="rfind" type="text" placeholder="Filter characters…"
+              autocomplete="off" spellcheck="false" value="${esc(echoFilter)}">
+       <span class="sub">One sheet per character · 12-cost budget · totals are gear only (MVP)</span>
+     </div>
+     <div class="esheets" id="esheets"></div>`;
   box.querySelector('#echoFind').addEventListener('input', e => {
     echoFilter = e.currentTarget.value;
-    renderEchoRoster();
+    renderEchoSheets();
   });
-  bindEchoSheet(box);
-  renderEchoRoster();
-  bindIcons(box);
+  renderEchoSheets();
 }
 
 /* ── inventory pop-up: game-style stock grid (Ctrl+I) ──

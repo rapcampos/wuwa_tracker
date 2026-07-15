@@ -278,19 +278,28 @@ it goes in block 2 with tests; presentation goes in block 3.
   (`forteStatTotals` output, mapped through `FORTE_CANON`) into one ordered
   `[{key,label,pct,val}]`. Only 2/5 Sonata sets contribute numerically at MVP;
   the newer 3pc/1pc-threshold sets carry `k:null` and add nothing yet.
+  Percent vs flat stats are labelled distinctly (`atkp` = "ATK%", `atk` =
+  "ATK"; same for HP/DEF) — the in-game convention — so a totals row like
+  "ATK% 48.4%" never reads the same as "ATK 350".
   Engine (pure, tested): `freshBuild`, `freshEcho`, `sanitizeBuild`,
   `buildCost`, `echoMainVal`, `snapSub` (snaps a substat to the nearest legal
-  roll), `buildTotals`. UI: `renderEcho` mirrors the Teams layout (`.tcols` —
-  a fuzzy-filtered roster column left, the build sheet right; the `#echoFind`
-  input sits OUTSIDE `#eroster` so `renderEchoRoster` redraws the list per
-  keystroke without losing focus). The sheet is a 5-column `.egrid`: each echo
-  has a cost select, a `lead` radio, a main-stat select (options = that cost's
-  pool) showing its derived value + secondary, and five substat rows
-  (stat select + tabled value select). Every control live-applies
-  (`bindEchoSheet` → `ensureBuild` → `save(); render()`); substats are re-read
-  from the DOM densified (`readEchoSubs` drops empty rows, snaps values). A
-  `.ebudget` chip shows total cost / 12 and reddens when over — a WARN, never a
-  block. `echoSel`/`echoFilter` are transient (a reload starts empty). Echo
+  roll), `buildTotals`. UI: the page is a GRID of per-character build cards
+  (`#esheets`, `.ebuild` — `repeat(auto-fit, minmax(min(100%,640px),1fr))`, so
+  up to 2 tile per row on a wide screen, 1 when narrow) — every rostered
+  character shows a card at once, ordered by ledger order. A top `#echoFind`
+  fuzzy filter narrows them; it sits OUTSIDE `#esheets` so `renderEchoSheets`
+  redraws the grid per keystroke without losing focus (the Teams / inventory
+  rule). Each card carries `data-ec` (its charId): a header (portrait · name ·
+  element/type glyphs · level · linked weapon · a `.ebudget` cost/12 chip that
+  reddens when over — a WARN, never a block), a Sonata select with its 2pc
+  note, a wrapping 5-column `.egrid` of echoes (cost select · `lead` radio,
+  group-named `elead-<charId>` so cards don't collide · main-stat select
+  showing derived value + secondary · five substat rows), and a per-card gear
+  totals panel. Every control live-applies via `bindEchoSheet` (per-card,
+  resolving the charId from the enclosing `.ebuild`) → `ensureBuild` →
+  `save(); render()`; substats are re-read from the card densified
+  (`readEchoSubs` drops empty rows, snaps values). A build materializes only on
+  the first edit; `echoFilter` is transient (a reload starts empty). Echo
   data (5★ +25) verified Jul 2026 vs Game8 / wutheringwaves.gg / Wuthering
   Insight; softer-verified: the Energy-Regen substat ladder, flat ATK/DEF
   tiers, and Sun-sinking Eclipse's identity (re-check at a phase-2 pass).

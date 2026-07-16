@@ -1379,6 +1379,103 @@ const GAME = {
   echoStatOrder: ['cr','cd','atkp','atk','hpp','hp','defp','def','er','heal',
     'glacio','fusion','electro','aero','spectro','havoc','basic','heavy','skill','lib'],
 
+  /* ── Lv90 BASE stats (Echoes page → final totals) ───────────────────
+     Character base ATK/HP/DEF at Level 90 (max ascension, character only —
+     no weapon, echoes, chain or buffs). Universal bases not stored here:
+     Crit Rate 5%, Crit DMG 150%, Energy Regen 100%. Verified Jul 2026 vs
+     Game8 / Prydwen. A character absent here can't show final totals — the
+     card falls back to the gear-only breakdown. Fill as data is verified. */
+  charBase: {
+    // 5★ (wuthering.gg Lv90 pages, cross-checked Game8; formula-validated).
+    // lucy/rebecca/lucilla/suisui deliberately omitted — unreleased, no
+    // verified base yet (they fall back to the gear-only breakdown).
+    jinhsi:{atk:412, hp:10825, def:1258}, jiyan:{atk:437, hp:10487, def:1185},
+    yinlin:{atk:400, hp:11000, def:1283}, jianxin:{atk:337, hp:14112, def:1124},
+    calcharo:{atk:437, hp:10500, def:1185}, encore:{atk:425, hp:10512, def:1246},
+    verina:{atk:337, hp:14237, def:1099}, lingyang:{atk:437, hp:10387, def:1209},
+    changli:{atk:462, hp:10387, def:1099}, zhezhi:{atk:375, hp:12250, def:1197},
+    xiangliYao:{atk:425, hp:10625, def:1222}, shorekeeper:{atk:287, hp:16712, def:1099},
+    camellya:{atk:450, hp:10325, def:1161}, carlotta:{atk:462, hp:12450, def:1197},
+    roccia:{atk:375, hp:12250, def:1197}, phoebe:{atk:412, hp:10825, def:1258},
+    brant:{atk:375, hp:11675, def:1307}, cantarella:{atk:400, hp:11600, def:1099},
+    zani:{atk:437, hp:10775, def:1136}, ciaccona:{atk:375, hp:12237, def:1197},
+    cartethyia:{atk:312, hp:14800, def:611}, lupa:{atk:387, hp:11912, def:1185},
+    phrolova:{atk:437, hp:10775, def:1136}, augusta:{atk:462, hp:10300, def:1112},
+    iuno:{atk:450, hp:10525, def:1124}, galbrena:{atk:462, hp:10300, def:1112},
+    chisa:{atk:437, hp:10775, def:1136}, qiuyuan:{atk:375, hp:12237, def:1197},
+    mornye:{atk:287, hp:15375, def:1356}, aemeath:{atk:425, hp:11025, def:1148},
+    lynae:{atk:375, hp:12237, def:1197}, luukHerssen:{atk:462, hp:10300, def:1112},
+    sigrika:{atk:437, hp:10775, def:1136}, hiyuki:{atk:462, hp:10300, def:1112},
+    denia:{atk:425, hp:11025, def:1148}, xuanling:{atk:425, hp:11025, def:1148},
+    roverSpectro:{atk:375, hp:11400, def:1368}, roverHavoc:{atk:412, hp:10825, def:1258},
+    roverAero:{atk:437, hp:10775, def:1136},
+    // 4★ (Game8 Lv90/90 stat tables, cross-checked wuthering.gg)
+    yangyang:{atk:250, hp:10200, def:1099}, chixia:{atk:300, hp:9087,  def:953},
+    baizhi:  {atk:212, hp:12812, def:1002}, sanhua:{atk:275, hp:10062, def:941},
+    danjin:  {atk:262, hp:9437,  def:1148}, aalto: {atk:262, hp:9850,  def:1075},
+    mortefi: {atk:250, hp:10025, def:1136}, taoqi: {atk:225, hp:8950,  def:1564},
+    yuanwu:  {atk:225, hp:8525,  def:1637}, youhu: {atk:262, hp:9975,  def:1051},
+    lumi:    {atk:337, hp:8500,  def:879},  buling:{atk:225, hp:10625, def:1258},
+  },
+
+  /* Lv90 weapon BASE ATK + main (secondary) stat. `key` is a canonical echo
+     stat key (cr/cd/atkp/hpp/defp/er — the only weapon main-stat types),
+     `val` its Lv90 value. The weapon's base ATK adds to the character's base
+     ATK before the ATK% multiplier; its main stat folds into that % pool.
+     Only used when a weapon is LINKED (goal.owner). Verified vs Game8/Prydwen. */
+  weaponBase: {
+    // 4★ (Game8 Lv90 tables, cross-checked wuthering.gg). 4★ secondary values
+    // come in grades tied to base ATK, not one-per-type.
+    autumntrace:{atk:412, key:'cr', val:20.3}, lumingloss:{atk:387, key:'atkp', val:36.4},
+    thunderbolt:{atk:387, key:'atkp', val:36.4}, stonard:{atk:412, key:'cr', val:20.3},
+    augment:{atk:412, key:'cr', val:20.3}, aureateZenith:{atk:412, key:'cd', val:40.5},
+    featherEdge:{atk:412, key:'cr', val:20.2}, solarFlame:{atk:412, key:'cr', val:20.2},
+    aetherStrike:{atk:412, key:'cd', val:40.5}, radiantDawn:{atk:412, key:'cd', val:40.5},
+    discord:{atk:337, key:'er', val:51.8}, overture:{atk:337, key:'er', val:51.8},
+    cadenza:{atk:337, key:'er', val:51.8}, marcato:{atk:337, key:'er', val:51.8},
+    variation:{atk:337, key:'er', val:51.8}, dauntlessEvernight:{atk:337, key:'defp', val:61.6},
+    commandoOfConviction:{atk:412, key:'atkp', val:30.4}, undyingFlame:{atk:412, key:'atkp', val:30.4},
+    amityAccord:{atk:337, key:'defp', val:61.6}, jinzhouKeeper:{atk:387, key:'atkp', val:36.4},
+    heliosCleaver:{atk:412, key:'atkp', val:30.4}, lunarCutter:{atk:412, key:'atkp', val:30.4},
+    novaburst:{atk:412, key:'atkp', val:30.4}, hollowMirage:{atk:412, key:'atkp', val:30.4},
+    cometFlare:{atk:412, key:'hpp', val:30.4}, waningRedshift:{atk:462, key:'atkp', val:18.2},
+    endlessCollapse:{atk:462, key:'atkp', val:18.2}, relativisticJet:{atk:462, key:'atkp', val:18.2},
+    celestialSpiral:{atk:462, key:'atkp', val:18.2}, fusionAccretion:{atk:462, key:'atkp', val:18.2},
+    broadblade41:{atk:412, key:'er', val:32.3}, sword18:{atk:387, key:'atkp', val:36.4},
+    pistols26:{atk:387, key:'atkp', val:36.4}, gauntlets21d:{atk:387, key:'er', val:38.9},
+    rectifier25:{atk:337, key:'er', val:51.8}, meditationsOnMercy:{atk:462, key:'atkp', val:18.2},
+    fablesOfWisdom:{atk:462, key:'atkp', val:18.2}, romanceInFarewell:{atk:462, key:'atkp', val:18.2},
+    legendOfDrunkenHero:{atk:462, key:'atkp', val:18.2}, waltzInMasquerade:{atk:462, key:'atkp', val:18.2},
+    callOfTheAbyss:{atk:337, key:'er', val:51.8}, oceansGift:{atk:462, key:'atkp', val:18.2},
+    somnoireAnchor:{atk:462, key:'atkp', val:18.2},
+    // 5★ (Game8 Lv90 weapon-page tables). Value depends on a base-ATK TIER, not
+    // type alone: 675/587/525/500/412 tiers trade base ATK against the secondary.
+    abyssSurges:{atk:587, key:'atkp', val:36.4}, cosmicRipples:{atk:500, key:'atkp', val:53.9},
+    emeraldOfGenesis:{atk:587, key:'cr', val:24.3}, lustrousRazor:{atk:587, key:'atkp', val:36.4},
+    staticMist:{atk:587, key:'cr', val:24.3}, bosonAstrolabe:{atk:525, key:'er', val:38.8},
+    laserShearer:{atk:587, key:'er', val:38.8}, phasicHomogenizer:{atk:587, key:'cd', val:48.6},
+    pulsationBracer:{atk:587, key:'cr', val:24.3}, radianceCleaver:{atk:587, key:'cd', val:48.6},
+    verdantSummit:{atk:587, key:'cd', val:48.6}, stringmaster:{atk:500, key:'cr', val:35.9},
+    agesOfHarvest:{atk:587, key:'cr', val:24.3}, blazingBrilliance:{atk:587, key:'cd', val:48.6},
+    rimeDrapedSprouts:{atk:500, key:'cd', val:72.0}, veritysHandle:{atk:587, key:'cr', val:24.3},
+    stellarSymphony:{atk:412, key:'er', val:77.0}, redSpring:{atk:587, key:'cr', val:24.3},
+    theLastDance:{atk:500, key:'cd', val:72.0}, tragicomedy:{atk:587, key:'cr', val:24.3},
+    unflickeringValor:{atk:412, key:'er', val:77.0}, luminousHymn:{atk:500, key:'cr', val:36.0},
+    whispersOfSirens:{atk:500, key:'cd', val:72.0}, woodlandAria:{atk:500, key:'cr', val:36.0},
+    blazingJustice:{atk:587, key:'cd', val:48.6}, wildfireMark:{atk:587, key:'cd', val:48.6},
+    defiersThorn:{atk:412, key:'hpp', val:72.2}, letheanElegy:{atk:587, key:'cr', val:24.3},
+    moongazersSigil:{atk:500, key:'cr', val:36.0}, thunderflareDominion:{atk:675, key:'cr', val:12.1},
+    emeraldSentence:{atk:587, key:'cr', val:24.3}, luxUmbra:{atk:587, key:'cd', val:48.6},
+    kumokiri:{atk:500, key:'cr', val:36.0}, spectrumBlaster:{atk:587, key:'cr', val:24.3},
+    starfieldCalibrator:{atk:412, key:'er', val:77.0}, daybreakersSpine:{atk:587, key:'cr', val:24.3},
+    everbrightPolestar:{atk:587, key:'cr', val:24.3}, solswornCiphers:{atk:587, key:'cd', val:48.6},
+    forgedDwarfStar:{atk:500, key:'cr', val:36.0}, frostburn:{atk:587, key:'cr', val:24.3},
+    freezeFrame:{atk:587, key:'cr', val:24.3}, azureOath:{atk:587, key:'cr', val:24.3},
+    firstlightsHerald:{atk:412, key:'er', val:77.0},   // beta — re-verify at Suisui's release
+    skullThrasher:{atk:500, key:'cd', val:72.0}, spectralTrigger:{atk:587, key:'cd', val:48.6},
+    bloodpactsPledge:{atk:587, key:'er', val:38.8},
+  },
+
   echo: {
     budget: 12,                                   // Data Bank Lv9+ total cost
     costs: [1, 3, 4],                             // the three echo cost slots
@@ -1676,6 +1773,40 @@ function buildTotals(build, forte){
     key: k, label: GAME.echoStats[k].label, pct: GAME.echoStats[k].pct,
     val: Math.round(sum[k] * 100) / 100,
   }));
+}
+
+/* Final character stats = base stats with the gear % / flat bonuses folded in.
+   Needs the character's Lv90 base (GAME.charBase) — returns null without it, so
+   the card falls back to the gear-only breakdown. `wpn` is the LINKED weapon
+   goal (or null): its base ATK adds to base ATK before the ATK% multiplier and
+   its main stat joins the % pool. `forte` is forteStatTotals output (or null).
+     ATK = (baseATK + weaponATK) × (1 + ATK%) + flatATK
+     HP  = baseHP × (1 + HP%) + flatHP ;  DEF likewise
+     Crit Rate = 5 + gear ; Crit DMG = 150 + gear ; Energy Regen = 100 + gear
+   Element/skill DMG + Healing bonuses have no base — shown as their totals when
+   present. Returns {stats:[{key,label,pct,val}], weapon:bool}. Pure. */
+function finalStats(build, charId, wpn, forte){
+  const base = GAME.charBase[charId];
+  if(!base) return null;
+  const gear = {};
+  for(const t of buildTotals(build, forte)) gear[t.key] = t.val;
+  const wb = wpn && GAME.weaponBase[wpn.weapon];
+  let wAtk = 0;
+  if(wb){ wAtk = wb.atk; gear[wb.key] = (gear[wb.key] || 0) + wb.val; }
+  const g = k => gear[k] || 0;
+  const r1 = v => Math.round(v * 10) / 10;
+  const stats = [
+    {key:'atk', label:'ATK', pct:false, val: Math.round((base.atk + wAtk) * (1 + g('atkp') / 100) + g('atk'))},
+    {key:'hp',  label:'HP',  pct:false, val: Math.round(base.hp * (1 + g('hpp') / 100) + g('hp'))},
+    {key:'def', label:'DEF', pct:false, val: Math.round(base.def * (1 + g('defp') / 100) + g('def'))},
+    {key:'cr',  label:'Crit Rate',    pct:true, val: r1(5 + g('cr'))},
+    {key:'cd',  label:'Crit DMG',     pct:true, val: r1(150 + g('cd'))},
+    {key:'er',  label:'Energy Regen', pct:true, val: r1(100 + g('er'))},
+  ];
+  if(g('heal')) stats.push({key:'heal', label:'Healing Bonus', pct:true, val: r1(g('heal'))});
+  for(const k of ['glacio','fusion','electro','aero','spectro','havoc','basic','heavy','skill','lib'])
+    if(g(k)) stats.push({key:k, label:GAME.echoStats[k].label, pct:true, val: r1(g(k))});
+  return {stats, weapon: !!wb};
 }
 
 /* ── core: materials to move one goal from `cur` to `tgt` ──
@@ -3587,6 +3718,31 @@ function echoFocusRow(focus){
     `<div class="fchips">${chips}</div></div>`;
 }
 
+const fmtInt = v => String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+const finalStr = t => t.pct ? echoNum(t.val) + '%' : fmtInt(t.val);
+
+/* the card's bottom panel: FINAL stats (base folded with gear) when this
+   character's Lv90 base is on file, otherwise the gear-only breakdown. */
+function echoTotalsPanel(g, build, w, forte){
+  const fin = finalStats(build, g.char, w, forte);
+  if(fin){
+    const linkedNoData = w && !fin.weapon;   // a weapon is linked but its base isn't on file
+    return `<div class="etotals"><div class="et-h">Final stats` +
+      `<span class="sub">base + echoes + set 2pc + forte${fin.weapon ? ' + weapon' : ''}</span></div>` +
+      `<div class="etgrid">${fin.stats.map(t =>
+        `<div class="etrow"><span class="etk">${esc(t.label)}</span><span class="etv">${finalStr(t)}</span></div>`).join('')}</div>` +
+      (linkedNoData ? `<div class="etnote">The linked weapon's base stats aren't on file yet — excluded from ATK.</div>` : '') +
+    `</div>`;
+  }
+  const totals = buildTotals(build, forte);   // fallback: no base stats for this character
+  return `<div class="etotals"><div class="et-h">Gear totals<span class="sub">echoes + set 2pc + forte grant</span></div>` +
+    (totals.length ? `<div class="etgrid">${totals.map(t =>
+        `<div class="etrow"><span class="etk">${esc(t.label)}</span><span class="etv">${echoNum(t.val)}${t.pct ? '%' : ''}</span></div>`).join('')}</div>`
+      : `<div class="empty">Fill in echoes to see totals.</div>`) +
+    `<div class="etnote">Final ATK / HP / DEF need this character's Lv90 base stats (not on file yet).</div>` +
+  `</div>`;
+}
+
 // one character's full build card. `data-ec` scopes every control inside.
 function echoBuildCard(g){
   const ch = GAME.characters[g.char];
@@ -3595,7 +3751,7 @@ function echoBuildCard(g){
   const wp = w && GAME.weapons[w.weapon];
   const cost = buildCost(build), over = cost > GAME.echo.budget;
   const focus = build.focus || [];
-  const totals = buildTotals(build, forteStatTotals(g, 'tgt'));
+  const forte = forteStatTotals(g, 'tgt');
   return `<div class="ebuild" data-ec="${g.char}" style="--acc:${ch.elColor}">` +
     `<div class="ehead">` +
       `<span class="avatar" style="background:${avaBg(ch)}">${ch.mono}${icoImg(ch.name, 'char', 'avatar-img')}</span>` +
@@ -3612,11 +3768,7 @@ function echoBuildCard(g){
     `</div>` +
     echoFocusRow(focus) +
     `<div class="egrid">${build.echoes.map((e, ei) => echoCol(e, ei, build.lead, g.char, focus)).join('')}</div>` +
-    `<div class="etotals"><div class="et-h">Gear totals<span class="sub">echoes + set 2pc + forte grant</span></div>` +
-      (totals.length ? `<div class="etgrid">${totals.map(t =>
-          `<div class="etrow"><span class="etk">${esc(t.label)}</span><span class="etv">${echoNum(t.val)}${t.pct ? '%' : ''}</span></div>`).join('')}</div>`
-        : `<div class="empty">Fill in echoes to see totals.</div>`) +
-    `</div>` +
+    echoTotalsPanel(g, build, w, forte) +
   `</div>`;
 }
 

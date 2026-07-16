@@ -2184,6 +2184,30 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   reset();
 }
 
+// ── Echoes final stats: base folded with gear, weapon, graceful fallback ──
+{
+  reset();
+  fire(d.querySelector('.pagenav [data-page="echoes"]'), 'click');
+  const card = id => d.querySelector(`.ebuild[data-ec="${id}"]`);
+  // Jinhsi has Lv90 base on file → a Final stats panel with real totals
+  ok('a character with base data shows a Final stats panel with ATK/HP/DEF rows',
+     /Final stats/.test(card('jinhsi').querySelector('.et-h').textContent) &&
+     [...card('jinhsi').querySelectorAll('.etk')].map(e => e.textContent).slice(0, 3).join(',') === 'ATK,HP,DEF');
+  ok('final ATK folds base + gear (well above base 412)',
+     w.eval("finalStats(freshBuild(), 'jinhsi', null, forteStatTotals(state.goals.find(g=>g.char==='jinhsi'),'tgt')).stats.find(s=>s.key==='atk').val") > 412);
+  // Suisui is unreleased (no base) → the gear-only fallback + a note
+  ok('a character without base data falls back to Gear totals + a note',
+     /Gear totals/.test(card('suisui').querySelector('.et-h').textContent) &&
+     /base stats/.test(card('suisui').querySelector('.etnote').textContent));
+  // link a Broadblade to Jinhsi → the finals note that the weapon is folded in
+  w.eval("state.goals.push(Object.assign(newWpnGoal('verdantSummit', false), {owner:'jinhsi'})); save(); render();");
+  ok('a linked weapon is folded into the finals (sub says + weapon)',
+     /\+ weapon/.test(card('jinhsi').querySelector('.et-h .sub').textContent));
+  ok('linking the weapon raised final ATK vs no weapon',
+     w.eval("finalStats(freshBuild(),'jinhsi',{weapon:'verdantSummit'},null).stats.find(s=>s.key==='atk').val > finalStats(freshBuild(),'jinhsi',null,null).stats.find(s=>s.key==='atk').val"));
+  reset();
+}
+
 dom.window.close();    // kill pending toast timers so Node exits promptly
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

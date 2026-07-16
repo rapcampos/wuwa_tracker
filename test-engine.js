@@ -945,6 +945,41 @@ eq('stripCE never mutates its input', (() => {
        .every(t => t.key !== 'skill' || t.val > 0), true);
   eq('buildTotals with null forte still sums the gear',
      buildTotals(b, null).find(t => t.key === 'cd').val, 63.8);
+
+  // finalStats: fold gear onto Lv90 base (synthetic base — tests the math only)
+  GAME.charBase.__t = {atk: 1000, hp: 10000, def: 1200};
+  GAME.weaponBase.__w = {atk: 500, key: 'cr', val: 36};
+  const fb = freshBuild();                       // 4-3-3-1-1, atkp/hpp mains, no subs
+  fb.echoes[0].main = 'cd';                       // 4-cost Crit DMG 44
+  fb.echoes[0].subs = [{key: 'cr', val: 10}, {key: 'atkp', val: 8}];
+  const noWpn = finalStats(fb, '__t', null, null);
+  const get = (r, k) => r.stats.find(s => s.key === k).val;
+  // ATK% = echo1 atkp 30 + echo2 atkp 30 + sub 8 = 68 ; flat ATK secondaries 150+100+100 = 350
+  eq('final ATK folds ATK% and flat onto base',
+     get(noWpn, 'atk'), Math.round(1000 * 1.68 + 350));
+  eq('final HP folds HP% (two 1-cost hpp mains = 45.6) onto base',
+     get(noWpn, 'hp'), Math.round(10000 * (1 + 45.6 / 100) + 4560));   // + flat HP 2280×2
+  eq('Crit Rate starts at 5% base + gear', get(noWpn, 'cr'), 5 + 10);
+  eq('Crit DMG starts at 150% base + main 44', get(noWpn, 'cd'), 150 + 44);
+  eq('Energy Regen starts at 100% base', get(noWpn, 'er'), 100);
+  eq('no weapon → weapon flag false', noWpn.weapon, false);
+  // with a linked weapon: base ATK += 500, and its Crit-Rate main folds in
+  const wpn = finalStats(fb, '__t', {weapon: '__w'}, null);
+  eq('weapon base ATK adds before the ATK% multiplier',
+     get(wpn, 'atk'), Math.round((1000 + 500) * 1.68 + 350));
+  eq('weapon Crit-Rate main folds into Crit Rate', get(wpn, 'cr'), 5 + 10 + 36);
+  eq('weapon flag true when the linked weapon has base data', wpn.weapon, true);
+  eq('a character with no base returns null', finalStats(fb, 'nobody', null, null), null);
+  delete GAME.charBase.__t; delete GAME.weaponBase.__w;
+
+  // real seeded data: coverage + well-formedness anchors
+  eq('Jinhsi Lv90 base is on file', GAME.charBase.jinhsi, {atk:412, hp:10825, def:1258});
+  eq('every seeded weapon has a valid canonical main key and positive base ATK',
+     Object.values(GAME.weaponBase).every(w => GAME.echoStats[w.key] && w.atk > 0), true);
+  eq('every charBase entry is a positive {atk,hp,def} triple',
+     Object.values(GAME.charBase).every(b => b.atk > 0 && b.hp > 0 && b.def > 0), true);
+  eq('unreleased Suisui has no base yet → finalStats degrades to null',
+     finalStats(freshBuild(), 'suisui', null, null), null);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

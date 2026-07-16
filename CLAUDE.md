@@ -269,15 +269,28 @@ it goes in block 2 with tests; presentation goes in block 3.
   viewing a character renders a `freshBuild()` preview without saving. `pruneLinks`
   drops a build when its character leaves the roster; `sanitize` keeps only
   roster builds and repairs each via `sanitizeBuild`.
-  **The MVP is gear-stat totals** (no character base stats — that's a later,
-  additive phase). Everything folds onto ONE canonical stat vocabulary
+  Everything folds onto ONE canonical stat vocabulary
   (`GAME.echoStats`, ordered by `GAME.echoStatOrder`): flat vs percent are
   SEPARATE keys (`atk` = flat ATK, `atkp` = ATK%; `pct` flag drives formatting).
   `buildTotals(build, forte)` (engine, pure) sums every echo's main + fixed
   secondary + substats, the Sonata **2pc** bonus, and the forte grant
   (`forteStatTotals` output, mapped through `FORTE_CANON`) into one ordered
-  `[{key,label,pct,val}]`. Only 2/5 Sonata sets contribute numerically at MVP;
+  `[{key,label,pct,val}]`. Only 2/5 Sonata sets contribute numerically;
   the newer 3pc/1pc-threshold sets carry `k:null` and add nothing yet.
+  **Final stats** (`finalStats`, engine/pure) fold those gear bonuses onto the
+  character's Lv90 base (`GAME.charBase[id] = {atk,hp,def}`) and the LINKED
+  weapon's base (`GAME.weaponBase[wpnId] = {atk, key, val}` — key a canonical
+  main-stat key): ATK = (charATK + weaponATK)·(1+ATK%) + flatATK, HP/DEF
+  likewise (weapon adds no base HP/DEF); Crit Rate = 5 + gear, Crit DMG =
+  150 + gear, Energy Regen = 100 + gear (the universal bases); element/skill
+  DMG + Healing show as their totals when present. Returns
+  `{stats:[{key,label,pct,val}], weapon:bool}`, or **null** when the character
+  has no base on file — then the card FALLS BACK to the gear-only breakdown
+  (`echoTotalsPanel` picks: "Final stats" vs "Gear totals"). Base data verified
+  Jul 2026 vs Game8 (cross-checked wuthering.gg); character base stats vary per
+  character, and 4★ weapon secondary values come in grades tied to base ATK
+  (not one-per-type). Coverage grows as data is verified — a missing character
+  or weapon degrades gracefully (weapon excluded from ATK with a note).
   Percent vs flat stats are labelled distinctly (`atkp` = "ATK%", `atk` =
   "ATK"; same for HP/DEF) — the in-game convention — so a totals row like
   "ATK% 48.4%" never reads the same as "ATK 350".
@@ -755,14 +768,17 @@ visual aid, not a test — still be careful with CSS-only changes.
    are dropped from file names.) The 2026-07-10 launch checkpoint is done —
    see the provenance section. Note: the Dimbreath/WutheringData datamine
    is abandoned at 3.1.0 — verify post-3.1 data via Game8/prydwen instead.
-2. **Echoes page — phase 2 (unscheduled):** the MVP (gear-stat totals) shipped
-   Jul 2026 (see the Echoes-page bullet in Core model). Additive next steps,
-   all designed to fold onto the SAME canonical vocabulary so nothing is a
-   rewrite: per-character base ATK/HP/DEF + weapon stats (max-level, fetched
-   later) → final numbers; 5pc Sonata effect text; stat GOALS ("CR 65%+")
-   compared against the build; cost TEMPLATES (43311/44111) as a fill
-   convenience. Softer-verified data to re-check then: Energy-Regen substat
-   ladder, flat ATK/DEF tiers, Sun-sinking Eclipse's identity.
+2. **Echoes page — phase 2 (partly done):** the gear-stat MVP shipped Jul 2026,
+   then **final numbers** (base char + linked weapon folded with gear →
+   `finalStats`; `GAME.charBase`/`GAME.weaponBase`, verified vs Game8/wuthering.gg)
+   — see the Echoes-page bullet. Still open, all additive on the same canonical
+   vocabulary: base stats for the 4 unreleased 5★ (lucy, rebecca, lucilla,
+   suisui — held back, no verified base yet); 5pc Sonata effect text; stat GOALS
+   ("CR 65%+") compared against the finals; cost TEMPLATES (43311/44111) as a
+   fill convenience. Softer-verified data to re-check: Energy-Regen substat
+   ladder, flat ATK/DEF tiers, Sun-sinking Eclipse's identity, Firstlight's
+   Herald weapon base (beta, med confidence), and the med-confidence single-source
+   char bases (augusta, iuno, galbrena, qiuyuan, mornye, lynae, luukHerssen).
 3. Backlog (user-approved ideas, unscheduled): `iconSlug` duplicated between
    the app and `fetch-icons.js`, legacy unused `goal.open`. **Not doing:** Echo
    XP / tuners (user declined, Jul 2026). No farming-schedule/day-of-week

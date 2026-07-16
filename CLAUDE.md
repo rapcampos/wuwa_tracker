@@ -80,10 +80,13 @@ it goes in block 2 with tests; presentation goes in block 3.
   `[{key,label,pct}]` (outer stat first, float-clean), `[]` for a zeroed
   build, `null` for weapons / data-less characters. Values datamined from
   ConfigDB/SkillTree.json (Dimbreath ≤3.1) — anchors: total forte crit rate
-  8%, crit dmg 16%. **Coverage: 35 of the 5★ roster; NOT yet keyed** (return
-  null) are 8 post-3.1 5★ (denia, hiyuki, lucilla, lucy, rebecca, sigrika,
-  suisui, xuanling) and ALL 4★ — add from Game8/wiki as verified, keeping
-  the engine test's "every keyed character is 5★" invariant in mind.
+  8%, crit dmg 16%. **Coverage: 54 characters keyed** (the original 35 plus 19
+  added Jul 2026: 7 post-3.1 5★ + all 12 4★, Game8/Wutheringlab-verified).
+  **4★ trees grant the SAME node values as 5★** (verified per-node — Lumi's
+  Crit Rate +1.2/+2.8, ATK +1.8/+4.2 match Jinhsi exactly), so `GAME.nodeStats`
+  stays shared; only the stat TYPE varies per character. Only **suisui** is
+  still un-keyed (low-confidence, unreleased — see the 3.5 act-2 checkpoint).
+  The engine test no longer requires keyed characters to be 5★.
   Surfaced **only** in the edit pop-up: `forteStatLine(g)` renders a
   target-build "Forte grants +8% Crit Rate · +12% ATK" line under the forte
   grid (`.fstat`), re-rendered live as nodes toggle, empty-state text rather

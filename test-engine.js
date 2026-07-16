@@ -640,9 +640,11 @@ eq('stripCE never mutates its input', (() => {
   eq('a post-3.1 character (no datamine data) returns null', statNodesFor('suisui'), null);
   eq('an unknown id returns null', statNodesFor('nobody'), null);
   const keys = Object.keys(GAME.charStatNodes);
-  eq('35 characters have node data', keys.length, 35);
-  eq('every keyed character exists and is 5★',
-     keys.filter(k => (GAME.characters[k] || {}).rarity !== 5), []);
+  eq('54 characters have node data (35 orig + 19 added; 4★ now included)', keys.length, 54);
+  eq('every keyed character exists in the roster',
+     keys.filter(k => !GAME.characters[k]), []);
+  eq('4★ characters are now keyed too (values shared with 5★)',
+     keys.some(k => GAME.characters[k].rarity === 4), true);
   eq('every named stat exists in the shared value table',
      keys.flatMap(k => GAME.charStatNodes[k]).filter(s => !GAME.nodeStats[s]), []);
 }

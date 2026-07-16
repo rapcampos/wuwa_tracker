@@ -2136,6 +2136,10 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
      chips.length === 2 && chips.every(c => c.classList.contains('on')) &&
      /Freezing Frost/.test(chips[0].textContent) && /×3/.test(chips[0].textContent) &&
      /Moonlit Clouds/.test(chips[1].textContent) && /×2/.test(chips[1].textContent));
+  // the set chip's tooltip carries the full effect text
+  ok('a set chip tooltips its 2pc and 5pc effect text',
+     /2pc: Glacio DMG \+10%/.test(q('jinhsi', '.eset').title) &&
+     /5pc: /.test(q('jinhsi', '.eset').title));
   ok('both 2pc bonuses land: Glacio 10% and Energy Regen 100+10',
      w.eval("finalStats(state.builds.jinhsi,'jinhsi',null,null).stats.find(s=>s.key==='glacio').val") === 10 &&
      w.eval("finalStats(state.builds.jinhsi,'jinhsi',null,null).stats.find(s=>s.key==='er').val") === 110);

@@ -1006,6 +1006,20 @@ eq('stripCE never mutates its input', (() => {
   eq('the phantom Sun-sinking Eclipse is gone (it redirects to Havoc Eclipse)',
      GAME.echo.sonata.some(s => s.name === 'Sun-sinking Eclipse'), false);
 
+  // ── effect text: every set described, every weapon passive on file ──
+  eq('all 34 sets carry effect text', GAME.echo.sonata.filter(s => !s.fx).length, 0);
+  eq('classic 2/5 sets describe both tiers, threshold sets describe theirs',
+     GAME.echo.sonata.every(s => s.thr ? !!s.fx.pt : (!!s.fx.p2 && !!s.fx.p5)), true);
+  eq('a set with a numeric 2pc has matching text',
+     /Glacio DMG \+10%/.test(GAME.echo.sonata.find(s => s.name === 'Freezing Frost').fx.p2), true);
+  eq('every seeded weapon has an R1 passive (name + effect)',
+     Object.keys(GAME.weapons).filter(id => !(GAME.weaponFx[id] || {}).fx), []);
+  eq('weaponFx covers exactly the seeded catalog',
+     Object.keys(GAME.weaponFx).length, Object.keys(GAME.weapons).length);
+  eq("the wiki's mis-attributed passives were corrected",
+     [GAME.weaponFx.whispersOfSirens.n, GAME.weaponFx.skullThrasher.n],
+     ['From the Deep', 'Wakeful Loner']);
+
   // finalStats: fold gear onto Lv90 base (synthetic base — tests the math only)
   GAME.charBase.__t = {atk: 1000, hp: 10000, def: 1200};
   GAME.weaponBase.__w = {atk: 500, key: 'cr', val: 36};

@@ -578,6 +578,8 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
 .ehwpn{display:flex; align-items:center; gap:5px; font-size:12px; color:var(--mut); margin-top:3px}
 .ehwpn img{width:17px; height:17px; object-fit:contain; border-radius:4px}
 .ehwpn .faint{color:var(--faint)}
+.ehwpn[title]{cursor:help}
+.wfx{font-style:normal; color:var(--faint); font-size:11px}
 
 .erow{display:flex; align-items:center; gap:9px; flex-wrap:wrap; margin-bottom:14px}
 .erow .elab{font-size:12px; color:var(--mut); font-family:'Chakra Petch',sans-serif}
@@ -1520,6 +1522,107 @@ const GAME = {
     bloodpactsPledge:{atk:587, key:'er', val:38.8},
   },
 
+
+  /* Weapon passives at R1 (rank 1, no refinement) — {n: passive name,
+     fx: effect text}. Pulled from the fandom wiki's structured infobox
+     rank-1 vars (so R1 is guaranteed by construction) and cross-checked
+     against Game8; three wiki errors were corrected in the process
+     (Whispers of Sirens and Skull Thrasher had another weapon's passive
+     name; Emerald Sentence's R1 is 30%, not 12%). Display-only — no
+     effect is folded into totals (they're all conditional).
+     firstlightsHerald is UNRELEASED: pre-release preview only. */
+  weaponFx: {
+    abyssSurges: {n:'Stormy Resolution', fx:'Increases Energy Regen by 12.8%. Hitting a target with Resonance Skill increases Basic Attack DMG Bonus by 10% for 8s; hitting with Basic Attacks increases Resonance Skill DMG Bonus by 10% for 8s.'},
+    cosmicRipples: {n:'Stormy Resolution', fx:'Increases Energy Regen by 12.8%. Hitting a target with Basic Attacks increases Basic Attack DMG Bonus by 3.2%, stacking up to 5 times, for 8s (once every 0.5s).'},
+    emeraldOfGenesis: {n:'Stormy Resolution', fx:'Increases Energy Regen by 12.8%. Releasing Resonance Skill increases ATK by 6%, stacking up to 2 times, for 10s.'},
+    lustrousRazor: {n:'Stormy Resolution', fx:'Increases Energy Regen by 12.8%. Releasing Resonance Skill increases Resonance Liberation DMG by 7%, stacking up to 3 times, for 12s.'},
+    staticMist: {n:'Stormy Resolution', fx:'Increases Energy Regen by 12.8%. Releasing Outro Skill increases the switched-in Resonator\'s ATK by 10% for 14s.'},
+    bosonAstrolabe: {n:'Path Observer', fx:'Increases ATK by 12%. When a Resonator in the team casts a Tune Break skill, grants the wielder 12% ATK and 12% Basic Attack DMG Bonus for 14s.'},
+    laserShearer: {n:'Signal Catcher', fx:'Increases ATK by 12%. Dealing damage to targets under Tune Strain - Interfered grants 24% Resonance Skill Bonus for 3s. Retriggering resets the duration.'},
+    phasicHomogenizer: {n:'Insight Bearer', fx:'Increases ATK by 12%. When a Resonator in the team casts a Tune Break skill, grants the wielder 20% All-Attribute DMG Bonus for 14s.'},
+    pulsationBracer: {n:'Barrier Breacher', fx:'Increases ATK by 12%. Dealing damage to targets under Tune Strain - Interfered grants 6% Basic Attack DMG Bonus for 3s, stacking up to 4 times (once every 0.5s). Retriggering resets the duration.'},
+    radianceCleaver: {n:'Edge Breaker', fx:'Increases ATK by 12%. Dealing damage to targets under Tune Strain - Interfered grants 24% Resonance Liberation Bonus for 3s. Retriggering resets the duration.'},
+    verdantSummit: {n:'Swordsworn', fx:'Increases Attribute DMG Bonus by 12%. Casting Intro Skill or Resonance Liberation increases Heavy Attack DMG Bonus by 24%, stacking up to 2 times, for 14s.'},
+    stringmaster: {n:'Electric Amplification', fx:'Increases all Resonance Attribute DMG Bonus by 12%. Resonance Skill hits increase ATK by 12%, stacking up to 2, for 5s. While the equipped character is off-field, their ATK is increased by an additional 12%.'},
+    agesOfHarvest: {n:'Divine Blessing', fx:'Grants 12% Attribute DMG Bonus. Casting Intro Skill grants Ageless Marking (24% Resonance Skill DMG Bonus, 12s); casting Resonance Skill grants Ethereal Endowment (24% Resonance Skill DMG Bonus, 12s).'},
+    blazingBrilliance: {n:'Crimson Phoenix', fx:'ATK increased by 12%. Dealing damage grants 1 stack of Searing Feather (once every 0.5s); casting Resonance Skill grants 5. Each stack gives 4% Resonance Skill DMG Bonus, up to 14 stacks. All stacks clear within 10s of reaching max.'},
+    rimeDrapedSprouts: {n:'Panorama', fx:'Increases ATK by 12%. On-field, using Resonance Skill grants 12% Basic Attack DMG Bonus, stacking up to 3 times for 6s. At 3+ stacks, casting Outro Skill consumes them and grants 52% Basic Attack DMG Bonus for 27s, effective off-field.'},
+    veritysHandle: {n:'Ad Veritatem', fx:'Gain 12% Attribute DMG Bonus. Using Resonance Liberation grants 48% Resonance Liberation DMG Bonus for 8s, extendable by 5s per Resonance Skill cast, up to 3 times.'},
+    stellarSymphony: {n:'Astral Evolvement', fx:'Increases HP by 12%. Casting Resonance Liberation restores 8 Concerto Energy (once every 20s). Casting a Resonance Skill that heals increases nearby party members’ ATK by 14% for 30s. Effects of the same name do not stack.'},
+    redSpring: {n:'Beyond the Cycle', fx:'Increases ATK by 12%. Dealing Basic Attack DMG grants 10% Basic Attack DMG Bonus for 14s (once per second, up to 3 stacks). Consuming Concerto Energy grants 40% Basic DMG Bonus for 10s; ends when switched off-field.'},
+    theLastDance: {n:'Silent Eulogy', fx:'Increases ATK by 12%. Casting Intro Skill or Resonance Liberation increases Resonance Skill DMG Bonus by 48% for 5s.'},
+    tragicomedy: {n:'Fool\'s Warble', fx:'Increases ATK by 12%. Casting Basic Attack or Intro Skill increases Heavy Attack DMG Bonus by 48% for 3s.'},
+    unflickeringValor: {n:'Laughter Prevails', fx:'Increases Crit. Rate by 8%. Casting Resonance Liberation grants 24% Basic Attack DMG Bonus for 10s; dealing Basic Attack DMG grants 24% Basic Attack DMG Bonus for 4s.'},
+    luminousHymn: {n:'Homebuilder\'s Anthem', fx:'Increases ATK by 12%. Dealing DMG to enemies with Spectro Frazzle grants 14% Basic Attack and 14% Heavy Attack DMG Bonus, stacking up to 3 times for 6s. Casting Outro Skill amplifies Spectro Frazzle DMG around the active Resonator by 30% for 30s. Effects of the same name do not stack.'},
+    whispersOfSirens: {n:'From the Deep', fx:'Increases ATK by 12%. Casting Echo Skill within 10s of Intro Skill or Basic Attacks grants 1 stack of Gentle Dream (each Echo name once), up to 2 stacks, 10s, once per 10s. 1 stack: 40% Basic Attack DMG Bonus. 2 stacks: ignores 12% of the target’s Havoc RES. Switching out ends it.'},
+    woodlandAria: {n:'Lingering Summer Tune', fx:'ATK increased by 12%. Inflicting Aero Erosion grants 24% Aero DMG Bonus for 10s. Hitting targets with Aero Erosion reduces their Aero RES by 10% for 20s. Effects of the same name do not stack.'},
+    blazingJustice: {n:'Darkness Breaker', fx:'Increases ATK by 12%. Casting Basic Attack makes damage ignore 8% of the target’s DEF and amplifies Spectro Frazzle DMG by 50% for 6s. Retriggering resets the duration.'},
+    wildfireMark: {n:'Blazing Starfire', fx:'Increases ATK by 12%. Intro Skill or Resonance Liberation increases Resonance Liberation DMG by 24% for 6s. Dealing Heavy Attack DMG extends it by 4s (once); each extension grants the team 24% Fusion DMG Bonus for 30s. Effects of the same name do not stack.'},
+    defiersThorn: {n:'A Free Knight\'s Tarantella', fx:'Max HP increased by 12%. For 15s after Intro Skill or Basic Attacks, damage ignores 8% of the target’s DEF; if the target has 1+ stack of Aero Erosion, its DMG taken is amplified by 20%.'},
+    letheanElegy: {n:'Underworld Requiem', fx:'ATK increased by 12%. Within 12s of dealing Echo Skill DMG, gain 32% Resonance Skill DMG Bonus and 32% Echo Skill DMG Amplification, and ignore 8% of the target’s DEF.'},
+    moongazersSigil: {n:'Plenilune Radiance', fx:'Increases ATK by 12%. Intro Skill or Resonance Liberation increases Resonance Liberation DMG by 20% for 15s. Gaining a Shield lets Resonance Liberation DMG ignore 7.2% of the target’s DEF for 7s, up to 5 stacks (once every 0.5s); Intro Skill grants max stacks instantly for 3s.'},
+    thunderflareDominion: {n:'Thunderblaze Eminence', fx:'Increases ATK by 12%. Intro Skill or Resonance Skill increases Heavy Attack DMG by 20% for 15s. Gaining a Shield lets Heavy Attack DMG ignore 7.2% of the target’s DEF for 7s, up to 5 stacks (once every 0.5s).'},
+    emeraldSentence: {n:'When A Heart Settles', fx:'ATK increased by 12%. Casting Echo Skill within 10s of Intro Skill or Basic Attack grants 1 stack of Bamboo Cleaver (30% Heavy Attack DMG Bonus), each Echo name once, up to 2 stacks, 12s, once per 10s. Intro Skill grants the team 20% Echo Skill DMG Bonus for 30s. Effects of the same name do not stack.'},
+    luxUmbra: {n:'To Fire She Returns', fx:'Increases ATK by 12%. Dealing Echo Skill DMG grants 24% Heavy Attack DMG Amplification for 6s; dealing Heavy Attack DMG grants 24% Echo Skill DMG Amplification for 6s (capped at 24% per attack). While both are active, damage ignores 8% of the target’s DEF.'},
+    kumokiri: {n:'Thread of Fate', fx:'ATK increased by 12%. Casting Intro Skill or inflicting a Negative Status grants 8% Resonance Liberation DMG Bonus, stacking up to 3 times for 15s. At max stacks, when the team inflicts a Negative Status, grants 24% All-Attribute DMG Bonus for 15s. Effects of the same name do not stack.'},
+    spectrumBlaster: {n:'Attendance Exemption Protocol', fx:'Increases ATK by 12%. Intro Skill or a Basic Attack hit increases Basic Attack DMG by 36% for 4s. Inflicting Tune Rupture - Shifting or Tune Strain - Shifting during Basic Attacks increases all team DMG by 8% for 30s, up to 3 stacks. Effects of the same name do not stack.'},
+    starfieldCalibrator: {n:'Definite Solution', fx:'Increases DEF by 16%. Casting Resonance Liberation restores 8 Concerto Energy (once every 20s). Healing Resonators increases nearby team Crit. DMG by 20% for 4s. Effects of the same name do not stack.'},
+    daybreakersSpine: {n:'Suturing Dayline', fx:'Increases ATK by 12%. Dealing Basic Attack DMG grants 20% Spectro DMG Bonus for 4s. Inflicting Tune Strain - Shifting grants 20% Basic Attack DMG Amplification and lets Basic Attack DMG ignore 10% of the target’s DEF for 6s.'},
+    everbrightPolestar: {n:'Starchaser', fx:'Increases All-Attribute DMG Bonus by 12%. Inflicting Tune Rupture - Shifting or Fusion Burst makes Resonance Liberation DMG ignore 32% DEF and 10% Fusion RES for 8s.'},
+    solswornCiphers: {n:'Sunward', fx:'Increases ATK by 12%. Casting Intro Skill or Echo Skill grants 32% Echo Skill DMG Amplification for 15s. Dealing Echo Skill DMG makes Aero DMG ignore 10% of the target’s DEF for 6s.'},
+    forgedDwarfStar: {n:'Dissolution', fx:'Increases ATK by 12%. Inflicting Fusion Burst or Tune Strain - Shifting increases Resonance Liberation DMG Bonus by 36% for 5s. While active, team members inflicting Fusion Burst or Tune Strain - Shifting gain 24% ATK for 15s. Effects of the same name do not stack.'},
+    frostburn: {n:'Self No More', fx:'ATK increased by 12%. Applying Glacio Chafe amplifies Glacio DMG by 28% and makes Resonance Liberation DMG ignore 10% of the target’s DEF. If the wielder is active, Glacio Chafe DMG in range is amplified by 20% for 6s (up to once every 0.1s). Only the strongest effect of the same name applies.'},
+    freezeFrame: {n:'Light\'s Offering', fx:'Increases ATK by 12%. Inflicting Glacio Chafe grants 30% Glacio DMG Bonus for 12s and gives all Resonators 24% ATK for 30s. Effects of the same name do not stack.'},
+    azureOath: {n:'Unbending', fx:'Grants 12% All-Attribute DMG Bonus. Inflicting Havoc Bane grants 36% Heavy Attack DMG Amplification and makes Heavy Attack DMG ignore 12% of the target’s DEF for 8s.'},
+    firstlightsHerald: {n:'Spring Wreath (BETA — unreleased, pre-release preview only)', fx:'Increases Max HP by 12%. Casting Resonance Liberation restores 8 Concerto Energy (once every 20s). Inflicting Glacio Chafe grants Snow Taint for 6s; applying healing grants Ripples for 6s. With both active, nearby team ATK is increased by 20%. Effects of the same name do not stack. [Unverified — re-check at release.]'},
+    skullThrasher: {n:'Wakeful Loner', fx:'Increases ATK by 12%. Casting Intro Skill grants 24% Basic Attack DMG Bonus for 14s. Inflicting Hack - Shifting grants 12% Basic Attack DMG Bonus for 14s and increases team ATK by 24% for 30s. Effects of the same name do not stack.'},
+    spectralTrigger: {n:'Sunken Dream', fx:'Increases ATK by 12%. Casting Resonance Skill grants 20% Spectro DMG Bonus for 14s, stacking up to 2 times. Inflicting Hack - Shifting grants 30% Heavy Attack DMG Amplification for 14s, during which Heavy Attack DMG ignores 10% of the target’s DEF.'},
+    bloodpactsPledge: {n:'Harmonious Vibrancy', fx:'Providing healing increases Resonance Skill DMG by 10% for 6s. When Rover: Aero casts Unbound Flow, Aero DMG dealt by nearby on-field Resonators is amplified by 10% for 30s.'},
+    autumntrace: {n:'Edge Direction', fx:'Increases ATK by 4% upon dealing Basic or Heavy Attack DMG, stacking up to 5 times, for 7s (once every 1s).'},
+    lumingloss: {n:'Pale Gale', fx:'Releasing Resonance Skill increases Basic Attack DMG and Heavy Attack DMG by 20% for 10s.'},
+    thunderbolt: {n:'Unstoppable', fx:'Hitting a target with Basic or Heavy Attacks increases Resonance Skill DMG Bonus by 7%, stacking up to 3 times, for 10s (once every 1s).'},
+    stonard: {n:'Wallbreaker', fx:'Releasing Resonance Skill increases the caster\'s Resonance Liberation DMG Bonus by 18% for 15s.'},
+    augment: {n:'Forgiving Resilience', fx:'Releasing Resonance Liberation increases the caster\'s ATK by 15% for 15s.'},
+    aureateZenith: {n:'Oath of Tide Hunters', fx:'Casting Resonance Liberation increases ATK by 7.2% and grants 10.8% Heavy Attack DMG Bonus for 15s.'},
+    featherEdge: {n:'Oath of Tide Hunters', fx:'Casting Resonance Liberation increases ATK by 7.2% and grants 10.8% Resonance Liberation DMG Bonus for 15s.'},
+    solarFlame: {n:'Oath of Tide Hunters', fx:'Dealing Basic or Heavy Attack DMG increases ATK by 2.2% and grants 2.2% Heavy Attack DMG Bonus for 7s, stacking up to 4 times (once every 1s).'},
+    aetherStrike: {n:'Oath of Tide Hunters', fx:'Casting Resonance Liberation increases ATK by 7.2% and grants 10.8% Resonance Liberation DMG Bonus for 15s.'},
+    radiantDawn: {n:'Oath of Tide Hunters', fx:'Casting Resonance Skill increases ATK by 9% and grants 9% Basic Attack DMG Bonus for 10s.'},
+    discord: {n:'Ceaseless Aria', fx:'Releasing Resonance Skill restores 8 Concerto Energy (once every 20s).'},
+    overture: {n:'Ceaseless Aria', fx:'Casting Resonance Skill restores 8 Concerto Energy (once every 20s).'},
+    cadenza: {n:'Ceaseless Aria', fx:'Releasing Resonance Skill restores 8 Concerto Energy (once every 20s).'},
+    marcato: {n:'Ceaseless Aria', fx:'Releasing Resonance Skill restores 8 Concerto Energy (once every 20s).'},
+    variation: {n:'Ceaseless Aria', fx:'Releasing Resonance Skill restores 8 Concerto Energy (once every 20s).'},
+    dauntlessEvernight: {n:'Battlebound', fx:'Releasing Intro Skill increases ATK by 8% and DEF by 15% for 15s.'},
+    commandoOfConviction: {n:'Unyielding', fx:'Releasing Intro Skill increases ATK by 15% for 15s.'},
+    undyingFlame: {n:'Loyalty', fx:'Releasing Intro Skill increases Resonance Skill DMG Bonus by 20% for 15s.'},
+    amityAccord: {n:'Camaraderie', fx:'Releasing Intro Skill increases Resonance Liberation DMG Bonus by 20% for 15s.'},
+    jinzhouKeeper: {n:'Guardian', fx:'Releasing Intro Skill increases the caster\'s ATK by 8% and HP by 10% for 15s.'},
+    heliosCleaver: {n:'Plasma Recoiler', fx:'Within 12s of casting Resonance Skill, increases ATK by 3% every 2s, stacking up to 4 times (once every 12s). At 4 stacks, all stacks reset within 6s.'},
+    lunarCutter: {n:'Preordained', fx:'Entering the battlefield grants 6 stacks of Oath (each +2% ATK, max 6), once every 12s. Oath decays 1 stack every 2s. Defeating an enemy grants 6 more stacks.'},
+    novaburst: {n:'Ever-changing', fx:'Dashing or dodging increases ATK by 4%, stacking up to 3 times, for 8s.'},
+    hollowMirage: {n:'Celestial Blessing', fx:'Releasing Resonance Liberation grants 3 stacks of Iron Armor (each +3% ATK and DEF, max 3). Taking damage removes 1 stack.'},
+    cometFlare: {n:'Luminous Protection', fx:'Hitting a target with Basic or Heavy Attacks increases Healing Bonus by 3%, stacking up to 3 times, for 8s (once every 0.6s).'},
+    waningRedshift: {n:'Intergalactic Gaze', fx:'Casting Resonance Skill grants 6 Resonance Energy and increases ATK by 10% for 16s (once every 20s).'},
+    endlessCollapse: {n:'Intergalactic Gaze', fx:'Casting Resonance Skill grants 6 Resonance Energy and increases ATK by 10% for 16s (once every 20s).'},
+    relativisticJet: {n:'Intergalactic Gaze', fx:'Casting Resonance Skill grants 6 Resonance Energy and increases ATK by 10% for 16s (once every 20s).'},
+    celestialSpiral: {n:'Intergalactic Gaze', fx:'Casting Resonance Skill grants 6 Resonance Energy and increases ATK by 10% for 16s (once every 20s).'},
+    fusionAccretion: {n:'Intergalactic Gaze', fx:'Casting Resonance Skill grants 6 Resonance Energy and increases ATK by 10% for 16s (once every 20s).'},
+    broadblade41: {n:'Veteran', fx:'Above 80% HP, increases ATK by 12%. Below 40% HP, dealing Basic or Heavy Attack DMG restores 5% HP (once every 8s).'},
+    sword18: {n:'Daybreak', fx:'Below 40% HP, increases Heavy Attack DMG by 18% and restores 5% HP upon dealing Heavy Attack DMG (once every 8s).'},
+    pistols26: {n:'Omniscient', fx:'Taking no damage increases ATK by 6% every 5s, stacking up to 2 times, for 8s. Taking damage removes 1 stack and restores 5% HP.'},
+    gauntlets21d: {n:'Mastermind', fx:'Dashing or dodging increases ATK by 8% and Counter Attack DMG by 50% for 8s. Performing a Counter Attack restores 5% HP (once every 6s).'},
+    rectifier25: {n:'Dawnbringer', fx:'Releasing Resonance Skill below 60% HP restores 5% HP (once every 8s); above 60% HP, increases ATK by 12% for 10s.'},
+    meditationsOnMercy: {n:'Rhetoric', fx:'Dealing DMG to enemies with Negative Statuses increases the wielder\'s ATK by 4% for 10s, stacking up to 4 times (once per second).'},
+    fablesOfWisdom: {n:'Rhetoric', fx:'Dealing DMG to enemies with Negative Statuses increases the wielder\'s ATK by 4% for 10s, stacking up to 4 times (once per second).'},
+    romanceInFarewell: {n:'Rhetoric', fx:'Dealing DMG to enemies with Negative Statuses increases the wielder\'s ATK by 4% for 10s, stacking up to 4 times (once per second).'},
+    legendOfDrunkenHero: {n:'Rhetoric', fx:'Dealing DMG to enemies with Negative Statuses increases the wielder\'s ATK by 4% for 10s, stacking up to 4 times (once per second).'},
+    waltzInMasquerade: {n:'Rhetoric', fx:'Dealing DMG to enemies with Negative Statuses increases the wielder\'s ATK by 4% for 10s, stacking up to 4 times (once per second).'},
+    callOfTheAbyss: {n:'Pole of the Celestial Dome', fx:'Casting Resonance Liberation increases the Resonator\'s Healing Bonus by 16% for 15s.'},
+    oceansGift: {n:'Fish Catch', fx:'Dealing DMG to enemies with Spectro Frazzle increases the wielder\'s Spectro DMG by 6%, 1 stack per second for 6s, up to 4 stacks.'},
+    somnoireAnchor: {n:'Meow!', fx:'Dealing damage grants 1 stack of Hiss per second; each stack gives +2% ATK for 3s, up to 10. Switching off clears all stacks. At 10 stacks, Crit. Rate +6%.'},
+  },
+
   echo: {
     budget: 12,                                   // Data Bank Lv9+ total cost
     costs: [1, 3, 4],                             // the three echo cost slots
@@ -1558,42 +1661,42 @@ const GAME = {
        whose bonus is conditional/non-flat and contributes nothing numeric
        at MVP (k:null). 5pc effect text is a phase-2 addition. */
     sonata: [
-      {name:'Freezing Frost',            k:'glacio',  v:10},
-      {name:'Molten Rift',               k:'fusion',  v:10},
-      {name:'Void Thunder',              k:'electro', v:10},
-      {name:'Sierra Gale',               k:'aero',    v:10},
-      {name:'Celestial Light',           k:'spectro', v:10},
-      {name:'Havoc Eclipse',             k:'havoc',   v:10},
+      {name:'Freezing Frost',            k:'glacio',  v:10, fx:{p2:'Glacio DMG +10%.', p5:'Glacio DMG +10% after releasing Basic Attack or Heavy Attack. Stacks up to 3 times, each stack lasts 15s.'}},
+      {name:'Molten Rift',               k:'fusion',  v:10, fx:{p2:'Fusion DMG +10%.', p5:'Fusion DMG +30% for 15s after releasing Resonance Skill.'}},
+      {name:'Void Thunder',              k:'electro', v:10, fx:{p2:'Electro DMG +10%.', p5:'Electro DMG +15% after releasing Heavy Attack or Resonance Skill. Stacks up to 2 times, each stack lasts 15s.'}},
+      {name:'Sierra Gale',               k:'aero',    v:10, fx:{p2:'Aero DMG +10%.', p5:'Aero DMG +30% for 15s after releasing Intro Skill.'}},
+      {name:'Celestial Light',           k:'spectro', v:10, fx:{p2:'Spectro DMG +10%.', p5:'Spectro DMG +30% for 15s after releasing Intro Skill.'}},
+      {name:'Havoc Eclipse',             k:'havoc',   v:10, fx:{p2:'Havoc DMG +10%.', p5:'Havoc DMG +7.5% after releasing Basic Attack or Heavy Attack. Stacks up to 4 times, each stack lasts 15s.'}},
       // "Sun-sinking Eclipse" removed Jul 2026 — not a real set: the wiki hard-
       // redirects it to Havoc Eclipse (verified via redirect + page history).
-      {name:'Moonlit Clouds',            k:'er',      v:10},
-      {name:'Lingering Tunes',           k:'atkp',    v:10},
-      {name:'Rejuvenating Glow',         k:'heal',    v:10},
-      {name:'Midnight Veil',             k:'havoc',   v:10},
-      {name:'Empyrean Anthem',           k:'er',      v:10},
-      {name:'Tidebreaking Courage',      k:'er',      v:10},
-      {name:'Gusts of Welkin',           k:'aero',    v:10},
-      {name:'Flaming Clawprint',         k:'fusion',  v:10},
-      {name:'Frosty Resolve',            k:'skill',   v:12},
-      {name:'Eternal Radiance',          k:'spectro', v:10},
-      {name:'Wishes of Quiet Snowfall',  k:'glacio',  v:10},
-      {name:'Windward Pilgrimage',       k:'aero',    v:10},
-      {name:'Rite of Gilded Revelation', k:'spectro', v:10},
-      {name:'Pact of Neonlight Leap',    k:'spectro', v:10},
-      {name:'Reel of Spliced Memories',  k:'atkp',    v:10},
-      {name:'Sound of True Name',        k:'aero',    v:10},
-      {name:"Heart of Evil's Purge",     k:'aero',    v:10},
-      {name:'Trailblazing Star',         k:'fusion',  v:10},
-      {name:'Halo of Starry Radiance',   k:'heal',    v:10},
-      {name:'Chromatic Foam',            k:'fusion',  v:10},
-      {name:'Lamp of Nether Road',       k:'hpp',     v:10},
-      {name:'Song of Feathered Trace',   k:'er',      v:10},
-      {name:"Flamewing's Shadow",        k:null, v:0, thr:'3pc'},
-      {name:'Dream of the Lost',         k:null, v:0, thr:'3pc'},
-      {name:'Law of Harmony',            k:null, v:0, thr:'3pc'},
-      {name:'Crown of Valor',            k:null, v:0, thr:'3pc'},
-      {name:'Thread of Severed Fate',    k:null, v:0, thr:'3pc'},
-      {name:'Shadow of Shattered Dreams', k:null, v:0, thr:'1pc'},
+      {name:'Moonlit Clouds',            k:'er',      v:10, fx:{p2:'Energy Regen +10%.', p5:'After using Outro Skill, increases the ATK of the next Resonator by 22.5% for 15s.'}},
+      {name:'Lingering Tunes',           k:'atkp',    v:10, fx:{p2:'ATK +10%.', p5:'While on the field, ATK increases by 5% every 1.5s, stacking up to 4 times. Outro Skill DMG +60%.'}},
+      {name:'Rejuvenating Glow',         k:'heal',    v:10, fx:{p2:'Healing Bonus +10%.', p5:'Increases the ATK of all party members by 15% for 30s upon healing allies.'}},
+      {name:'Midnight Veil',             k:'havoc',   v:10, fx:{p2:'Havoc DMG +10%.', p5:'Triggering Outro Skill deals an additional 480% Havoc DMG to surrounding enemies (counts as Outro Skill DMG) and grants the incoming Resonator 15% Havoc DMG Bonus for 15s.'}},
+      {name:'Empyrean Anthem',           k:'er',      v:10, fx:{p2:'Energy Regen +10%.', p5:'Increases Coordinated Attack DMG by 80%. On a Coordinated Attack crit, increases the active Resonator\'s ATK by 20% for 4s.'}},
+      {name:'Tidebreaking Courage',      k:'er',      v:10, fx:{p2:'Energy Regen +10%.', p5:'Increases ATK by 15%. Reaching 250% Energy Regen increases all Attribute DMG by 30%.'}},
+      {name:'Gusts of Welkin',           k:'aero',    v:10, fx:{p2:'Aero DMG +10%.', p5:'Inflicting Aero Erosion increases Aero DMG for all Resonators in the team by 15%, and by an additional 15% for the triggering Resonator, for 20s.'}},
+      {name:'Flaming Clawprint',         k:'fusion',  v:10, fx:{p2:'Fusion DMG +10%.', p5:'Casting Resonance Liberation grants all Resonators 15% Fusion DMG Bonus and the caster 20% Resonance Liberation DMG Bonus for 35s.'}},
+      {name:'Frosty Resolve',            k:'skill',   v:12, fx:{p2:'Resonance Skill DMG +12%.', p5:'Casting Resonance Skill grants 22.5% Glacio DMG Bonus for 15s; casting Resonance Liberation increases Resonance Skill DMG by 18% for 5s, stacking up to 2 times.'}},
+      {name:'Eternal Radiance',          k:'spectro', v:10, fx:{p2:'Spectro DMG +10%.', p5:'Inflicting Spectro Frazzle increases Crit. Rate by 20% for 15s. Attacking enemies with 10 stacks of Spectro Frazzle grants 15% Spectro DMG Bonus for 15s.'}},
+      {name:'Wishes of Quiet Snowfall',  k:'glacio',  v:10, fx:{p2:'Glacio DMG +10%.', p5:'Inflicting Glacio Chafe increases Glacio DMG dealt by 10% for 15s and grants Snowfall for 15s (once every 25s). While Snowfall is active: dealing Resonance Liberation DMG removes it and grants 25% Crit. Rate for 6s (extendable by 4s per hit, up to 6 times); or casting Outro Skill removes it and grants the incoming Resonator 25% Glacio DMG Bonus for 15s. Only one may trigger.'}},
+      {name:'Windward Pilgrimage',       k:'aero',    v:10, fx:{p2:'Aero DMG +10%.', p5:'Hitting a target with Aero Erosion increases Crit. Rate by 10% and grants 30% Aero DMG Bonus for 10s.'}},
+      {name:'Rite of Gilded Revelation', k:'spectro', v:10, fx:{p2:'Spectro DMG +10%.', p5:'Dealing Basic Attack DMG increases Spectro DMG by 10% for 5s, stacking up to 3 times. At 3 stacks, casting Resonance Liberation grants 40% Basic Attack DMG Bonus.'}},
+      {name:'Pact of Neonlight Leap',    k:'spectro', v:10, fx:{p2:'Spectro DMG +10%.', p5:'Casting Outro Skill increases the ATK of the incoming Resonator who casts Intro Skill by 15%, plus 0.3% per point of their Tune Break Boost (up to 15%), for 15s or until switched out.'}},
+      {name:'Reel of Spliced Memories',  k:'atkp',    v:10, fx:{p2:'ATK +10%.', p5:'Inflicting Tune Rupture: Shifting or Tune Strain: Shifting increases the Tune Break Boost of Resonators in the team by 20 for 30s. Effects of the same name do not stack.'}},
+      {name:'Sound of True Name',        k:'aero',    v:10, fx:{p2:'Aero DMG +10%.', p5:'Dealing Echo Skill DMG increases Echo Skill Crit. Rate by 20% and grants 15% Aero DMG Bonus for 5s.'}},
+      {name:"Heart of Evil's Purge",     k:'aero',    v:10, fx:{p2:'Aero DMG +10%.', p5:'Inflicting Tune Strain - Shifting increases Crit. DMG by 20% and Aero DMG Bonus by 30% (DISPUTED: Game8 says 20%) for 15s.'}},
+      {name:'Trailblazing Star',         k:'fusion',  v:10, fx:{p2:'Fusion DMG +10%.', p5:'Inflicting Fusion Burst or Tune Rupture - Shifting increases Crit. Rate by 20% and grants 20% Fusion DMG Bonus for 8s.'}},
+      {name:'Halo of Starry Radiance',   k:'heal',    v:10, fx:{p2:'Healing Bonus +10%.', p5:'When healing a Resonator, every 1% of Off-Tune Buildup Rate grants 0.2% ATK to all Resonators for 4s, up to 25%. Effects of the same name do not stack.'}},
+      {name:'Chromatic Foam',            k:'fusion',  v:10, fx:{p2:'Fusion DMG +10%.', p5:'Inflicting Fusion Burst grants 10% Fusion DMG Bonus for 15s; while active, casting Outro Skill grants the incoming Resonator 25% Fusion DMG Bonus for 15s.'}},
+      {name:'Lamp of Nether Road',       k:'hpp',     v:10, fx:{p2:'HP +10%.', p5:'Upon gaining a Shield, gain 5% Crit. Rate for 5s, stacking up to 4 times (once every 0.5s). At max stacks, gain 15% Fusion DMG Bonus.'}},
+      {name:'Song of Feathered Trace',   k:'er',      v:10, fx:{p2:'Energy Regen +10%.', p5:'Inflicting Havoc Bane grants Xuanling\'s Feather: +20% Crit. Rate and +35% Heavy Attack DMG Bonus (DISPUTED: Game8 25% / beta 20%) for 15s. Inflicting Glacio Chafe grants Chongming\'s Feather: +0.1% ATK to the team per 1% of the Resonator\'s Energy Regen, up to 25%, for 10s.'}},
+      {name:"Flamewing's Shadow",        k:null, v:0, thr:'3pc', fx:{pt:'Dealing Echo Skill DMG increases Heavy Attack Crit. Rate by 20% for 6s. Dealing Heavy Attack DMG increases Echo Skill Crit. Rate by 20% for 6s. While both are active, gain 16% Fusion DMG Bonus.'}},
+      {name:'Dream of the Lost',         k:null, v:0, thr:'3pc', fx:{pt:'Holding 0 Resonance Energy increases Crit. Rate by 20% and grants 35% Echo Skill DMG Bonus.'}},
+      {name:'Law of Harmony',            k:null, v:0, thr:'3pc', fx:{pt:'Casting Echo Skill grants the caster 30% Heavy Attack DMG Bonus for 4s, and all Resonators 4% Echo Skill DMG Bonus for 30s, stacking up to 4 times (each Echo name may trigger once). At 4 stacks, casting Echo Skill resets the duration.'}},
+      {name:'Crown of Valor',            k:null, v:0, thr:'3pc', fx:{pt:'Upon gaining a Shield, increases ATK by 6% and Crit. DMG by 4% for 4s, once every 0.5s, stacking up to 5 times.'}},
+      {name:'Thread of Severed Fate',    k:null, v:0, thr:'3pc', fx:{pt:'Inflicting Havoc Bane increases ATK by 20% and grants 30% Resonance Liberation DMG Bonus for 5s.'}},
+      {name:'Shadow of Shattered Dreams', k:null, v:0, thr:'1pc', fx:{pt:'Inflicting Hack - Shifting grants 35% Basic Attack DMG Bonus and Heavy Attack DMG Bonus for 15s.'}},
     ],
   },
 };
@@ -3745,6 +3848,14 @@ function echoRosterGoals(){
     .map(x => x.g);
 }
 
+/* A linked weapon's R1 passive, as a hover tooltip string. */
+function wpnTip(wid){
+  const w = GAME.weapons[wid], fx = GAME.weaponFx[wid];
+  if(!w) return '';
+  if(!fx) return w.name;
+  return `${w.name} — ${fx.n}\n${fx.fx}`;
+}
+
 /* Full effect text for a Sonata set, as a hover tooltip string. */
 function setTip(name){
   const s = name && GAME.echo.sonata.find(x => x.name === name);
@@ -3872,7 +3983,10 @@ function echoBuildCard(g){
       `<span class="avatar" style="background:${avaBg(ch)}">${ch.mono}${icoImg(ch.name, 'char', 'avatar-img')}</span>` +
       `<div class="ehmeta"><div class="ehname">${esc(ch.name)}</div>` +
         `<div class="gmeta">${attrIco(ch.element, 'element')}${attrIco(ch.wtype, 'weapon type')}<span class="lvl">· ${lvlLabel(g)}</span></div>` +
-        `<div class="ehwpn">${wp ? icoImg(wp.name, 'weapon') + esc(wp.name) : '<span class="faint">no weapon linked</span>'}</div>` +
+        `<div class="ehwpn"${wp ? ` title="${esc(wpnTip(w.weapon))}"` : ''}>` +
+        (wp ? icoImg(wp.name, 'weapon') + esc(wp.name) +
+              (GAME.weaponFx[w.weapon] ? ` <i class="wfx">${esc(GAME.weaponFx[w.weapon].n)}</i>` : '')
+            : '<span class="faint">no weapon linked</span>') + `</div>` +
       `</div>` +
       `<span class="ebudget${over ? ' over' : ''}" title="Total echo cost — the standard cap is 12">${cost} / ${GAME.echo.budget}</span>` +
     `</div>` +

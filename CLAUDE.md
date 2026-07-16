@@ -283,10 +283,10 @@ it goes in block 2 with tests; presentation goes in block 3.
   "ATK% 48.4%" never reads the same as "ATK 350".
   Engine (pure, tested): `freshBuild`, `freshEcho`, `sanitizeBuild`,
   `buildCost`, `echoMainVal`, `snapSub` (snaps a substat to the nearest legal
-  roll), `buildTotals`. UI: the page is a GRID of per-character build cards
-  (`#esheets`, `.ebuild` — `repeat(auto-fit, minmax(min(100%,640px),1fr))`, so
-  up to 2 tile per row on a wide screen, 1 when narrow) — every rostered
-  character shows a card at once, ordered by ledger order. A top `#echoFind`
+  roll), `buildTotals`. UI: the page is a STACK of per-character build cards
+  (`#esheets`, `.ebuild` — one per row, full width, so the echo columns stay
+  roomy) — every rostered character shows a card at once, ordered by ledger
+  order (tried 2-per-row, user preferred 1). A top `#echoFind`
   fuzzy filter narrows them; it sits OUTSIDE `#esheets` so `renderEchoSheets`
   redraws the grid per keystroke without losing focus (the Teams / inventory
   rule). Each card carries `data-ec` (its charId): a header (portrait · name ·

@@ -561,13 +561,12 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
   box-shadow:0 0 7px var(--acc,var(--cyan))}
 .st.ready{color:var(--green)} .st.miss{color:var(--red)}
 
-/* ── Echoes page: a top filter row + a grid of per-character build cards
-   that tile up to 2 per row on wide screens (auto-fit caps it there) ── */
+/* ── Echoes page: a top filter row + a stack of per-character build cards,
+   one per row (full width, so the echo columns stay roomy) ── */
 .efilter-row{display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:12px}
 .efilter-row .rfind{width:260px; margin-bottom:0}
 .efilter-row .sub{color:var(--faint); font-size:11.5px}
-.esheets{display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 640px), 1fr));
-  gap:16px; align-items:start}
+.esheets{display:grid; grid-template-columns:1fr; gap:16px; align-items:start}
 .ebuild{border:1px solid var(--line); border-radius:12px; padding:14px; background:var(--panel);
   min-width:0; border-left:3px solid var(--acc,var(--cyan))}
 
@@ -587,7 +586,10 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
   padding:3px 9px; border-radius:7px; border:1px solid var(--line2); color:var(--mut); flex:none}
 .ebudget.over{color:var(--red); border-color:var(--red)}
 
-.egrid{display:grid; grid-template-columns:repeat(auto-fill, minmax(112px, 1fr)); gap:8px; margin-bottom:16px}
+/* auto-FIT (not fill): the 5 echoes spread to fill a full-width card, and
+   collapse empty tracks so they never cluster narrow on the left; on a
+   cramped card they wrap to a second row instead. */
+.egrid{display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:8px; margin-bottom:16px}
 .ecol{border:1px solid var(--line2); border-radius:10px; padding:8px; background:var(--panel2);
   display:flex; flex-direction:column; gap:7px}
 .ecol.lead{border-color:var(--cyan); box-shadow:0 0 0 1px var(--cyan) inset}
@@ -599,7 +601,7 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
 .emval b{color:var(--ink); font-weight:700; font-size:12.5px}
 .emval .esec{color:var(--faint)}
 .esubs{display:flex; flex-direction:column; gap:4px; border-top:1px solid var(--line2); padding-top:6px}
-.esub{display:grid; grid-template-columns:1fr 54px; gap:3px}
+.esub{display:grid; grid-template-columns:1fr 58px; gap:4px}
 .esub select{font-size:10.5px; padding:2px 3px; min-width:0}
 
 .etotals{border:1px solid var(--line); border-radius:11px; padding:12px 14px; background:var(--panel)}
@@ -3526,7 +3528,7 @@ function echoSetNote(name){
 
 function echoSubRow(sub, ei, si){
   const key = sub ? sub.key : '';
-  const keyOpts = `<option value="">＋ stat</option>` +
+  const keyOpts = `<option value="">— substat —</option>` +
     GAME.echoStatOrder.filter(k => GAME.echo.subs[k]).map(k =>
       `<option value="${k}"${k === key ? ' selected' : ''}>${esc(GAME.echoStats[k].label)}</option>`).join('');
   const valOpts = (key ? GAME.echo.subs[key] : []).map(v =>

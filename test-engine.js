@@ -938,6 +938,12 @@ eq('stripCE never mutates its input', (() => {
   eq('a non-string echo name sanitizes to empty',
      sanitizeBuild({echoes:[{cost:4, main:'cr', name:42}]}).echoes[0].name, '');
 
+  // an echo cannot hold two of the same substat — sanitize dedups, first wins
+  eq('duplicate substats within one echo collapse (first kept)',
+     sanitizeBuild({echoes:[{cost:4, main:'cd',
+       subs:[{key:'cr', val:7.5}, {key:'cr', val:9.3}, {key:'cd', val:15}]}]}).echoes[0].subs,
+     [{key:'cr', val:7.5}, {key:'cd', val:15}]);
+
   // focus substats: keep real substat keys, de-duplicated; junk dropped
   eq('a fresh build has no focus stats', freshBuild().focus, []);
   eq('focus keeps only valid substat keys, de-duped',

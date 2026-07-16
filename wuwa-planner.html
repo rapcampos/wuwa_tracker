@@ -602,6 +602,9 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
 .egrid{display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:8px; margin-bottom:16px}
 .ecol{border:1px solid var(--line2); border-radius:10px; padding:8px; background:var(--panel2);
   display:flex; flex-direction:column; gap:7px}
+/* the lead echo (first) wears a subtle cyan SIDE BAR — no tag, no full highlight;
+   position is what marks the lead, the bar is just a quiet cue */
+.ecol.lead{border-left:3px solid var(--cyan); padding-left:6px}
 .ecol.over{border-color:var(--gold); box-shadow:0 0 0 1px var(--gold) inset}   /* drop target */
 .ecol.dragging{opacity:.4}
 .ecol-h{display:flex; align-items:center; gap:5px}
@@ -1740,8 +1743,10 @@ function sanitizeBuild(raw){
     const cost = GAME.echo.costs.includes(+r.cost) ? +r.cost : def.cost;
     const mains = GAME.echo.mains[cost].map(m => m.key);
     const main = mains.includes(r.main) ? r.main : mains[0];
+    const seen = new Set();          // no echo may hold two of the same substat
     const subs = (Array.isArray(r.subs) ? r.subs : []).slice(0, 5)
-      .map(s => s && GAME.echo.subs[s.key] ? {key: s.key, val: snapSub(s.key, s.val)} : null)
+      .map(s => s && GAME.echo.subs[s.key] && !seen.has(s.key)
+        ? (seen.add(s.key), {key: s.key, val: snapSub(s.key, s.val)}) : null)
       .filter(Boolean);
     const name = typeof r.name === 'string' ? r.name.slice(0, 40) : '';
     return {cost, main, name, subs};
@@ -3686,12 +3691,14 @@ function echoSetNote(name){
                                         : `${s.thr} set — no total yet`)}</span>`;
 }
 
-// a substat row; highlighted (`.focus`) when its stat is one this build chases
-function echoSubRow(sub, ei, si, focus){
+// a substat row; highlighted (`.focus`) when its stat is one this build chases.
+// `taken` = substat keys already used by the echo's OTHER rows — excluded from
+// this row's options so no echo can hold two of the same substat.
+function echoSubRow(sub, ei, si, focus, taken){
   const key = sub ? sub.key : '';
   const on = key && focus.includes(key);
   const keyOpts = `<option value="">— substat —</option>` +
-    GAME.echoStatOrder.filter(k => GAME.echo.subs[k]).map(k =>
+    GAME.echoStatOrder.filter(k => GAME.echo.subs[k] && (k === key || !taken.includes(k))).map(k =>
       `<option value="${k}"${k === key ? ' selected' : ''}>${esc(GAME.echoStats[k].label)}</option>`).join('');
   const valOpts = (key ? GAME.echo.subs[key] : []).map(v =>
     `<option value="${v}"${sub && sub.val === v ? ' selected' : ''}>${statStr(key, v)}</option>`).join('');
@@ -3707,7 +3714,7 @@ function echoSubRow(sub, ei, si, focus){
 function echoCol(e, ei, cid, focus){
   const sec = GAME.echo.secondary[e.cost];
   const mv = echoMainVal(e.cost, e.main);
-  return `<div class="ecol" data-ei="${ei}">` +
+  return `<div class="ecol${ei === 0 ? ' lead' : ''}" data-ei="${ei}">` +
     `<div class="ecol-h">` +
       `<span class="egrip" draggable="true" title="Drag to reorder · the first echo is the lead">⠿</span>` +
       `<input class="ename" type="text" data-ei="${ei}" data-ename value="${esc(e.name || '')}" ` +
@@ -3721,7 +3728,8 @@ function echoCol(e, ei, cid, focus){
         `<option value="${m.key}"${m.key === e.main ? ' selected' : ''}>${esc(GAME.echoStats[m.key].label)}</option>`).join('')}</select>` +
     `</div>` +
     `<div class="emval"><b>${statStr(e.main, mv)}</b>${sec ? ` <span class="esec">+ ${echoNum(sec.val)} ${esc(GAME.echoStats[sec.key].label)}</span>` : ''}</div>` +
-    `<div class="esubs">${[0,1,2,3,4].map(si => echoSubRow(e.subs[si], ei, si, focus)).join('')}</div>` +
+    `<div class="esubs">${[0,1,2,3,4].map(si =>
+      echoSubRow(e.subs[si], ei, si, focus, e.subs.filter((_, i) => i !== si).map(s => s.key))).join('')}</div>` +
   `</div>`;
 }
 
@@ -3795,12 +3803,14 @@ function echoBuildCard(g){
 // re-read all five substat rows of one echo (scoped to its card), densified
 // (empty rows dropped, values snapped to a legal roll) — source of truth on edit
 function readEchoSubs(card, ei){
-  const out = [];
+  const out = [], seen = new Set();
   for(let si = 0; si < 5; si++){
     const k = card.querySelector(`[data-esub][data-ei="${ei}"][data-si="${si}"]`);
     const v = card.querySelector(`[data-eval][data-ei="${ei}"][data-si="${si}"]`);
-    if(k && k.value && GAME.echo.subs[k.value])
+    if(k && k.value && GAME.echo.subs[k.value] && !seen.has(k.value)){
+      seen.add(k.value);
       out.push({key: k.value, val: snapSub(k.value, v && v.value !== '' ? v.value : GAME.echo.subs[k.value][0])});
+    }
   }
   return out;
 }

@@ -269,7 +269,11 @@ it goes in block 2 with tests; presentation goes in block 3.
   the FIRST echo** (no `lead` field; old saves with a `lead` index migrate by
   floating that echo to the front). Echoes carry a free-text `name` and are
   **drag-reordered** within a card by a ⠿ grip (`moveEcho`; dropping at index 0
-  makes it the lead) — there is no lead highlight, position alone signals it. A build is materialized only on the first edit (`ensureBuild`);
+  makes it the lead). The lead echo wears a subtle cyan SIDE BAR (`.ecol.lead`,
+  left border only) — no LEAD tag or full highlight; position is the real
+  signal, the bar a quiet cue. **No echo may hold two of the same substat**: a
+  used key is filtered out of the echo's other substat dropdowns (`echoSubRow`'s
+  `taken`), and `sanitizeBuild`/`readEchoSubs` dedupe by key (first wins). A build is materialized only on the first edit (`ensureBuild`);
   viewing a character renders a `freshBuild()` preview without saving. `pruneLinks`
   drops a build when its character leaves the roster; `sanitize` keeps only
   roster builds and repairs each via `sanitizeBuild`.

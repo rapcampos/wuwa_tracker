@@ -2149,12 +2149,21 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   // editing one card leaves the others untouched (radio groups are scoped by charId)
   ok('editing Jinhsi did not materialize a build for Phoebe', w.eval('state.builds.phoebe === undefined'));
 
-  // the lead is positional with NO marker; the first echo's name field hints it
-  ok('no lead highlight or radios — position alone; first echo name hints "lead"',
-     card('jinhsi').querySelector('.ecol.lead') === null &&
+  // the lead is positional: the FIRST echo wears a subtle side bar (.ecol.lead),
+  // no LEAD tag, no radios; its name field hints "lead echo…"
+  ok('the first echo has the side bar; no tag/radios; others have no bar',
+     card('jinhsi').querySelectorAll('.egrid .ecol')[0].classList.contains('lead') &&
+     !card('jinhsi').querySelectorAll('.egrid .ecol')[1].classList.contains('lead') &&
      card('jinhsi').querySelector('.leadtag') === null &&
      card('jinhsi').querySelector('[data-elead]') === null &&
      card('jinhsi').querySelector('.ecol[data-ei="0"] [data-ename]').placeholder === 'lead echo…');
+  // no echo may hold two of the same substat — a used key drops from other rows
+  const du0 = q('jinhsi', '[data-esub][data-ei="0"][data-si="0"]'); du0.value = 'cr'; fire(du0, 'change');
+  const du1 = q('jinhsi', '[data-esub][data-ei="0"][data-si="1"]'); du1.value = 'cd'; fire(du1, 'change');
+  const duOpts = [...q('jinhsi', '[data-esub][data-ei="0"][data-si="2"]').options].map(o => o.value);
+  ok('a used substat is removed from the other rows of the same echo',
+     !duOpts.includes('cr') && !duOpts.includes('cd') &&
+     [...q('jinhsi', '[data-esub][data-ei="0"][data-si="0"]').options].map(o => o.value).includes('cr'));
   // cost is a compact select (just the number, no "-cost") to the LEFT of the main-stat
   ok('cost shows just the number and sits before the main-stat select',
      [...card('jinhsi').querySelector('[data-ecost][data-ei="0"]').options].map(o => o.textContent).join(',') === '1,3,4' &&

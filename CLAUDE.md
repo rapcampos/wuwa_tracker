@@ -265,8 +265,8 @@ it goes in block 2 with tests; presentation goes in block 3.
   "Ledger | Teams | Echoes"; `location.hash === '#echoes'` — routing widened to
   the `PAGES` list). Records the ECHO build a character wears; planning-only,
   like Teams — it never touches costs, totals, or the queue. `state.builds` =
-  `{charId: {set, focus:[…], echoes:[{cost:1|3|4, main:<canonical key>,
-  name:<free text>, subs:[{key,val}…≤5]} ×5]}}` — the `main` VALUE and each
+  `{charId: {focus:[…], echoes:[{cost:1|3|4, main:<canonical key>,
+  name:<free text>, set:<sonata|null>, subs:[{key,val}…≤5]} ×5]}}` — the `main` VALUE and each
   echo's flat SECONDARY are fixed by cost, so they're derived (`echoMainVal`,
   `GAME.echo.secondary`), never stored. The **lead echo is positional — always
   the FIRST echo** (no `lead` field; old saves with a `lead` index migrate by
@@ -283,11 +283,36 @@ it goes in block 2 with tests; presentation goes in block 3.
   Everything folds onto ONE canonical stat vocabulary
   (`GAME.echoStats`, ordered by `GAME.echoStatOrder`): flat vs percent are
   SEPARATE keys (`atk` = flat ATK, `atkp` = ATK%; `pct` flag drives formatting).
+  **The Sonata set lives on each ECHO**, not the build — so 3pc+2pc (or
+  2pc+2pc+1, or a straight 5pc) is representable. `setCounts`/`activeSets`
+  (engine, pure) count pieces per set and report `[{name,count,need,on,k,v,thr}]`
+  most-worn first; EVERY set with enough pieces contributes, so a 3pc+2pc build
+  lands BOTH 2pc bonuses. Threshold is a hard rule (`setNeed`): the classic sets
+  activate at 2, but the six newer ones are threshold-ONLY — 3pc (Flamewing's
+  Shadow, Dream of the Lost, Law of Harmony, Crown of Valor, Thread of Severed
+  Fate) or 1pc (Shadow of Shattered Dreams) — and grant NOTHING below it (their
+  wiki infoboxes define no 2pc tier at all). Old single-set saves migrate the
+  set onto every echo. The card shows one chip per set worn (`echoSetSummary`,
+  `.eset` — lit when live) with its count and bonus.
   `buildTotals(build, forte)` (engine, pure) sums every echo's main + fixed
-  secondary + substats, the Sonata **2pc** bonus, and the forte grant
+  secondary + substats, the active Sonata bonuses, and the forte grant
   (`forteStatTotals` output, mapped through `FORTE_CANON`) into one ordered
-  `[{key,label,pct,val}]`. Only 2/5 Sonata sets contribute numerically;
-  the newer 3pc/1pc-threshold sets carry `k:null` and add nothing yet.
+  `[{key,label,pct,val}]`. Only classic 2/5 sets contribute numerically;
+  the six threshold-only sets carry `k:null` and add nothing yet.
+  **Effect text**: every set carries `fx` ({p2,p5}, or {pt} for threshold-only)
+  and every weapon carries `GAME.weaponFx[id]` = {n: R1 passive name, fx: text}.
+  Both are DISPLAY-ONLY — every effect is conditional, so none is folded into
+  totals. Surfaced as tooltips: `setTip` on the set chips + per-echo set select,
+  `wpnTip` on the card's weapon line (which also shows the passive name inline).
+  Weapon passives came from the fandom wiki's structured infobox rank-1 vars (R1
+  guaranteed by construction, not eyeballed), cross-checked vs Game8 — which
+  caught three wiki errors (Whispers of Sirens + Skull Thrasher carried another
+  weapon's passive NAME; Emerald Sentence's R1 is 30%, not 12%).
+  **"Sun-sinking Eclipse" is NOT a real set** — the wiki hard-redirects it to
+  Havoc Eclipse; removed Jul 2026, which is why the catalog is **34**, not 35.
+  Two 3.5 5pc percentages are unresolvable from open sources and marked DISPUTED
+  inline (Heart of Evil's Purge 30 vs 20; Song of Feathered Trace 35/25/20) —
+  settle them in-game. Firstlight's Herald's passive is a pre-release preview.
   **Final stats** (`finalStats`, engine/pure) fold those gear bonuses onto the
   character's Lv90 base (`GAME.charBase[id] = {atk,hp,def}`) and the LINKED
   weapon's base (`GAME.weaponBase[wpnId] = {atk, key, val}` — key a canonical

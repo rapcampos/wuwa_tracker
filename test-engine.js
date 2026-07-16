@@ -894,8 +894,8 @@ eq('stripCE never mutates its input', (() => {
 {
   eq('5★ echo budget is 12', GAME.echo.budget, 12);
   eq('three valid echo costs', GAME.echo.costs, [1, 3, 4]);
-  eq('35 named Sonata sets, all uniquely named', GAME.echo.sonata.length, 35);
-  eq('Sonata names are unique', new Set(GAME.echo.sonata.map(s => s.name)).size, 35);
+  eq('34 named Sonata sets, all uniquely named', GAME.echo.sonata.length, 34);
+  eq('Sonata names are unique', new Set(GAME.echo.sonata.map(s => s.name)).size, 34);
   eq('every echoStats key resolves to a label',
      GAME.echoStatOrder.every(k => GAME.echoStats[k] && GAME.echoStats[k].label), true);
   eq('flat and percent ATK are separate keys',
@@ -916,7 +916,7 @@ eq('stripCE never mutates its input', (() => {
   // sanitizeBuild repairs illegal input
   const dirty = sanitizeBuild({set:'Nonexistent Set',
     echoes:[{cost:2, main:'zzz', subs:[{key:'cr', val:7.4}, {key:'bad', val:5}]}]});
-  eq('unknown set drops to null', dirty.set, null);
+  eq('the build carries no top-level set any more (sets live on echoes)', dirty.set, undefined);
   eq('no separate lead field any more — lead is positional', dirty.lead, undefined);
   eq('illegal cost falls back to the slot default (4)', dirty.echoes[0].cost, 4);
   eq('a main invalid for the cost resets to the pool head', dirty.echoes[0].main, 'atkp');
@@ -952,11 +952,12 @@ eq('stripCE never mutates its input', (() => {
      sanitizeBuild({focus:['cr', 'cd', 'cr', 'glacio', 'nope']}).focus, ['cr', 'cd']);
   eq('a non-array focus sanitizes to empty', sanitizeBuild({focus:'cr'}).focus, []);
 
-  // buildTotals folds echoes + set 2pc + forte onto one vocabulary
+  // buildTotals folds echoes + set bonuses + forte onto one vocabulary
+  const wear = (bd, name, n) => { for(let i = 0; i < n; i++) bd.echoes[i].set = name; return bd; };
   const b = freshBuild();
   b.echoes[0].main = 'cd';                    // 4-cost Crit DMG 44
   b.echoes[0].subs = [{key:'cr', val:8.1}, {key:'cd', val:19.8}];
-  b.set = 'Freezing Frost';                   // 2pc +10% Glacio
+  wear(b, 'Freezing Frost', 5);               // full 5pc → its 2pc +10% Glacio is live
   const forte = [{key:'critRate', label:'Crit. Rate', pct:8}, {key:'atk', label:'ATK', pct:12}];
   const tot = Object.fromEntries(buildTotals(b, forte).map(t => [t.key, t.val]));
   eq('Crit DMG = main 44 + sub 19.8', tot.cd, 63.8);
@@ -965,10 +966,45 @@ eq('stripCE never mutates its input', (() => {
   eq('Glacio comes from the 2pc set only', tot.glacio, 10);
   eq('flat ATK secondaries: 150 + 100 + 100', tot.atk, 350);
   eq('a 3pc/1pc set contributes nothing numeric',
-     buildTotals(Object.assign(freshBuild(), {set:'Law of Harmony'}), null)
+     buildTotals(wear(freshBuild(), 'Law of Harmony', 3), null)
        .every(t => t.key !== 'skill' || t.val > 0), true);
   eq('buildTotals with null forte still sums the gear',
      buildTotals(b, null).find(t => t.key === 'cd').val, 63.8);
+
+  // ── per-echo Sonata sets: counting pieces drives the bonuses ──
+  eq('a set below its threshold grants nothing',
+     buildTotals(wear(freshBuild(), 'Freezing Frost', 1), null).some(t => t.key === 'glacio'), false);
+  eq('two pieces of a classic set switch its 2pc on',
+     Object.fromEntries(buildTotals(wear(freshBuild(), 'Freezing Frost', 2), null)
+       .map(t => [t.key, t.val])).glacio, 10);
+  // 3pc Freezing Frost + 2pc Moonlit Clouds → BOTH 2pc bonuses land
+  const split = freshBuild();
+  wear(split, 'Freezing Frost', 3);
+  split.echoes[3].set = 'Moonlit Clouds'; split.echoes[4].set = 'Moonlit Clouds';
+  const st = Object.fromEntries(buildTotals(split, null).map(t => [t.key, t.val]));
+  eq("a 3pc + 2pc split lands both sets' 2pc bonuses", [st.glacio, st.er], [10, 10]);
+  eq('activeSets reports both, most-worn first, with counts and live flags',
+     activeSets(split).map(s => [s.name, s.count, s.need, s.on]),
+     [['Freezing Frost', 3, 2, true], ['Moonlit Clouds', 2, 2, true]]);
+  eq('setCounts counts pieces per set', setCounts(split),
+     {'Freezing Frost': 3, 'Moonlit Clouds': 2});
+  // the six threshold-only sets grant nothing below their threshold
+  eq('a 3pc-threshold set is not live at 2 pieces',
+     activeSets(wear(freshBuild(), 'Law of Harmony', 2))[0].on, false);
+  eq('…and is live at 3', activeSets(wear(freshBuild(), 'Law of Harmony', 3))[0].on, true);
+  eq('the 1pc-threshold set is live at a single piece',
+     activeSets(wear(freshBuild(), 'Shadow of Shattered Dreams', 1))[0].on, true);
+  // old saves carried ONE set for the whole build → migrates onto every echo
+  eq('an old single-set build migrates the set onto all five echoes',
+     sanitizeBuild({set:'Freezing Frost'}).echoes.map(e => e.set),
+     Array(5).fill('Freezing Frost'));
+  eq('per-echo sets win over a legacy build-level set',
+     sanitizeBuild({set:'Freezing Frost', echoes:[{cost:4, main:'cd', set:'Molten Rift'}]}).echoes[0].set,
+     'Molten Rift');
+  eq('an unknown per-echo set drops to null',
+     sanitizeBuild({echoes:[{cost:4, main:'cd', set:'Nope'}]}).echoes[0].set, null);
+  eq('the phantom Sun-sinking Eclipse is gone (it redirects to Havoc Eclipse)',
+     GAME.echo.sonata.some(s => s.name === 'Sun-sinking Eclipse'), false);
 
   // finalStats: fold gear onto Lv90 base (synthetic base — tests the math only)
   GAME.charBase.__t = {atk: 1000, hp: 10000, def: 1200};

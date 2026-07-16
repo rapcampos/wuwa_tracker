@@ -614,6 +614,16 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
   border:1px solid var(--line2); background:var(--panel); color:var(--ink)}
 .ename:focus{outline:none; border-color:var(--cyan)}
 .ename::placeholder{color:var(--faint)}
+/* which Sonata set this echo belongs to — counting these drives 3pc+2pc splits */
+.esetsel{width:100%; min-width:0; padding:2px 4px; font-size:10.5px}
+/* card-level summary: one chip per set worn, lit when its bonus is live */
+.esets{display:flex; flex-wrap:wrap; gap:5px}
+.eset{font-size:11px; padding:2px 8px; border-radius:20px; border:1px dashed var(--line2);
+  background:var(--panel2); color:var(--faint); cursor:help}
+.eset.on{border-style:solid; border-color:var(--cyan); color:var(--ink)}
+.eset b{font-variant-numeric:tabular-nums}
+.eset i{font-style:normal; color:var(--faint); margin-left:2px}
+.eset.on i{color:var(--cyan)}
 /* the cost sits to the LEFT of the main-stat select, shortened to just the number */
 .ecostmain{display:flex; gap:4px}
 .ecostmain .ecost{flex:none; width:42px; padding:3px 2px; font-size:11.5px; text-align:center}
@@ -1554,7 +1564,8 @@ const GAME = {
       {name:'Sierra Gale',               k:'aero',    v:10},
       {name:'Celestial Light',           k:'spectro', v:10},
       {name:'Havoc Eclipse',             k:'havoc',   v:10},
-      {name:'Sun-sinking Eclipse',       k:'havoc',   v:10},
+      // "Sun-sinking Eclipse" removed Jul 2026 — not a real set: the wiki hard-
+      // redirects it to Havoc Eclipse (verified via redirect + page history).
       {name:'Moonlit Clouds',            k:'er',      v:10},
       {name:'Lingering Tunes',           k:'atkp',    v:10},
       {name:'Rejuvenating Glow',         k:'heal',    v:10},
@@ -1742,12 +1753,13 @@ function snapSub(key, val){
 // a fresh empty echo at a given cost (main defaults to the pool's first entry)
 function freshEcho(cost){
   const c = GAME.echo.costs.includes(cost) ? cost : 1;
-  return {cost: c, main: GAME.echo.mains[c][0].key, name: '', subs: []};
+  return {cost: c, main: GAME.echo.mains[c][0].key, name: '', set: null, subs: []};
 }
 function freshBuild(){
   // the lead echo is positional — always the FIRST echo (index 0). No `lead`
-  // field: reordering the echoes is how you change the lead.
-  return {set: null, focus: [],
+  // field: reordering the echoes is how you change the lead. The Sonata set
+  // lives on each ECHO (not the build), so 3pc+2pc splits are representable.
+  return {focus: [],
     echoes: [freshEcho(4), freshEcho(3), freshEcho(3), freshEcho(1), freshEcho(1)]};
 }
 
@@ -1757,8 +1769,7 @@ function freshBuild(){
 function sanitizeBuild(raw){
   const b = freshBuild();
   if(!raw || typeof raw !== 'object') return b;
-  const setOk = GAME.echo.sonata.some(s => s.name === raw.set);
-  b.set = setOk ? raw.set : null;
+  const isSet = n => GAME.echo.sonata.some(s => s.name === n);
   const rawE = Array.isArray(raw.echoes) ? raw.echoes : [];
   b.echoes = b.echoes.map((def, i) => {
     const r = rawE[i];
@@ -1772,8 +1783,12 @@ function sanitizeBuild(raw){
         ? (seen.add(s.key), {key: s.key, val: snapSub(s.key, s.val)}) : null)
       .filter(Boolean);
     const name = typeof r.name === 'string' ? r.name.slice(0, 40) : '';
-    return {cost, main, name, subs};
+    const set = isSet(r.set) ? r.set : null;
+    return {cost, main, name, set, subs};
   });
+  // old saves stored ONE set for the whole build — migrate it onto every echo
+  const oldSet = isSet(raw.set) ? raw.set : null;
+  if(oldSet && !b.echoes.some(e => e.set)) b.echoes.forEach(e => { e.set = oldSet; });
   // old saves stored a separate `lead` index; the lead is now the FIRST echo.
   // Migrate by floating the previously-chosen lead echo to the front.
   const lead = Math.min(GAME.echo.slots - 1, Math.max(0, Math.floor(+raw.lead) || 0));
@@ -1788,6 +1803,33 @@ function sanitizeBuild(raw){
 // total echo cost of a build (sum of the five echo costs)
 function buildCost(build){
   return build.echoes.reduce((s, e) => s + e.cost, 0);
+}
+
+/* ── Sonata sets are counted per ECHO, so a build can mix them ──────────
+   3pc+2pc, 2pc+2pc+1, or a straight 5pc all fall out of counting pieces.
+   Pieces needed: the classic 2/5 sets activate at 2; the six newer ones are
+   threshold-ONLY — 3 (thr:'3pc') or 1 (thr:'1pc') — and grant NOTHING below
+   that (their wiki infoboxes define no 2pc tier at all). */
+function setCounts(build){
+  const c = {};
+  for(const e of build.echoes) if(e.set) c[e.set] = (c[e.set] || 0) + 1;
+  return c;
+}
+const setNeed = s => s.thr === '3pc' ? 3 : s.thr === '1pc' ? 1 : 2;
+
+/* The Sonata sets a build wears, most-worn first:
+   [{name, count, need, on, k, v, thr}] — `on` = bonus active (count >= need).
+   Only classic 2/5 sets carry a numeric bonus (k/v); the 3pc/1pc sets are
+   conditional/text-only for now (k:null), so they add nothing to totals. Pure. */
+function activeSets(build){
+  const counts = setCounts(build);
+  return Object.keys(counts).map(name => {
+    const s = GAME.echo.sonata.find(x => x.name === name);
+    if(!s) return null;
+    const need = setNeed(s);
+    return {name, count: counts[name], need, on: counts[name] >= need, k: s.k, v: s.v, thr: s.thr};
+  }).filter(Boolean)
+    .sort((a, b) => b.count - a.count || (a.name < b.name ? -1 : 1));
 }
 
 /* Sum a build's gear grant onto the canonical vocabulary: every echo's main +
@@ -1805,10 +1847,8 @@ function buildTotals(build, forte){
     if(sec) add(sec.key, sec.val);
     for(const s of e.subs) add(s.key, s.val);
   }
-  if(build.set){
-    const set = GAME.echo.sonata.find(s => s.name === build.set);
-    if(set && set.k) add(set.k, set.v);
-  }
+  // every set with enough pieces contributes — a 3pc+2pc build lands BOTH 2pc bonuses
+  for(const s of activeSets(build)) if(s.on && s.k) add(s.k, s.v);
   if(Array.isArray(forte))
     for(const g of forte) add(FORTE_CANON[g.key], g.pct);
   return GAME.echoStatOrder.filter(k => sum[k] > 0).map(k => ({
@@ -3705,13 +3745,32 @@ function echoRosterGoals(){
     .map(x => x.g);
 }
 
-// the 2pc note for a chosen Sonata set (or its 3pc/1pc phase-2 flag)
-function echoSetNote(name){
-  if(!name) return '';
-  const s = GAME.echo.sonata.find(x => x.name === name);
-  if(!s) return '';
-  return `<span class="enote">${esc(s.k ? `2pc +${s.v}% ${GAME.echoStats[s.k].label}`
-                                        : `${s.thr} set — no total yet`)}</span>`;
+/* Full effect text for a Sonata set, as a hover tooltip string. */
+function setTip(name){
+  const s = name && GAME.echo.sonata.find(x => x.name === name);
+  if(!s) return 'Which Sonata set this echo belongs to';
+  const fx = s.fx || {};
+  const parts = [s.name];
+  if(fx.p2) parts.push('2pc: ' + fx.p2);
+  if(fx.p5) parts.push('5pc: ' + fx.p5);
+  if(fx.pt) parts.push(setNeed(s) + 'pc: ' + fx.pt);
+  return parts.join('\n');
+}
+
+/* What the build's echoes add up to, set-wise: one chip per Sonata worn, with
+   its piece count and whether the bonus is live. A 3pc+2pc split shows both.
+   The chip's tooltip carries the set's full effect text. */
+function echoSetSummary(build){
+  const sets = activeSets(build);
+  if(!sets.length) return `<span class="enote">No sets yet — pick one per echo.</span>`;
+  return `<span class="esets">` + sets.map(s => {
+    const bonus = !s.on ? `needs ${s.need}`
+      : s.k ? `+${s.v}% ${GAME.echoStats[s.k].label}`
+            : `${s.thr} bonus`;
+    return `<span class="eset${s.on ? ' on' : ''}" ` +
+      `title="${esc(setTip(s.name))}">` +
+      `${esc(s.name)} <b>×${s.count}</b> <i>${esc(bonus)}</i></span>`;
+  }).join('') + `</span>`;
 }
 
 // a substat row; highlighted (`.focus`) when its stat is one this build chases.
@@ -3744,6 +3803,11 @@ function echoCol(e, ei, cid, focus){
         `placeholder="${ei === 0 ? 'lead echo…' : 'echo name…'}" autocomplete="off" spellcheck="false" ` +
         `title="Name this echo (e.g. the lead monster you want)">` +
     `</div>` +
+    `<select class="esetsel" data-ei="${ei}" data-eset title="${esc(setTip(e.set))}">` +
+      `<option value="">— no set —</option>` +
+      GAME.echo.sonata.map(s =>
+        `<option value="${esc(s.name)}"${s.name === e.set ? ' selected' : ''}>${esc(s.name)}</option>`).join('') +
+    `</select>` +
     `<div class="ecostmain">` +
       `<select class="ecost" data-ei="${ei}" data-ecost title="Echo cost">${GAME.echo.costs.map(c =>
         `<option value="${c}"${c === e.cost ? ' selected' : ''}>${c}</option>`).join('')}</select>` +
@@ -3812,11 +3876,7 @@ function echoBuildCard(g){
       `</div>` +
       `<span class="ebudget${over ? ' over' : ''}" title="Total echo cost — the standard cap is 12">${cost} / ${GAME.echo.budget}</span>` +
     `</div>` +
-    `<div class="erow"><span class="elab">Sonata set</span>` +
-      `<select data-eset><option value="">— none —</option>${GAME.echo.sonata.map(s =>
-        `<option value="${esc(s.name)}"${s.name === build.set ? ' selected' : ''}>${esc(s.name)}${s.thr ? ` (${s.thr})` : ''}</option>`).join('')}</select>` +
-      echoSetNote(build.set) +
-    `</div>` +
+    `<div class="erow"><span class="elab">Sonata</span>${echoSetSummary(build)}</div>` +
     echoFocusRow(focus) +
     `<div class="egrid">${build.echoes.map((e, ei) => echoCol(e, ei, g.char, focus)).join('')}</div>` +
     echoTotalsPanel(g, build, w, forte) +
@@ -3843,8 +3903,10 @@ function readEchoSubs(card, ei){
 function bindEchoSheet(grid){
   grid.querySelectorAll('.ebuild').forEach(card => {
     const id = card.dataset.ec;
-    const set = card.querySelector('[data-eset]');
-    if(set) set.addEventListener('change', e => { ensureBuild(id).set = e.target.value || null; save(); render(); });
+    card.querySelectorAll('[data-eset]').forEach(s => s.addEventListener('change', e => {
+      ensureBuild(id).echoes[+e.target.dataset.ei].set = e.target.value || null;
+      save(); render();
+    }));
     card.querySelectorAll('[data-ecost]').forEach(s => s.addEventListener('change', e => {
       const echo = ensureBuild(id).echoes[+e.target.dataset.ei], cost = +e.target.value;
       echo.cost = cost;

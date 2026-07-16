@@ -2112,14 +2112,33 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
      /ATK%/.test(card('jinhsi').textContent) &&
      /\+ 150 ATK</.test(q('jinhsi', '.emval').innerHTML));
 
-  // pick a Sonata set on Jinhsi's card → live-applies, persists, notes the 2pc
-  const setSel = q('jinhsi', '[data-eset]');
-  setSel.value = 'Freezing Frost'; fire(setSel, 'change');
-  ok('choosing a set materializes + saves that character\'s build',
-     w.eval("state.builds.jinhsi && state.builds.jinhsi.set === 'Freezing Frost'"));
-  ok('the 2pc note shows on the card', /2pc \+10% Glacio DMG/.test(q('jinhsi', '.enote').textContent));
-  ok('the Glacio 2pc lands in the card\'s gear totals',
+  // Sonata sets live on each ECHO — counting pieces drives the bonus
+  const setSel0 = q('jinhsi', '[data-eset][data-ei="0"]');
+  setSel0.value = 'Freezing Frost'; fire(setSel0, 'change');
+  ok('choosing a set on one echo materializes + saves the build',
+     w.eval("state.builds.jinhsi && state.builds.jinhsi.echoes[0].set === 'Freezing Frost'"));
+  ok('one piece is not enough — the chip is unlit and says it needs 2',
+     !q('jinhsi', '.eset').classList.contains('on') &&
+     /needs 2/.test(q('jinhsi', '.eset').textContent));
+  const setSel1 = q('jinhsi', '[data-eset][data-ei="1"]');
+  setSel1.value = 'Freezing Frost'; fire(setSel1, 'change');
+  ok('two pieces switch the 2pc on — chip lit, bonus named, count shown',
+     q('jinhsi', '.eset').classList.contains('on') &&
+     /×2/.test(q('jinhsi', '.eset').textContent) &&
+     /\+10% Glacio DMG/.test(q('jinhsi', '.eset').textContent));
+  ok('the Glacio 2pc lands in the card totals',
      /Glacio DMG/.test(q('jinhsi', '.etotals').textContent));
+  // 3pc Freezing Frost + 2pc Moonlit Clouds — the split this model exists for
+  const wearSet = (ei, name) => { const s = q('jinhsi', `[data-eset][data-ei="${ei}"]`); s.value = name; fire(s, 'change'); };
+  wearSet(2, 'Freezing Frost'); wearSet(3, 'Moonlit Clouds'); wearSet(4, 'Moonlit Clouds');
+  const chips = [...card('jinhsi').querySelectorAll('.eset')];
+  ok('a 3pc + 2pc split lists both sets with counts, both lit',
+     chips.length === 2 && chips.every(c => c.classList.contains('on')) &&
+     /Freezing Frost/.test(chips[0].textContent) && /×3/.test(chips[0].textContent) &&
+     /Moonlit Clouds/.test(chips[1].textContent) && /×2/.test(chips[1].textContent));
+  ok('both 2pc bonuses land: Glacio 10% and Energy Regen 100+10',
+     w.eval("finalStats(state.builds.jinhsi,'jinhsi',null,null).stats.find(s=>s.key==='glacio').val") === 10 &&
+     w.eval("finalStats(state.builds.jinhsi,'jinhsi',null,null).stats.find(s=>s.key==='er').val") === 110);
 
   // set echo 0 main to Crit DMG, add two substats
   const main0 = q('jinhsi', '[data-emain][data-ei="0"]');
@@ -2185,8 +2204,8 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
 
   // the build survives a save/reload round-trip (no lead field any more)
   w.eval('save(); state = sanitize(JSON.parse(localStorage.getItem(STORE_KEY))); render();');
-  ok('the build round-trips through sanitize (positional lead, no lead field)',
-     w.eval("state.builds.jinhsi && state.builds.jinhsi.set === 'Freezing Frost' && state.builds.jinhsi.echoes[0].cost === 1 && state.builds.jinhsi.lead === undefined"));
+  ok('the build round-trips through sanitize (per-echo set, positional lead)',
+     w.eval("state.builds.jinhsi && state.builds.jinhsi.echoes[0].set === 'Freezing Frost' && state.builds.jinhsi.echoes[0].cost === 1 && state.builds.jinhsi.lead === undefined && state.builds.jinhsi.set === undefined"));
 
   // drag an echo to the front → it becomes the new lead (echoes reorder; the
   // lead is positional, so echoes[0] is simply whatever now sits first)

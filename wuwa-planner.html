@@ -602,11 +602,19 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
 .egrid{display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:8px; margin-bottom:16px}
 .ecol{border:1px solid var(--line2); border-radius:10px; padding:8px; background:var(--panel2);
   display:flex; flex-direction:column; gap:7px}
-.ecol.lead{border-color:var(--cyan); box-shadow:0 0 0 1px var(--cyan) inset}
-.ecol-h{display:flex; align-items:center; justify-content:space-between; gap:4px}
-.ecol-h select{padding:2px 4px; font-size:11.5px}
-.ecol-h .elead{display:inline-flex; align-items:center; gap:3px; font-size:10.5px; color:var(--mut); cursor:pointer}
-.emain select{width:100%; font-size:11.5px; padding:3px 4px}
+.ecol.over{border-color:var(--gold); box-shadow:0 0 0 1px var(--gold) inset}   /* drop target */
+.ecol.dragging{opacity:.4}
+.ecol-h{display:flex; align-items:center; gap:5px}
+.egrip{flex:none; color:var(--faint); cursor:grab; font-size:13px; line-height:1; user-select:none}
+.egrip:active{cursor:grabbing}
+.ename{flex:1; min-width:0; padding:2px 6px; font-size:11px; border-radius:6px;
+  border:1px solid var(--line2); background:var(--panel); color:var(--ink)}
+.ename:focus{outline:none; border-color:var(--cyan)}
+.ename::placeholder{color:var(--faint)}
+/* the cost sits to the LEFT of the main-stat select, shortened to just the number */
+.ecostmain{display:flex; gap:4px}
+.ecostmain .ecost{flex:none; width:42px; padding:3px 2px; font-size:11.5px; text-align:center}
+.ecostmain [data-emain]{flex:1; min-width:0; font-size:11.5px; padding:3px 4px}
 .emval{font-size:11px; color:var(--mut); font-variant-numeric:tabular-nums; margin-top:3px}
 .emval b{color:var(--ink); font-weight:700; font-size:12.5px}
 .emval .esec{color:var(--faint)}
@@ -1708,10 +1716,12 @@ function snapSub(key, val){
 // a fresh empty echo at a given cost (main defaults to the pool's first entry)
 function freshEcho(cost){
   const c = GAME.echo.costs.includes(cost) ? cost : 1;
-  return {cost: c, main: GAME.echo.mains[c][0].key, subs: []};
+  return {cost: c, main: GAME.echo.mains[c][0].key, name: '', subs: []};
 }
 function freshBuild(){
-  return {set: null, lead: 0, focus: [],
+  // the lead echo is positional — always the FIRST echo (index 0). No `lead`
+  // field: reordering the echoes is how you change the lead.
+  return {set: null, focus: [],
     echoes: [freshEcho(4), freshEcho(3), freshEcho(3), freshEcho(1), freshEcho(1)]};
 }
 
@@ -1733,9 +1743,13 @@ function sanitizeBuild(raw){
     const subs = (Array.isArray(r.subs) ? r.subs : []).slice(0, 5)
       .map(s => s && GAME.echo.subs[s.key] ? {key: s.key, val: snapSub(s.key, s.val)} : null)
       .filter(Boolean);
-    return {cost, main, subs};
+    const name = typeof r.name === 'string' ? r.name.slice(0, 40) : '';
+    return {cost, main, name, subs};
   });
-  b.lead = Math.min(GAME.echo.slots - 1, Math.max(0, Math.floor(+raw.lead) || 0));
+  // old saves stored a separate `lead` index; the lead is now the FIRST echo.
+  // Migrate by floating the previously-chosen lead echo to the front.
+  const lead = Math.min(GAME.echo.slots - 1, Math.max(0, Math.floor(+raw.lead) || 0));
+  if(lead > 0 && b.echoes[lead]) b.echoes.unshift(b.echoes.splice(lead, 1)[0]);
   // focus substats: the stats to chase for this build, highlighted where they
   // appear as substats. Keep only real substat keys, de-duplicated.
   const subKeys = Object.keys(GAME.echo.subs);
@@ -3686,21 +3700,27 @@ function echoSubRow(sub, ei, si, focus){
     `<select data-ei="${ei}" data-si="${si}" data-eval${key ? '' : ' disabled'}>${valOpts}</select>` +
   `</div>`;
 }
-// one echo column. `cid` scopes the lead radio group so cards don't collide.
-function echoCol(e, ei, lead, cid, focus){
+// one echo column. The FIRST echo is the lead (positional — no marker; its
+// name field just hints "lead echo…"). A grip drags the column to reorder.
+// Header: grip + an editable echo NAME; below it the compact cost select sits
+// to the LEFT of the main-stat select.
+function echoCol(e, ei, cid, focus){
   const sec = GAME.echo.secondary[e.cost];
   const mv = echoMainVal(e.cost, e.main);
-  return `<div class="ecol${lead === ei ? ' lead' : ''}">` +
+  return `<div class="ecol" data-ei="${ei}">` +
     `<div class="ecol-h">` +
-      `<select data-ei="${ei}" data-ecost>${GAME.echo.costs.map(c =>
-        `<option value="${c}"${c === e.cost ? ' selected' : ''}>${c}-cost</option>`).join('')}</select>` +
-      `<label class="elead" title="Mark this echo as the build's lead"><input type="radio" name="elead-${cid}" ` +
-        `value="${ei}"${lead === ei ? ' checked' : ''} data-elead>lead</label>` +
+      `<span class="egrip" draggable="true" title="Drag to reorder · the first echo is the lead">⠿</span>` +
+      `<input class="ename" type="text" data-ei="${ei}" data-ename value="${esc(e.name || '')}" ` +
+        `placeholder="${ei === 0 ? 'lead echo…' : 'echo name…'}" autocomplete="off" spellcheck="false" ` +
+        `title="Name this echo (e.g. the lead monster you want)">` +
     `</div>` +
-    `<div class="emain"><select data-ei="${ei}" data-emain>${GAME.echo.mains[e.cost].map(m =>
+    `<div class="ecostmain">` +
+      `<select class="ecost" data-ei="${ei}" data-ecost title="Echo cost">${GAME.echo.costs.map(c =>
+        `<option value="${c}"${c === e.cost ? ' selected' : ''}>${c}</option>`).join('')}</select>` +
+      `<select data-ei="${ei}" data-emain>${GAME.echo.mains[e.cost].map(m =>
         `<option value="${m.key}"${m.key === e.main ? ' selected' : ''}>${esc(GAME.echoStats[m.key].label)}</option>`).join('')}</select>` +
-      `<div class="emval"><b>${statStr(e.main, mv)}</b>${sec ? ` <span class="esec">+ ${echoNum(sec.val)} ${esc(GAME.echoStats[sec.key].label)}</span>` : ''}</div>` +
     `</div>` +
+    `<div class="emval"><b>${statStr(e.main, mv)}</b>${sec ? ` <span class="esec">+ ${echoNum(sec.val)} ${esc(GAME.echoStats[sec.key].label)}</span>` : ''}</div>` +
     `<div class="esubs">${[0,1,2,3,4].map(si => echoSubRow(e.subs[si], ei, si, focus)).join('')}</div>` +
   `</div>`;
 }
@@ -3767,7 +3787,7 @@ function echoBuildCard(g){
       echoSetNote(build.set) +
     `</div>` +
     echoFocusRow(focus) +
-    `<div class="egrid">${build.echoes.map((e, ei) => echoCol(e, ei, build.lead, g.char, focus)).join('')}</div>` +
+    `<div class="egrid">${build.echoes.map((e, ei) => echoCol(e, ei, g.char, focus)).join('')}</div>` +
     echoTotalsPanel(g, build, w, forte) +
   `</div>`;
 }
@@ -3801,8 +3821,9 @@ function bindEchoSheet(grid){
     card.querySelectorAll('[data-emain]').forEach(s => s.addEventListener('change', e => {
       ensureBuild(id).echoes[+e.target.dataset.ei].main = e.target.value; save(); render();
     }));
-    card.querySelectorAll('[data-elead]').forEach(r => r.addEventListener('change', e => {
-      ensureBuild(id).lead = +e.target.value; save(); render();
+    // echo NAME: save on each keystroke but do NOT re-render (keep the caret)
+    card.querySelectorAll('[data-ename]').forEach(inp => inp.addEventListener('input', e => {
+      ensureBuild(id).echoes[+e.target.dataset.ei].name = e.target.value.slice(0, 40); save();
     }));
     card.querySelectorAll('[data-focus]').forEach(b => b.addEventListener('click', e => {
       const k = e.currentTarget.dataset.focus, f = ensureBuild(id).focus;
@@ -3814,7 +3835,43 @@ function bindEchoSheet(grid){
       ensureBuild(id).echoes[+e.target.dataset.ei].subs = readEchoSubs(card, +e.target.dataset.ei);
       save(); render();
     }));
+    // drag echoes to reorder (within this card). Dropping at index 0 makes the
+    // dragged echo the lead. jsdom rects are 0, so the drop target's own index
+    // is the destination — no midpoint math needed.
+    card.querySelectorAll('.ecol').forEach(col => {
+      const grip = col.querySelector('.egrip');
+      if(grip) grip.addEventListener('dragstart', e => {
+        echoDrag = {cid: id, from: +col.dataset.ei};
+        col.classList.add('dragging');
+        if(e.dataTransfer){ e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', 'echo'); }
+      });
+      if(grip) grip.addEventListener('dragend', () => { echoDrag = null; col.classList.remove('dragging'); });
+      col.addEventListener('dragover', e => {
+        if(!echoDrag || echoDrag.cid !== id) return;
+        e.preventDefault();
+        if(e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+        col.classList.add('over');
+      });
+      col.addEventListener('dragleave', () => col.classList.remove('over'));
+      col.addEventListener('drop', e => {
+        e.preventDefault();
+        if(!echoDrag || echoDrag.cid !== id) return;
+        const from = echoDrag.from, to = +col.dataset.ei;
+        echoDrag = null;
+        moveEcho(id, from, to);
+      });
+    });
   });
+}
+
+let echoDrag = null;                   // {cid, from} echo being dragged within a card
+// move an echo from index `from` to index `to` (final position) in a build
+function moveEcho(id, from, to){
+  if(from === to) return;
+  const b = ensureBuild(id);
+  const [e] = b.echoes.splice(from, 1);
+  b.echoes.splice(to, 0, e);
+  save(); render();
 }
 
 /* rebuilt on every filter keystroke — SAFE because the filter input lives

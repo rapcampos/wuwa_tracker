@@ -912,15 +912,31 @@ eq('stripCE never mutates its input', (() => {
   eq('an out-of-range substat snaps in', snapSub('cd', 999), 21.0);
 
   // sanitizeBuild repairs illegal input
-  const dirty = sanitizeBuild({set:'Nonexistent Set', lead:99,
+  const dirty = sanitizeBuild({set:'Nonexistent Set',
     echoes:[{cost:2, main:'zzz', subs:[{key:'cr', val:7.4}, {key:'bad', val:5}]}]});
   eq('unknown set drops to null', dirty.set, null);
-  eq('lead clamps into 0–4', dirty.lead, 4);
+  eq('no separate lead field any more — lead is positional', dirty.lead, undefined);
   eq('illegal cost falls back to the slot default (4)', dirty.echoes[0].cost, 4);
   eq('a main invalid for the cost resets to the pool head', dirty.echoes[0].main, 'atkp');
   eq('good substats survive (snapped), bad ones drop',
      dirty.echoes[0].subs, [{key:'cr', val:7.5}]);
   eq('missing echoes are padded to five', dirty.echoes.length, 5);
+
+  // old saves stored a `lead` index; it migrates by floating that echo to front
+  const migr = sanitizeBuild({lead:2,
+    echoes:[{cost:4, main:'cr'}, {cost:3, main:'atkp'}, {cost:3, main:'er'}, {cost:1, main:'hpp'}, {cost:1, main:'atkp'}]});
+  eq('a saved lead=2 floats that echo to the front (new lead)',
+     [migr.echoes[0].cost, migr.echoes[0].main], [3, 'er']);
+  eq('lead=0 (or absent) leaves the order untouched',
+     sanitizeBuild({echoes:[{cost:1, main:'hpp'}, {cost:4, main:'cd'}]}).echoes[0].cost, 1);
+
+  // editable echo name: a fresh echo has none; a saved string survives (capped),
+  // a non-string sanitizes to empty
+  eq('a fresh echo has an empty name', freshEcho(4).name, '');
+  eq('a saved echo name survives sanitize',
+     sanitizeBuild({echoes:[{cost:4, main:'cr', name:'Mourning Aix'}]}).echoes[0].name, 'Mourning Aix');
+  eq('a non-string echo name sanitizes to empty',
+     sanitizeBuild({echoes:[{cost:4, main:'cr', name:42}]}).echoes[0].name, '');
 
   // focus substats: keep real substat keys, de-duplicated; junk dropped
   eq('a fresh build has no focus stats', freshBuild().focus, []);

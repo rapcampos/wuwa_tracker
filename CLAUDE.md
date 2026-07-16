@@ -262,10 +262,14 @@ it goes in block 2 with tests; presentation goes in block 3.
   "Ledger | Teams | Echoes"; `location.hash === '#echoes'` — routing widened to
   the `PAGES` list). Records the ECHO build a character wears; planning-only,
   like Teams — it never touches costs, totals, or the queue. `state.builds` =
-  `{charId: {set, lead:0-4, echoes:[{cost:1|3|4, main:<canonical key>,
-  subs:[{key,val}…≤5]} ×5]}}` — the `main` VALUE and each echo's flat SECONDARY
-  are fixed by cost, so they're derived (`echoMainVal`, `GAME.echo.secondary`),
-  never stored. A build is materialized only on the first edit (`ensureBuild`);
+  `{charId: {set, focus:[…], echoes:[{cost:1|3|4, main:<canonical key>,
+  name:<free text>, subs:[{key,val}…≤5]} ×5]}}` — the `main` VALUE and each
+  echo's flat SECONDARY are fixed by cost, so they're derived (`echoMainVal`,
+  `GAME.echo.secondary`), never stored. The **lead echo is positional — always
+  the FIRST echo** (no `lead` field; old saves with a `lead` index migrate by
+  floating that echo to the front). Echoes carry a free-text `name` and are
+  **drag-reordered** within a card by a ⠿ grip (`moveEcho`; dropping at index 0
+  makes it the lead) — there is no lead highlight, position alone signals it. A build is materialized only on the first edit (`ensureBuild`);
   viewing a character renders a `freshBuild()` preview without saving. `pruneLinks`
   drops a build when its character leaves the roster; `sanitize` keeps only
   roster builds and repairs each via `sanitizeBuild`.
@@ -305,13 +309,14 @@ it goes in block 2 with tests; presentation goes in block 3.
   rule). Each card carries `data-ec` (its charId): a header (portrait · name ·
   element/type glyphs · level · linked weapon · a `.ebudget` cost/12 chip that
   reddens when over — a WARN, never a block), a Sonata select with its 2pc
-  note, a wrapping 5-column `.egrid` of echoes (cost select · `lead` radio,
-  group-named `elead-<charId>` so cards don't collide · main-stat select
-  showing derived value + secondary · five substat rows), and a per-card gear
-  totals panel. Every control live-applies via `bindEchoSheet` (per-card,
-  resolving the charId from the enclosing `.ebuild`) → `ensureBuild` →
-  `save(); render()`; substats are re-read from the card densified
-  (`readEchoSubs` drops empty rows, snaps values). **Focus substats**
+  note, a wrapping 5-column `.egrid` of echoes (each: a ⠿ drag grip + a free-text
+  name input in the header, then a compact cost select — just the number — to the
+  LEFT of the main-stat select, its derived value + secondary, and five substat
+  rows), and a per-card totals panel. Every control live-applies via
+  `bindEchoSheet` (per-card, resolving the charId from the enclosing `.ebuild`) →
+  `ensureBuild` → `save(); render()`; substats are re-read from the card densified
+  (`readEchoSubs` drops empty rows, snaps values). The echo NAME input saves on
+  each keystroke WITHOUT re-rendering (caret safety, like the filter inputs). **Focus substats**
   (`build.focus`, a list of substat keys): a row of toggle chips
   (`echoFocusRow`, class `.fochip` — NOT the palette's `.fchip`; `CHIP_LABEL`
   shortens the four skill-DMG names) picks the stats this build chases, and any

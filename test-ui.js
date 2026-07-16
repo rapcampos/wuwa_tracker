@@ -2149,12 +2149,22 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   // editing one card leaves the others untouched (radio groups are scoped by charId)
   ok('editing Jinhsi did not materialize a build for Phoebe', w.eval('state.builds.phoebe === undefined'));
 
-  // lead radio (scoped to this card's group)
-  const lead1 = q('jinhsi', '[data-elead][value="1"]');
-  lead1.checked = true; fire(lead1, 'change');
-  ok('the lead echo persists and highlights its column',
-     w.eval('state.builds.jinhsi.lead === 1') &&
-     card('jinhsi').querySelectorAll('.egrid .ecol')[1].classList.contains('lead'));
+  // the lead is positional with NO marker; the first echo's name field hints it
+  ok('no lead highlight or radios — position alone; first echo name hints "lead"',
+     card('jinhsi').querySelector('.ecol.lead') === null &&
+     card('jinhsi').querySelector('.leadtag') === null &&
+     card('jinhsi').querySelector('[data-elead]') === null &&
+     card('jinhsi').querySelector('.ecol[data-ei="0"] [data-ename]').placeholder === 'lead echo…');
+  // cost is a compact select (just the number, no "-cost") to the LEFT of the main-stat
+  ok('cost shows just the number and sits before the main-stat select',
+     [...card('jinhsi').querySelector('[data-ecost][data-ei="0"]').options].map(o => o.textContent).join(',') === '1,3,4' &&
+     card('jinhsi').querySelector('.ecostmain').children[0].matches('[data-ecost]') &&
+     card('jinhsi').querySelector('.ecostmain').children[1].matches('[data-emain]'));
+  // the editable echo name persists on the echo (saved without a re-render)
+  const nm = card('jinhsi').querySelector('.ecol[data-ei="0"] [data-ename]');
+  nm.value = 'Mourning Aix'; fire(nm, 'input');
+  ok('typing an echo name persists onto that echo',
+     w.eval("state.builds.jinhsi.echoes[0].name === 'Mourning Aix'"));
 
   // changing a cost resets an now-illegal main to the pool head
   const cost0 = q('jinhsi', '[data-ecost][data-ei="0"]');
@@ -2164,10 +2174,18 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok('the budget drops below 12 and is not flagged over',
      w.eval('buildCost(state.builds.jinhsi)') === 9);
 
-  // the build survives a save/reload round-trip
+  // the build survives a save/reload round-trip (no lead field any more)
   w.eval('save(); state = sanitize(JSON.parse(localStorage.getItem(STORE_KEY))); render();');
-  ok('the build round-trips through sanitize',
-     w.eval("state.builds.jinhsi && state.builds.jinhsi.set === 'Freezing Frost' && state.builds.jinhsi.lead === 1"));
+  ok('the build round-trips through sanitize (positional lead, no lead field)',
+     w.eval("state.builds.jinhsi && state.builds.jinhsi.set === 'Freezing Frost' && state.builds.jinhsi.echoes[0].cost === 1 && state.builds.jinhsi.lead === undefined"));
+
+  // drag an echo to the front → it becomes the new lead (echoes reorder; the
+  // lead is positional, so echoes[0] is simply whatever now sits first)
+  const before0 = w.eval('state.builds.jinhsi.echoes[0].cost');
+  fire(card('jinhsi').querySelector('.ecol[data-ei="2"] .egrip'), 'dragstart');
+  fire(card('jinhsi').querySelector('.ecol[data-ei="0"]'), 'drop');
+  ok('dragging an echo onto position 0 reorders it to the front (new lead)',
+     w.eval('state.builds.jinhsi.echoes[0].cost === 3') && before0 !== 3);
 
   // a build is pruned when its character leaves the roster
   w.eval("state.builds.phoebe = freshBuild(); state.goals = state.goals.filter(g => g.char !== 'phoebe'); pruneLinks(); save(); render();");

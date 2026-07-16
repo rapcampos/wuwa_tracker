@@ -922,6 +922,12 @@ eq('stripCE never mutates its input', (() => {
      dirty.echoes[0].subs, [{key:'cr', val:7.5}]);
   eq('missing echoes are padded to five', dirty.echoes.length, 5);
 
+  // focus substats: keep real substat keys, de-duplicated; junk dropped
+  eq('a fresh build has no focus stats', freshBuild().focus, []);
+  eq('focus keeps only valid substat keys, de-duped',
+     sanitizeBuild({focus:['cr', 'cd', 'cr', 'glacio', 'nope']}).focus, ['cr', 'cd']);
+  eq('a non-array focus sanitizes to empty', sanitizeBuild({focus:'cr'}).focus, []);
+
   // buildTotals folds echoes + set 2pc + forte onto one vocabulary
   const b = freshBuild();
   b.echoes[0].main = 'cd';                    // 4-cost Crit DMG 44

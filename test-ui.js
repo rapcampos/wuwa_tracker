@@ -2134,6 +2134,18 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
      /Crit Rate/.test(q('jinhsi', '.etotals').textContent) &&
      w.eval("buildTotals(state.builds.jinhsi, forteStatTotals(state.goals.find(g=>g.char==='jinhsi'),'tgt')).find(t=>t.key==='cr').val") === 16.1);
 
+  // focus substats: toggling a chip persists and highlights matching substats
+  fire(q('jinhsi', '[data-focus="cr"]'), 'click');
+  ok('a focus chip persists onto the build', w.eval("state.builds.jinhsi.focus.includes('cr')"));
+  ok('the active chip is marked on', q('jinhsi', '[data-focus="cr"]').classList.contains('on'));
+  ok('exactly the Crit-Rate substat row is highlighted',
+     card('jinhsi').querySelectorAll('.esub.focus').length === 1 &&
+     q('jinhsi', '[data-esub][data-ei="0"][data-si="0"]').closest('.esub').classList.contains('focus'));
+  fire(q('jinhsi', '[data-focus="cr"]'), 'click');
+  ok('toggling the chip off clears the focus and the highlight',
+     w.eval("!state.builds.jinhsi.focus.includes('cr')") &&
+     card('jinhsi').querySelectorAll('.esub.focus').length === 0);
+
   // editing one card leaves the others untouched (radio groups are scoped by charId)
   ok('editing Jinhsi did not materialize a build for Phoebe', w.eval('state.builds.phoebe === undefined'));
 

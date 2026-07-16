@@ -298,7 +298,13 @@ it goes in block 2 with tests; presentation goes in block 3.
   totals panel. Every control live-applies via `bindEchoSheet` (per-card,
   resolving the charId from the enclosing `.ebuild`) → `ensureBuild` →
   `save(); render()`; substats are re-read from the card densified
-  (`readEchoSubs` drops empty rows, snaps values). A build materializes only on
+  (`readEchoSubs` drops empty rows, snaps values). **Focus substats**
+  (`build.focus`, a list of substat keys): a row of toggle chips
+  (`echoFocusRow`, class `.fochip` — NOT the palette's `.fchip`; `CHIP_LABEL`
+  shortens the four skill-DMG names) picks the stats this build chases, and any
+  substat of a focused type is highlighted gold (`.esub.focus`) where it lands;
+  mains are deliberately not highlighted (user's call). `sanitizeBuild` keeps
+  only real substat keys, de-duped. A build materializes only on
   the first edit; `echoFilter` is transient (a reload starts empty). Echo
   data (5★ +25) verified Jul 2026 vs Game8 / wutheringwaves.gg / Wuthering
   Insight; softer-verified: the Energy-Regen substat ladder, flat ATK/DEF

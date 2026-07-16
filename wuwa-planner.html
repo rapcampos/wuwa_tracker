@@ -586,6 +586,16 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
   padding:3px 9px; border-radius:7px; border:1px solid var(--line2); color:var(--mut); flex:none}
 .ebudget.over{color:var(--red); border-color:var(--red)}
 
+/* focus substats: toggle chips; picked stats get highlighted where they land */
+.efocus{display:flex; align-items:baseline; gap:9px; flex-wrap:wrap; margin-bottom:14px}
+.efocus .elab{font-size:12px; color:var(--mut); font-family:'Chakra Petch',sans-serif; flex:none}
+.fchips{display:flex; flex-wrap:wrap; gap:5px}
+.fochip{flex:none; white-space:nowrap; padding:2px 9px; font-size:11px; border-radius:20px;
+  border:1px solid var(--line2); background:var(--panel2); color:var(--mut); cursor:pointer}
+.fochip:hover{border-color:var(--gold); color:var(--ink)}
+.fochip.on{border-color:var(--gold); background:rgba(229,181,102,.16); color:var(--gold); font-weight:600}
+.esub.focus select{border-color:var(--gold); background:rgba(229,181,102,.12); color:var(--ink)}
+
 /* auto-FIT (not fill): the 5 echoes spread to fill a full-width card, and
    collapse empty tracks so they never cluster narrow on the left; on a
    cramped card they wrap to a second row instead. */
@@ -1604,7 +1614,8 @@ function freshEcho(cost){
   return {cost: c, main: GAME.echo.mains[c][0].key, subs: []};
 }
 function freshBuild(){
-  return {set: null, lead: 0, echoes: [freshEcho(4), freshEcho(3), freshEcho(3), freshEcho(1), freshEcho(1)]};
+  return {set: null, lead: 0, focus: [],
+    echoes: [freshEcho(4), freshEcho(3), freshEcho(3), freshEcho(1), freshEcho(1)]};
 }
 
 /* Repair a raw build into the canonical shape: 5 echoes, legal costs, a main
@@ -1628,6 +1639,10 @@ function sanitizeBuild(raw){
     return {cost, main, subs};
   });
   b.lead = Math.min(GAME.echo.slots - 1, Math.max(0, Math.floor(+raw.lead) || 0));
+  // focus substats: the stats to chase for this build, highlighted where they
+  // appear as substats. Keep only real substat keys, de-duplicated.
+  const subKeys = Object.keys(GAME.echo.subs);
+  b.focus = Array.isArray(raw.focus) ? [...new Set(raw.focus.filter(k => subKeys.includes(k)))] : [];
   return b;
 }
 
@@ -3526,20 +3541,22 @@ function echoSetNote(name){
                                         : `${s.thr} set — no total yet`)}</span>`;
 }
 
-function echoSubRow(sub, ei, si){
+// a substat row; highlighted (`.focus`) when its stat is one this build chases
+function echoSubRow(sub, ei, si, focus){
   const key = sub ? sub.key : '';
+  const on = key && focus.includes(key);
   const keyOpts = `<option value="">— substat —</option>` +
     GAME.echoStatOrder.filter(k => GAME.echo.subs[k]).map(k =>
       `<option value="${k}"${k === key ? ' selected' : ''}>${esc(GAME.echoStats[k].label)}</option>`).join('');
   const valOpts = (key ? GAME.echo.subs[key] : []).map(v =>
     `<option value="${v}"${sub && sub.val === v ? ' selected' : ''}>${statStr(key, v)}</option>`).join('');
-  return `<div class="esub">` +
+  return `<div class="esub${on ? ' focus' : ''}">` +
     `<select data-ei="${ei}" data-si="${si}" data-esub>${keyOpts}</select>` +
     `<select data-ei="${ei}" data-si="${si}" data-eval${key ? '' : ' disabled'}>${valOpts}</select>` +
   `</div>`;
 }
 // one echo column. `cid` scopes the lead radio group so cards don't collide.
-function echoCol(e, ei, lead, cid){
+function echoCol(e, ei, lead, cid, focus){
   const sec = GAME.echo.secondary[e.cost];
   const mv = echoMainVal(e.cost, e.main);
   return `<div class="ecol${lead === ei ? ' lead' : ''}">` +
@@ -3553,8 +3570,21 @@ function echoCol(e, ei, lead, cid){
         `<option value="${m.key}"${m.key === e.main ? ' selected' : ''}>${esc(GAME.echoStats[m.key].label)}</option>`).join('')}</select>` +
       `<div class="emval"><b>${statStr(e.main, mv)}</b>${sec ? ` <span class="esec">+ ${echoNum(sec.val)} ${esc(GAME.echoStats[sec.key].label)}</span>` : ''}</div>` +
     `</div>` +
-    `<div class="esubs">${[0,1,2,3,4].map(si => echoSubRow(e.subs[si], ei, si)).join('')}</div>` +
+    `<div class="esubs">${[0,1,2,3,4].map(si => echoSubRow(e.subs[si], ei, si, focus)).join('')}</div>` +
   `</div>`;
+}
+
+// compact chip labels for the four long skill-DMG bonuses (full name in the tooltip)
+const CHIP_LABEL = {basic:'Basic', heavy:'Heavy', skill:'Skill', lib:'Liberation'};
+// the focus-substat picker: a toggle chip per substat type; active chips are
+// the stats this build chases (highlighted where they land as substats)
+function echoFocusRow(focus){
+  const chips = GAME.echoStatOrder.filter(k => GAME.echo.subs[k]).map(k =>
+    `<button class="fochip${focus.includes(k) ? ' on' : ''}" data-focus="${k}" ` +
+      `title="Highlight ${esc(GAME.echoStats[k].label)} where it appears as a substat">` +
+      `${esc(CHIP_LABEL[k] || GAME.echoStats[k].label)}</button>`).join('');
+  return `<div class="efocus"><span class="elab">Focus substats</span>` +
+    `<div class="fchips">${chips}</div></div>`;
 }
 
 // one character's full build card. `data-ec` scopes every control inside.
@@ -3564,6 +3594,7 @@ function echoBuildCard(g){
   const w = equipOf(wpnGoals(), g.char);
   const wp = w && GAME.weapons[w.weapon];
   const cost = buildCost(build), over = cost > GAME.echo.budget;
+  const focus = build.focus || [];
   const totals = buildTotals(build, forteStatTotals(g, 'tgt'));
   return `<div class="ebuild" data-ec="${g.char}" style="--acc:${ch.elColor}">` +
     `<div class="ehead">` +
@@ -3579,7 +3610,8 @@ function echoBuildCard(g){
         `<option value="${esc(s.name)}"${s.name === build.set ? ' selected' : ''}>${esc(s.name)}${s.thr ? ` (${s.thr})` : ''}</option>`).join('')}</select>` +
       echoSetNote(build.set) +
     `</div>` +
-    `<div class="egrid">${build.echoes.map((e, ei) => echoCol(e, ei, build.lead, g.char)).join('')}</div>` +
+    echoFocusRow(focus) +
+    `<div class="egrid">${build.echoes.map((e, ei) => echoCol(e, ei, build.lead, g.char, focus)).join('')}</div>` +
     `<div class="etotals"><div class="et-h">Gear totals<span class="sub">echoes + set 2pc + forte grant</span></div>` +
       (totals.length ? `<div class="etgrid">${totals.map(t =>
           `<div class="etrow"><span class="etk">${esc(t.label)}</span><span class="etv">${echoNum(t.val)}${t.pct ? '%' : ''}</span></div>`).join('')}</div>`
@@ -3619,6 +3651,12 @@ function bindEchoSheet(grid){
     }));
     card.querySelectorAll('[data-elead]').forEach(r => r.addEventListener('change', e => {
       ensureBuild(id).lead = +e.target.value; save(); render();
+    }));
+    card.querySelectorAll('[data-focus]').forEach(b => b.addEventListener('click', e => {
+      const k = e.currentTarget.dataset.focus, f = ensureBuild(id).focus;
+      const i = f.indexOf(k);
+      if(i < 0) f.push(k); else f.splice(i, 1);
+      save(); render();
     }));
     card.querySelectorAll('[data-esub], [data-eval]').forEach(s => s.addEventListener('change', e => {
       ensureBuild(id).echoes[+e.target.dataset.ei].subs = readEchoSubs(card, +e.target.dataset.ei);

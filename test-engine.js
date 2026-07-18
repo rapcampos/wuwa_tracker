@@ -10,7 +10,7 @@ eval(blocks.join('\n;\n') + `
   costForGoal, totalBag, freshState, maxedState, expToPotions, remainingBag, farmNextWalk, sortMatIds,
   freshWpnState, maxedWpnState, wexpToCores, fmtShort, priorityMatIds, defaultGoalTgt, fuzzyScore,
   nodeShortfall, charEnergy, teamUsage, energyLeft, sanitizeTeams, expTopTier, wexpTopTier,
-  waveplateEstimate, stripCE, craftFromPool, affordCost, poolPlan, spendCost, dailyPlan, familyIds, famLabel,
+  waveplateEstimate, stripCE, craftFromPool, affordCost, poolPlan, spendCost, weeklyPlan, addWeeksMs, familyIds, famLabel,
   activeGoals, equipOf, sanitizeOwners, prioritizeQueue, canCarry,
   statNodesFor, forteStatTotals, overworldBag, isOverworld, weekStartMs});`);
 
@@ -476,97 +476,76 @@ eq('stripCE never mutates its input', (() => {
      [{chars:['jinhsi', null, null]}, {chars:[null, null, null]}]);
 }
 
-// ═══ 21. DAILY PLAN (today's waveplate budget → whole runs) ═══
+// ═══ 21. WEEKLY PLAN (every remaining weekly-boss claim, laid into weeks) ═══
 {
-  const W = GAME.waveplates;
+  const W = GAME.waveplates.weekly;                       // {cost:60, drops:3, perWeek:3}
   const firstOf = cat => Object.keys(MATS).find(id => MATS[id].cat === cat);
-  const BOSS = firstOf('Boss Drops'), WK = firstOf('Weekly Boss'), SPEC = firstOf('Specialty');
-  const FG = Object.keys(MATS).find(id => MATS[id].cat === 'Forgery' && MATS[id].tier === 0);
-  const FAM = MATS[FG].family;
-  const keys = p => p.runs.map(r => r.key);
+  const BOSS = firstOf('Boss Drops');
+  const wks = Object.keys(MATS).filter(id => MATS[id].cat === 'Weekly Boss');
+  const A = wks[0], B = wks[1];
+  // a pinned week boundary (mid-July: 3+ weeks clear of any DST switch)
+  const MON = weekStartMs(Date.parse('2026-07-15T12:00:00'));
+  const DAY = 86400000;
+  const ids = p => p.seq.map(c => c.id);
+  const who = p => p.seq.map(c => c.goal);
+  const sizes = p => p.weeks.map(w => w.claims.length);
 
-  eq('empty queue plans nothing', dailyPlan([]), {runs:[], used:0, leftover:240, overworld:[], weeklyCapped:false});
-  eq('an empty bag plans nothing', dailyPlan([{}]).runs, []);
+  eq('empty queue plans nothing', weeklyPlan([]), {seq:[], weeks:[], claims:0, finish:null, spare:{}});
+  eq('an empty bag plans nothing', weeklyPlan([{}]).claims, 0);
+  eq('only Weekly Boss materials count',
+     weeklyPlan([{[BOSS]: 99, credits: 9e9, exp: 9e9}]).claims, 0);
 
-  // 9 boss mats at 4.5/claim = 2 claims; the budget is not spent past the demand
+  // a full 5★ build needs 26 weeklies → 9 claims → 3 whole weeks
   {
-    const p = dailyPlan([{[BOSS]: 9}]);
-    eq('boss demand rounds up to whole claims', p.runs,
-       [{key:'boss:' + BOSS, kind:'boss', id:BOSS, runs:2, cost:120, yield:9}]);
-    eq('used = plate cost of the runs', [p.used, p.leftover], [120, 120]);
+    const p = weeklyPlan([{[A]: 26}], 0, MON);
+    eq('26 weeklies = 9 claims', p.claims, 9);
+    eq('…paged 3/3/3 into weeks', sizes(p), [3, 3, 3]);
+    eq('weeks start 7 days apart from the given week start',
+       p.weeks.map(w => w.start), [MON, MON + 7 * DAY, MON + 14 * DAY]);
+    eq('finish = the week the last claim lands in', p.finish, MON + 14 * DAY);
+    eq('every claim serves goal 0', who(p).every(g => g === 0), true);
+    eq('26 = 8×3 + 2: the last claim covers only 2', p.seq.map(c => c.take),
+       [3, 3, 3, 3, 3, 3, 3, 3, 2]);
+    eq('…and the 1-mat overshoot is reported as surplus', p.spare, {[A]: 1});
   }
-  // a partial claim still costs a whole claim
-  eq('one mat short of a claim still books one claim', dailyPlan([{[BOSS]: 1}]).runs[0].runs, 1);
+  eq('an exact multiple leaves no surplus', weeklyPlan([{[A]: 6}], 0, MON).spare, {});
 
-  // the budget bounds the plan
-  eq('a 60⚡ budget buys one boss claim', dailyPlan([{[BOSS]: 99}], 60).runs[0].runs, 1);
-  eq('a 40⚡ budget buys no boss claim at all', dailyPlan([{[BOSS]: 99}], 40).runs, []);
-  eq('…but still buys a 40⚡ forgery run', dailyPlan([{[BOSS]: 99, [FG]: 999}], 40).runs,
-     [{key:'fg:' + FAM, kind:'forgery', id:FAM + '3', runs:1, cost:40, yield:W.forgery.t0Equiv}]);
+  // claims already spent this game week shrink only the current row
+  eq('spent claims shrink the current week', sizes(weeklyPlan([{[A]: 26}], 2, MON)), [1, 3, 3, 2]);
+  eq('an exhausted week pushes everything a week out',
+     sizes(weeklyPlan([{[A]: 26}], 3, MON)), [0, 3, 3, 3]);
+  eq('a nonsense used count clamps to a full week', sizes(weeklyPlan([{[A]: 3}], -5, MON)), [1]);
 
-  // forgery tiers collapse onto one domain, weighted 3× per tier
+  // the wk: merge — a shared weekly's partial-claim spare carries forward
   {
-    const p = dailyPlan([{[FAM + '1']: W.forgery.t0Equiv / 3}]);   // 17 t1 = 51 t0-equiv = 1 run
-    eq('a forgery family is one domain, tiers weighted 3×', p.runs.map(r => [r.key, r.runs]),
-       [['fg:' + FAM, 1]]);
+    const p = weeklyPlan([{[A]: 4}, {[A]: 4}], 0, MON);
+    eq('shared weekly: 8 mats = 3 claims, not 2+2', p.claims, 3);
+    eq('…the first two claims serve goal 0, the third goal 1', who(p), [0, 0, 1]);
+    // a claim straddling the goal boundary is NOT surplus: its leftover mats
+    // go to the next hero needing the same boss, and the split says so
+    eq('the boundary claim names both takers (1 for goal 0, 3rd mat → goal 1)',
+       p.seq[1].split, [{goal:0, n:1}, {goal:1, n:2}]);
+    eq('…so it counts as fully used', p.seq[1].take, 3);
+    eq('only the genuine overshoot (9 − 8) is surplus', p.spare, {[A]: 1});
+    eq('a claim inside one goal has a single-taker split', p.seq[0].split, [{goal:0, n:3}]);
   }
+  eq('claims default to queue order', ids(weeklyPlan([{[A]: 3}, {[B]: 3}], 0, MON)), [A, B]);
 
-  // weekly bosses: 3 claims per week, however deep the demand or budget
+  // the user's manual order (state.wkPlan) wins where it can
   {
-    const p = dailyPlan([{[WK]: 30}], 600);                        // demand 10 claims
-    eq('weekly claims stop at the 3/week cap', [p.runs[0].runs, p.weeklyCapped], [3, true]);
-    eq('an uncapped weekly demand does not raise the flag', dailyPlan([{[WK]: 3}]).weeklyCapped, false);
-  }
-
-  // overworld mats are pickups: no runs, listed separately
-  {
-    const p = dailyPlan([{[SPEC]: 60}]);
-    eq('specialty mats cost no waveplates', [p.runs, p.overworld], [[], [SPEC]]);
-  }
-
-  // the pools each get their own simulation
-  eq('credits / EXP / weapon EXP map to their sims',
-     keys(dailyPlan([{credits: 84000, exp: 78440, wexp: 79059}])).sort(),
-     ['credits', 'exp', 'wexp']);
-  eq('an EXP sim is priced and yielded from GAME.waveplates',
-     dailyPlan([{exp: 78440}]).runs[0], {key:'exp', kind:'exp', id:'exp4', runs:1, cost:40, yield:78440});
-  eq('potion items never appear as runs (they feed the pool)', dailyPlan([{exp4: 9}]).runs, []);
-
-  // priority: goal 0 is served first, and a later goal cannot pull runs forward
-  {
-    const p = dailyPlan([{[FG]: 999}, {[BOSS]: 99}], 80);
-    eq('the top goal takes the whole budget when it can use it', keys(p), ['fg:' + FAM]);
-    eq('…two runs of it', p.runs[0].runs, 2);
-  }
-  {
-    const p = dailyPlan([{[FG]: W.forgery.t0Equiv}, {[BOSS]: 9}], 240);  // goal 0 wants exactly 1 run
-    eq('a covered top goal spills the rest into the next', keys(p), ['fg:' + FAM, 'boss:' + BOSS]);
-    eq('spillover respects the next goal’s demand', p.runs.map(r => r.runs), [1, 2]);
-    eq('the plan is priced end to end', [p.used, p.leftover], [160, 80]);
-  }
-  {
-    // the same boss serves both goals: goal 0 needs 1 claim, goal 1 needs 2 more
-    const p = dailyPlan([{[BOSS]: 4}, {[BOSS]: 9}], 60);
-    eq('a shared activity is capped at the demand of the goals reached so far',
-       p.runs[0].runs, 1);
-    eq('…and the full demand is bought once the later goal is reached',
-       dailyPlan([{[BOSS]: 4}, {[BOSS]: 9}], 240).runs[0].runs, 3);
-  }
-
-  // water-filling inside one goal: the biggest remaining demand takes each run
-  {
-    const p = dailyPlan([{[FG]: W.forgery.t0Equiv, [BOSS]: 4}], 100);   // one run of each
-    eq('one goal’s activities share the budget', keys(p).sort(), ['boss:' + BOSS, 'fg:' + FAM]);
-    eq('…and the plan spends it all', p.used, 100);
-    const big = dailyPlan([{[FG]: 999, [BOSS]: 4}], 100);
-    eq('a much larger demand keeps taking runs (water-filling, not round-robin)',
-       big.runs.map(r => [r.key, r.runs]), [['fg:' + FAM, 2]]);
-  }
-  // the weekly's 3/week cap is a use-it-or-lose-it resource: it outranks demand
-  {
-    const p = dailyPlan([{[FG]: 9999, [WK]: 3}], 100);
-    eq('a weekly claim is scheduled ahead of a far bigger forgery demand',
-       p.runs.map(r => [r.key, r.runs]), [['wk:' + WK, 1], ['fg:' + FAM, 1]]);
+    const bags = [{[A]: 6}, {[B]: 3}];                    // default sequence A,A,B
+    eq('a stored order rearranges the claims', ids(weeklyPlan(bags, 0, MON, [B, A, A])), [B, A, A]);
+    eq('stale extra entries drop', ids(weeklyPlan(bags, 0, MON, [B, A, A, A, B])), [B, A, A]);
+    eq('newly-needed claims append behind it in queue order',
+       ids(weeklyPlan(bags, 0, MON, [B])), [B, A, A]);
+    eq('unknown ids in the stored order are ignored',
+       ids(weeklyPlan(bags, 0, MON, ['wk:Nope', B, A, A])), [B, A, A]);
+    // needers follow the claim's SLOT among its boss's claims, not the queue:
+    // pulled forward or not, the k-th claim of a boss covers mats [3k, 3k+3)
+    eq('needers stay consistent under reordering',
+       who(weeklyPlan([{[A]: 4}, {[A]: 4}, {[B]: 3}], 0, MON, [B, A, A, A])), [2, 0, 0, 1]);
+    eq('the partial ×take follows the boss’s LAST occurrence wherever it sits',
+       weeklyPlan([{[A]: 4}, {[B]: 3}], 0, MON, [A, B, A]).seq.map(c => c.take), [3, 3, 1]);
   }
 }
 
@@ -751,25 +730,20 @@ eq('stripCE never mutates its input', (() => {
     eq('the boundary instant itself starts the new week', weekStartMs(ws), ws);
   }
 
-  // the cap: claims already spent this week shrink what the plan may book
+  // the cap: claims already spent this week shrink the planner's current row
   const WK = Object.keys(MATS).find(id => MATS[id].cat === 'Weekly Boss');
-  const wkRuns = p => (p.runs.find(r => r.kind === 'weekly') || {runs: 0}).runs;
-  const bags = [{[WK]: 30}];                       // demand far past the cap
-  eq('a fresh week books the full 3 claims', wkRuns(dailyPlan(bags, 600, 0)), 3);
-  eq('one claim spent → only 2 more', wkRuns(dailyPlan(bags, 600, 1)), 2);
-  eq('two spent → only 1 more', wkRuns(dailyPlan(bags, 600, 2)), 1);
-  eq('an exhausted week books no weekly runs at all', dailyPlan(bags, 600, 3).runs, []);
-  eq('…and says so', dailyPlan(bags, 600, 3).weeklyCapped, true);
-  eq('an over-count never goes negative', dailyPlan(bags, 600, 99).runs, []);
+  const bags = [{[WK]: 30}];                       // 10 claims of demand
+  const MON = weekStartMs(samples[0]);
+  const row0 = used => weeklyPlan(bags, used, MON).weeks[0].claims.length;
+  eq('a fresh week holds the full 3 claims', row0(0), 3);
+  eq('one claim spent → only 2 more this week', row0(1), 2);
+  eq('two spent → only 1 more', row0(2), 1);
+  eq('an exhausted week holds no claims at all', row0(3), 0);
+  eq('an over-count never goes negative', row0(99), 0);
   eq('weeklyUsed defaults to 0 (unchanged behaviour)',
-     wkRuns(dailyPlan(bags, 600)), 3);
-  // the cap must not steal budget from other activities
-  {
-    const BOSS = Object.keys(MATS).find(id => MATS[id].cat === 'Boss Drops');
-    const p = dailyPlan([{[WK]: 30, [BOSS]: 9}], 240, 3);
-    eq('with weeklies exhausted the budget goes to the boss instead',
-       p.runs.map(r => r.kind), ['boss']);
-  }
+     weeklyPlan(bags).weeks[0].claims.length, 3);
+  eq('spent claims delay the finish by a week',
+     weeklyPlan(bags, 3, MON).finish - weeklyPlan(bags, 0, MON).finish, 7 * DAY);
 }
 
 // ═══ 20. PAUSED GOALS: in the queue, out of every calculation ═══
@@ -912,6 +886,30 @@ eq('stripCE never mutates its input', (() => {
   // snapSub picks the nearest legal roll
   eq('substat value snaps to nearest roll', snapSub('cr', 7.4), 7.5);
   eq('an out-of-range substat snaps in', snapSub('cd', 999), 21.0);
+
+  // conditionals: only ticked entries fold into the totals
+  {
+    const b = freshBuild();
+    b.conds = [{key:'cd', val:20, on:true}, {key:'cr', val:8, on:false}];
+    const cd = buildTotals(b, null).find(t => t.key === 'cd');
+    eq('a ticked conditional folds into the totals', cd && cd.val >= 20, true);
+    eq('an unticked conditional stays out', buildTotals(b, null).find(t => t.key === 'cr'), undefined);
+    eq('sanitizeBuild repairs conditionals (bad/flat keys and bad values dropped, on coerced)',
+       sanitizeBuild({conds:[{key:'cd', val:20, on:true}, {key:'nope', val:5},
+                             {key:'atk', val:50},                    // flat key: values are % (user's rule)
+                             {key:'cr', val:-2}, {key:'cr', val:'8', on:'yes'}]}).conds,
+       [{key:'cd', val:20, on:true}, {key:'cr', val:8, on:false}]);
+    eq('a conditional keeps its source-icon ref (weapon or a real set); junk drops',
+       sanitizeBuild({conds:[{key:'cd', val:20, src:'weapon'}, {key:'cr', val:8, src:'Freezing Frost'},
+                             {key:'er', val:10, src:'Nope Set'}]}).conds.map(c => c.src),
+       ['weapon', 'Freezing Frost', undefined]);
+  }
+
+  // echoCV: 2×CR + CD from the SUBSTATS only (mains/secondaries excluded)
+  eq('echoCV sums 2×CR + CD', echoCV({subs:[{key:'cr', val:8.1}, {key:'cd', val:15}]}), 31.2);
+  eq('echoCV counts a lone crit substat', echoCV({subs:[{key:'cd', val:21}]}), 21);
+  eq('echoCV ignores non-crit substats', echoCV({subs:[{key:'cr', val:6.3}, {key:'atkp', val:8.6}]}), 12.6);
+  eq('echoCV is null without a crit substat', echoCV({subs:[{key:'atkp', val:8.6}]}), null);
 
   // sanitizeBuild repairs illegal input
   const dirty = sanitizeBuild({set:'Nonexistent Set',

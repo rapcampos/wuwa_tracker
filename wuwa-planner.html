@@ -393,32 +393,44 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
 .goalstat{display:flex; align-items:center; gap:8px; padding:7px 10px; border:1px solid var(--line); border-radius:8px; margin-bottom:8px; font-size:13px}
 .goalstat .st{margin-left:auto; font-family:'Chakra Petch'; font-size:11.5px; font-weight:600; letter-spacing:.06em}
 
-/* ── Farm next: today's waveplate plan ── */
-.today{border:1px solid var(--line2); border-radius:10px; background:var(--panel2);
+/* ── Farm next: the weekly-boss planner (one row per game week, 3 claim slots) ── */
+.wkplan{border:1px solid var(--line2); border-radius:10px; background:var(--panel2);
   padding:9px 11px; margin-bottom:12px}
 .today-h{display:flex; align-items:center; gap:8px; margin-bottom:4px;
   font-family:'Chakra Petch',sans-serif; font-size:11.5px; letter-spacing:.09em;
   text-transform:uppercase; color:var(--mut)}
 .today-h .budget{margin-left:auto; color:var(--cyan); letter-spacing:.04em}
-.run{display:flex; align-items:center; gap:8px; padding:3px 0; font-size:12.5px}
-.run .ico-wrap{width:24px; height:24px; margin:0; flex:none}
-.run .ico-wrap img{width:24px; height:24px; border-radius:4px}
-.run .rname{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-.run .x{color:var(--ink); font-variant-numeric:tabular-nums; flex:none}
-.run .gain{margin-left:auto; color:var(--faint); font-size:11px; white-space:nowrap}
-.run .plates{color:var(--mut); font-variant-numeric:tabular-nums; width:46px; text-align:right; flex:none}
+.wkrow{display:flex; align-items:center; gap:8px; padding:3px 0}
+.wkrow .wklbl{width:64px; flex:none; font-size:11px; color:var(--faint);
+  font-variant-numeric:tabular-nums; overflow:hidden; white-space:nowrap}
+.wkrow .wklbl.now{color:var(--cyan)}
+.wkrow .wklbl[draggable]{cursor:grab}          /* the date drags the whole week */
+.wkrow .wklbl[draggable]:hover{color:var(--ink)}
+.wk-spare{display:flex; align-items:flex-start; gap:10px; margin-top:8px}
+.wk-spare .slbl{flex:none; padding-top:6px; font-size:9.5px; text-transform:uppercase;
+  letter-spacing:.16em; color:var(--faint)}
+.wkslots{display:flex; gap:6px; flex:1; min-width:0}
+.wkcell{display:flex; align-items:center; gap:4px; flex:1 1 0; min-width:0; padding:3px 6px;
+  border:1px solid var(--line2); border-radius:8px; background:var(--panel);
+  font-size:11.5px; cursor:grab}
+.wkcell .ico-wrap{width:22px; height:22px; margin:0; flex:none}
+.wkcell .ico-wrap img{width:22px; height:22px; border-radius:4px}
+.wkcell .x{color:var(--mut); font-variant-numeric:tabular-nums; flex:none}
+.wkcell .x.part{color:var(--gold)}   /* partial claim: covers less than it drops */
+.wkcell .avatar{width:18px; height:18px; font-size:8px; border-radius:5px; margin-left:auto; flex:none}
+.wkcell:hover{border-color:var(--cyan)}
+.wkcell.spent, .wkcell.empty{justify-content:center; cursor:default; color:var(--faint)}
+.wkcell.spent{opacity:.45}
+.wkcell.empty{opacity:.4; border-style:dashed}
 .today-f{color:var(--faint); font-size:11px; margin-top:6px; line-height:1.5}
-/* a run row is clickable (log what dropped); weekly rows get a ✓ to claim */
-.run{cursor:pointer; border-radius:6px; margin:0 -4px; padding-left:4px; padding-right:4px}
-.run:hover{background:var(--line)}
-.run .run-claim{flex:none; margin-left:8px; padding:1px 7px}
-.run .run-claim-sp{flex:none; margin-left:8px; width:26px}
-.wk-line{margin-top:8px; padding-top:7px; border-top:1px solid var(--line);
-  font-size:11.5px; color:var(--mut)}
+.wk-line{display:flex; align-items:center; gap:10px; margin-top:8px; padding-top:7px;
+  border-top:1px solid var(--line); font-size:11.5px; color:var(--mut)}
 .wk-line b{color:var(--ink)}
-/* Farm next: the no-waveplate materials, grouped by category like the inventory */
+.wk-line .tiny{margin-left:auto}
+/* Farm next: the per-activity boxes + the no-waveplate materials */
 .freefarm{border:1px solid var(--line2); border-radius:10px; background:var(--panel2);
-  padding:9px 11px 12px}
+  padding:9px 11px 12px; margin-bottom:12px}
+.freefarm:last-child{margin-bottom:0}
 .freefarm .ffcat{display:block; padding:11px 0 5px; font-size:10.5px; text-transform:uppercase;
   letter-spacing:.16em; color:var(--faint)}
 /* header row, then the identity meta on its own full-width row below */
@@ -526,6 +538,7 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
 .fchip.on{opacity:1; border-color:var(--cyan); background:rgba(94,234,212,.10)}
 .fchip .attr-img{width:16px; height:16px}
 .fchip.clear{width:auto; padding:0 7px; color:var(--faint)}
+.fchip.all{width:auto; padding:0 7px; font-size:10.5px}   /* facet head: lit while unfiltered */
 .rstar{font-family:'Chakra Petch',sans-serif; font-weight:700; letter-spacing:-.02em}
 .rstar.r5{color:var(--r5)} .rstar.r4{color:var(--r4)} .rstar.r3{color:var(--r3)}
 
@@ -551,6 +564,12 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
 .dcard .avatar{width:52px; height:52px; font-size:15px; border-radius:10px}
 .dcard .dname{max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
   font-family:'Chakra Petch',sans-serif; font-weight:600}
+/* a completed WEAPON keeps its carrier chip: top-left mirror of the ↩. A
+   linked chip stays visible (it is information); the unlinked ＋ only shows
+   on hover, so the grid doesn't sprout plus signs everywhere. */
+.dcard .ochip{position:absolute; top:3px; left:3px}
+.dcard .ochip.none{opacity:0}
+.dcard:hover .ochip.none, .dcard .ochip.none:focus{opacity:1}
 .dcard .tiny{position:absolute; top:3px; right:3px; padding:1px 5px; line-height:1.35;
   opacity:0; transition:opacity .12s}
 .dcard:hover .tiny, .dcard .tiny:focus{opacity:1}
@@ -563,9 +582,48 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
 
 /* ── Echoes page: a top filter row + a stack of per-character build cards,
    one per row (full width, so the echo columns stay roomy) ── */
-.efilter-row{display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:12px}
-.efilter-row .rfind{width:260px; margin-bottom:0}
-.efilter-row .sub{color:var(--faint); font-size:11.5px}
+/* Echoes page: character bar on the LEFT (identity + focused stats), the
+   OPEN sheets stacked in the center panel. Mirrors the Teams .tcols split. */
+.ecols{display:grid; grid-template-columns:minmax(250px, 300px) minmax(0, 1fr); gap:16px; align-items:start}
+@media(max-width:960px){ .ecols{grid-template-columns:1fr} }
+#elist{display:flex; flex-direction:column; gap:7px}
+.echips{display:flex; align-items:center; gap:4px; flex-wrap:wrap; margin-bottom:8px}
+/* nothing open → the bar takes the whole page as a SHOWCASE grid; the first
+   opened sheet collapses it back to the side column */
+.ecols.showcase{grid-template-columns:1fr}
+.ecols.showcase .esheets{display:none}
+.ecols.showcase .rfind{max-width:340px}
+.ecols.showcase #elist{display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:9px}
+/* COMPACT bar card: top row = portrait + weapon icon | focused stats; the
+   identity line (name · element · type · level) sits along the BOTTOM.
+   Click toggles the sheet open (newest on top) / closed. */
+.echar{position:relative; overflow:hidden; display:flex; flex-direction:column; gap:5px;
+  padding:8px 8px 6px; border:1px solid var(--line2); border-radius:10px;
+  background:var(--panel2); cursor:pointer}
+/* the element highlight: edge-to-edge along the top, its BOTTOM a straight
+   line — the card's rounded corners clip the bar's ends, so nothing curves
+   down the sides the way a border-top would (user's call) */
+.echar::before{content:''; position:absolute; top:0; left:0; right:0; height:3px; background:var(--acc)}
+.echar:hover{border-color:var(--cyan)}
+.echar.open{opacity:.5}                       /* already in the center panel — click closes */
+.echar .ectop{display:flex; align-items:center; gap:8px}
+.echar .avatar{width:48px; height:48px; font-size:15px; border-radius:9px; flex:none}
+.echar .ecw{display:inline-flex; flex:none}
+.echar .ecw img{width:20px; height:20px; object-fit:contain; border-radius:4px}
+.echar .ecbot{display:flex; align-items:center; gap:5px; min-width:0; color:var(--mut); font-size:10.5px}
+.echar .ecbot .ecname{font-family:'Chakra Petch',sans-serif; font-weight:600; font-size:12.5px;
+  color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.echar .ecbot .attr, .echar .ecbot .attr-img{width:14px; height:14px}
+.echar .ecbot .num{white-space:nowrap}       /* flows left with the rest of the line */
+/* right column: the HIGHLIGHTED (focus) stats at FINAL values — roomier type,
+   gold like the .esub.focus rows, in the Final-stats panel's order */
+.echar .ecfoc{margin-left:auto; flex:none; display:flex; flex-direction:column; justify-content:center;
+  align-items:flex-end; gap:3px; padding-left:10px; border-left:1px solid var(--line)}
+.echar .est{display:flex; gap:8px; align-items:baseline; font-size:11px; color:var(--faint)}
+.echar .est i{font-style:normal}
+.echar .est b{color:var(--ink); font-size:14px; font-weight:600}   /* unmet/unset: neutral */
+.echar .est b.met{color:var(--gold)}          /* its stat goal is REACHED — ochre */
+.ebuild .eclose{margin-left:6px}
 .esheets{display:grid; grid-template-columns:1fr; gap:16px; align-items:start}
 .ebuild{border:1px solid var(--line); border-radius:12px; padding:14px; background:var(--panel);
   min-width:0; border-left:3px solid var(--acc,var(--cyan))}
@@ -575,27 +633,70 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
 .ehmeta{min-width:0}
 .ehname{font-family:'Chakra Petch',sans-serif; font-weight:700; font-size:18px;
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-.ehwpn{display:flex; align-items:center; gap:5px; font-size:12px; color:var(--mut); margin-top:3px}
+.ehwpn{display:flex; align-items:center; gap:5px; font-size:12px; color:var(--mut); margin-top:3px;
+  cursor:pointer}                              /* click = change link · right-click = unequip */
+.ehwpn:hover{color:var(--ink)}
 .ehwpn img{width:17px; height:17px; object-fit:contain; border-radius:4px}
 .ehwpn .faint{color:var(--faint)}
 .ehwpn[title]{cursor:help}
 .wfx{font-style:normal; color:var(--faint); font-size:11px}
 
-.erow{display:flex; align-items:center; gap:9px; flex-wrap:wrap; margin-bottom:14px}
-.erow .elab{font-size:12px; color:var(--mut); font-family:'Chakra Petch',sans-serif}
-.erow .enote{font-size:11.5px; color:var(--faint)}
-.ebudget{margin-left:auto; align-self:flex-start; font-variant-numeric:tabular-nums; font-size:13px;
+.enote{font-size:11.5px; color:var(--faint)}
+.ebudget{align-self:flex-start; font-variant-numeric:tabular-nums; font-size:13px;
   padding:3px 9px; border-radius:7px; border:1px solid var(--line2); color:var(--mut); flex:none}
 .ebudget.over{color:var(--red); border-color:var(--red)}
 
-/* focus substats: toggle chips; picked stats get highlighted where they land */
-.efocus{display:flex; align-items:baseline; gap:9px; flex-wrap:wrap; margin-bottom:14px}
-.efocus .elab{font-size:12px; color:var(--mut); font-family:'Chakra Petch',sans-serif; flex:none}
-.fchips{display:flex; flex-wrap:wrap; gap:5px}
+/* ── sheet header: two columns above the echo grid ──
+   LEFT = character info + the worn Sonata sets (one line each, most pieces
+   first); RIGHT = the Focus control (pop-up picks AND orders the chased
+   stats) with the Final stats filling the space beneath it. */
+.ehdr{display:grid; grid-template-columns:minmax(260px, 340px) minmax(0, 1fr); gap:16px;
+  align-items:start; margin-bottom:12px}
+@media(max-width:900px){ .ehdr{grid-template-columns:1fr} }
+.ehsets{display:flex; flex-direction:column; align-items:flex-start; gap:4px}
+.ehsets .eset{font-size:12px; padding:2px 9px}
+.setfill{font-size:11px; padding:2px 6px; border-radius:20px; border:1px dashed var(--line2);
+  background:var(--panel2); color:var(--faint); max-width:180px}
+.setfill:hover{border-color:var(--cyan); color:var(--ink)}
+/* conditionals: ticked = counted into the totals; the add row transcribes
+   a weapon passive / 5pc effect (stat · value · label) */
+.ehconds{display:flex; flex-direction:column; align-items:flex-start; gap:4px; margin-top:10px}
+.ehconds .elab{font-size:11px; text-transform:uppercase; letter-spacing:.12em; color:var(--faint);
+  font-family:'Chakra Petch',sans-serif}
+.econd{display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--faint); cursor:pointer}
+.econd.on{color:var(--ink)}
+.econd b{color:var(--mut)}
+.econd.on b{color:var(--gold)}
+.econd .tiny{padding:0 5px}
+.econd-add{display:flex; align-items:center; gap:4px; flex-wrap:wrap}
+.econd-add select{max-width:112px; font-size:10.5px; padding:2px 3px}
+.econd-add input[type="number"]{width:58px; font-size:11px; padding:2px 4px}
+.econd-add input[type="text"]{width:150px; font-size:11px; padding:2px 5px}
+.ehctl{position:relative; display:flex; align-items:center; gap:8px; margin-bottom:10px}
+.ehctl .ebudget{margin-left:auto}
+.fbtn.on{border-color:var(--gold); color:var(--gold)}
+/* the Focus pop-up: ordered chased stats (▲▼ ✕) + the rest as add-chips */
+.fpop{position:absolute; top:calc(100% + 6px); left:0; z-index:40; min-width:250px; max-width:360px;
+  background:var(--panel); border:1px solid var(--line2); border-radius:10px; padding:9px 11px;
+  box-shadow:0 12px 32px rgba(0,0,0,.5)}
+.fpop .frow{display:flex; align-items:center; gap:5px; padding:2px 0; font-size:12px}
+.fpop .fnum{width:14px; flex:none; color:var(--faint); text-align:right; font-variant-numeric:tabular-nums}
+.fpop .fname{flex:1 1 auto; min-width:0; color:var(--gold)}
+.fpop .fgoal{display:inline-flex; align-items:center; gap:3px; flex:none; color:var(--faint); font-size:11px}
+.fpop .fgoal input{width:54px; padding:1px 4px; font-size:11px; border-radius:5px;
+  border:1px solid var(--line2); background:var(--panel2); color:var(--ink)}
+.fpop .fgoal input:focus{outline:none; border-color:var(--gold)}
+.fpop .frow .tiny{padding:0 5px}
+.fpop .fadd{display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; padding-top:8px;
+  border-top:1px solid var(--line)}
+/* the GLOBAL stat-priority template (Echoes section header): same pop-up
+   styling, anchored under the ⇅ button; right-aligned in the panel header */
+.prio-anchor{position:relative; margin-left:auto; align-self:center}
+.prio-anchor .fpop{left:auto; right:0}
+.prio-anchor .fpop .fname{color:var(--ink)}
 .fochip{flex:none; white-space:nowrap; padding:2px 9px; font-size:11px; border-radius:20px;
   border:1px solid var(--line2); background:var(--panel2); color:var(--mut); cursor:pointer}
 .fochip:hover{border-color:var(--gold); color:var(--ink)}
-.fochip.on{border-color:var(--gold); background:rgba(229,181,102,.16); color:var(--gold); font-weight:600}
 .esub.focus select{border-color:var(--gold); background:rgba(229,181,102,.12); color:var(--ink)}
 
 /* auto-FIT (not fill): the 5 echoes spread to fill a full-width card, and
@@ -612,27 +713,39 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
 .ecol-h{display:flex; align-items:center; gap:5px}
 .egrip{flex:none; color:var(--faint); cursor:grab; font-size:13px; line-height:1; user-select:none}
 .egrip:active{cursor:grabbing}
+/* per-echo LOCK: pinned to the right of the header; a locked echo tints */
+.elock{flex:none; margin-left:auto; padding:1px 5px; color:var(--faint)}
+.elock.on{color:var(--gold); border-color:rgba(229,181,102,.5)}
+.ecol.locked{background:rgba(229,181,102,.06); border-color:rgba(229,181,102,.35)}
+/* a FROZEN build: gear reads dimmed (controls are disabled in markup) */
+.ebuild.frozen .egrid{opacity:.6}
 .ename{flex:1; min-width:0; padding:2px 6px; font-size:11px; border-radius:6px;
   border:1px solid var(--line2); background:var(--panel); color:var(--ink)}
 .ename:focus{outline:none; border-color:var(--cyan)}
 .ename::placeholder{color:var(--faint)}
 /* which Sonata set this echo belongs to — counting these drives 3pc+2pc splits */
 .esetsel{width:100%; min-width:0; padding:2px 4px; font-size:10.5px}
-/* card-level summary: one chip per set worn, lit when its bonus is live */
-.esets{display:flex; flex-wrap:wrap; gap:5px}
-.eset{font-size:11px; padding:2px 8px; border-radius:20px; border:1px dashed var(--line2);
+/* header set list: one line per set worn (icon + name ×count), lit when its
+   bonus is live; the full effect text stays in the tooltip (setTip) */
+.eset{display:inline-flex; align-items:center; gap:5px; font-size:11px; padding:2px 8px;
+  border-radius:20px; border:1px dashed var(--line2);
   background:var(--panel2); color:var(--faint); cursor:help}
 .eset.on{border-style:solid; border-color:var(--cyan); color:var(--ink)}
-.eset b{font-variant-numeric:tabular-nums}
-.eset i{font-style:normal; color:var(--faint); margin-left:2px}
-.eset.on i{color:var(--cyan)}
+.eset b{font-variant-numeric:tabular-nums; color:var(--cyan)}
+.son-ico{width:16px; height:16px; object-fit:contain; flex:none}
+/* per-echo set row: the set's icon sits beside its select */
+.esetrow{display:flex; align-items:center; gap:4px}
+.esetrow .esetsel{flex:1 1 auto; min-width:0}
+.esetrow .son-ico{width:18px; height:18px}
 /* the cost sits to the LEFT of the main-stat select, shortened to just the number */
 .ecostmain{display:flex; gap:4px}
 .ecostmain .ecost{flex:none; width:42px; padding:3px 2px; font-size:11.5px; text-align:center}
 .ecostmain [data-emain]{flex:1; min-width:0; font-size:11.5px; padding:3px 4px}
-.emval{font-size:11px; color:var(--mut); font-variant-numeric:tabular-nums; margin-top:3px}
+.emval{display:flex; align-items:baseline; gap:4px; font-size:11px; color:var(--mut);
+  font-variant-numeric:tabular-nums; margin-top:3px}
 .emval b{color:var(--ink); font-weight:700; font-size:12.5px}
 .emval .esec{color:var(--faint)}
+.emval .ecv{margin-left:auto; flex:none; color:var(--mut)}   /* Crit Value, right-aligned */
 .esubs{display:flex; flex-direction:column; gap:4px; border-top:1px solid var(--line2); padding-top:6px}
 .esub{display:grid; grid-template-columns:1fr 58px; gap:4px}
 .esub select{font-size:10.5px; padding:2px 3px; min-width:0}
@@ -644,7 +757,10 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
 .etrow{display:flex; align-items:baseline; justify-content:space-between; gap:8px;
   border-bottom:1px dotted var(--line2); padding-bottom:2px}
 .etk{color:var(--mut); font-size:12.5px}
+.etk.foc{font-weight:700; color:#B9C0D0}      /* a FOCUSED stat's name — bold, halfway mut→ink */
 .etv{color:var(--ink); font-weight:700; text-align:right; font-variant-numeric:tabular-nums}
+.etv.met{color:var(--gold)}                   /* goal reached — value only, goal in the tooltip */
+.etv .goalp{color:var(--faint); font-weight:400}   /* the "/ goal" tail while still short */
 .etnote{color:var(--faint); font-size:11px; margin-top:10px}
 </style>
 </head>
@@ -698,7 +814,11 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
 </section>
 
 <section class="panel" id="pageEcho" hidden>
-  <div class="panel-h"><h2>Echoes</h2><span class="sub">gear sheet per character · 5 echoes · planning only</span></div>
+  <div class="panel-h"><h2>Echoes</h2><span class="sub">gear sheet per character · 5 echoes · planning only</span>
+    <span class="prio-anchor"><button class="tiny fbtn" id="prioBtn"
+      title="Rank ALL stats once — newly focused stats slot into each character’s list in this order (per-character reordering still wins)">⇅ Stat priority</button>
+    <span id="prioPopSlot"></span></span>
+  </div>
   <div class="panel-b" id="echoBody"></div>
 </section>
 
@@ -849,7 +969,7 @@ const GAME = {
        overrides: { "Shell Credit": "credits" }   →  images/materials/credits.png   */
   // `attr` = the game's element + weapon-type glyphs (one flat folder — the two
   // vocabularies don't collide: Spectro/Aero/… vs Sword/Broadblade/…)
-  icons: { dir:'images/', kinds:{char:'characters/', mat:'materials/', weapon:'weapons/', attr:'attributes/'},
+  icons: { dir:'images/', kinds:{char:'characters/', mat:'materials/', weapon:'weapons/', attr:'attributes/', sonata:'sonata/'},
            exts:['png','webp','jpg'],
            overrides:{
              // pooled EXP pseudo-materials render as the max-tier item of their type
@@ -1862,7 +1982,7 @@ function freshBuild(){
   // the lead echo is positional — always the FIRST echo (index 0). No `lead`
   // field: reordering the echoes is how you change the lead. The Sonata set
   // lives on each ECHO (not the build), so 3pc+2pc splits are representable.
-  return {focus: [],
+  return {focus: [], goals: {}, conds: [],
     echoes: [freshEcho(4), freshEcho(3), freshEcho(3), freshEcho(1), freshEcho(1)]};
 }
 
@@ -1887,7 +2007,9 @@ function sanitizeBuild(raw){
       .filter(Boolean);
     const name = typeof r.name === 'string' ? r.name.slice(0, 40) : '';
     const set = isSet(r.set) ? r.set : null;
-    return {cost, main, name, set, subs};
+    const out = {cost, main, name, set, subs};
+    if(r.lock === true) out.lock = true;       // a LOCKED echo (read-only in the sheet)
+    return out;
   });
   // old saves stored ONE set for the whole build — migrate it onto every echo
   const oldSet = isSet(raw.set) ? raw.set : null;
@@ -1896,16 +2018,54 @@ function sanitizeBuild(raw){
   // Migrate by floating the previously-chosen lead echo to the front.
   const lead = Math.min(GAME.echo.slots - 1, Math.max(0, Math.floor(+raw.lead) || 0));
   if(lead > 0 && b.echoes[lead]) b.echoes.unshift(b.echoes.splice(lead, 1)[0]);
-  // focus substats: the stats to chase for this build, highlighted where they
-  // appear as substats. Keep only real substat keys, de-duplicated.
-  const subKeys = Object.keys(GAME.echo.subs);
-  b.focus = Array.isArray(raw.focus) ? [...new Set(raw.focus.filter(k => subKeys.includes(k)))] : [];
+  // focus stats: the stats to chase for this build — substat keys (highlighted
+  // where they roll) plus 'elem', the ONE condensed Elemental-DMG key that
+  // resolves to the character's own element at display time (bar-card
+  // tracking only; no substat rolls an element, mains and sets carry it).
+  const focusable = k => !!GAME.echo.subs[k] || k === 'elem';
+  b.focus = Array.isArray(raw.focus) ? [...new Set(raw.focus.filter(focusable))] : [];
+  // stat GOALS ("at least 65% Crit Rate"), stated in FINAL terms and keyed by
+  // the focus vocabulary. A goal survives unfocusing its stat (kept dormant),
+  // so only the key and a positive finite number are required.
+  b.goals = {};
+  if(raw.goals && typeof raw.goals === 'object')
+    for(const [k, v] of Object.entries(raw.goals))
+      if(focusable(k) && Number.isFinite(+v) && +v > 0) b.goals[k] = +v;
+  // CONDITIONAL effects (weapon passives, 5pc/threshold set bonuses — prose
+  // in the game, so the user transcribes them): {key, val, label, on}. The
+  // values are PERCENTAGES (user's rule — only pct-keys qualify). Only
+  // entries switched ON count into the totals.
+  b.conds = [];
+  if(Array.isArray(raw.conds))
+    for(const c of raw.conds.slice(0, 20)){
+      if(!(c && GAME.echoStats[c.key] && GAME.echoStats[c.key].pct && Number.isFinite(+c.val) && +c.val > 0)) continue;
+      const cond = {key: c.key, val: +c.val, on: c.on === true};   // no text label — the icon speaks
+      // optional source icon: the linked weapon, or a Sonata set by name
+      if(c.src === 'weapon' || isSet(c.src)) cond.src = c.src;
+      b.conds.push(cond);
+    }
+  // a COMPLETED (frozen) build: gear is read-only, only the goals edit.
+  // The flag is the user's word — not re-derived from the goals on load.
+  if(raw.frozen === true) b.frozen = true;
   return b;
 }
 
 // total echo cost of a build (sum of the five echo costs)
 function buildCost(build){
   return build.echoes.reduce((s, e) => s + e.cost, 0);
+}
+
+/* Crit Value of ONE echo's SUBSTATS: 2×Crit Rate + Crit DMG — the community
+   yardstick for how well an echo rolled. Mains and fixed secondaries are
+   deliberately excluded (slots aren't luck); null when neither crit substat
+   is present, so the UI can omit the figure entirely. */
+function echoCV(e){
+  let cr = 0, cd = 0, has = false;
+  for(const s of e.subs || []){
+    if(s.key === 'cr'){ cr = s.val; has = true; }
+    if(s.key === 'cd'){ cd = s.val; has = true; }
+  }
+  return has ? Math.round((2 * cr + cd) * 100) / 100 : null;
 }
 
 /* ── Sonata sets are counted per ECHO, so a build can mix them ──────────
@@ -1954,6 +2114,8 @@ function buildTotals(build, forte){
   for(const s of activeSets(build)) if(s.on && s.k) add(s.k, s.v);
   if(Array.isArray(forte))
     for(const g of forte) add(FORTE_CANON[g.key], g.pct);
+  // user-transcribed CONDITIONAL effects count only while switched on
+  for(const c of build.conds || []) if(c.on) add(c.key, c.val);
   return GAME.echoStatOrder.filter(k => sum[k] > 0).map(k => ({
     key: k, label: GAME.echoStats[k].label, pct: GAME.echoStats[k].pct,
     val: Math.round(sum[k] * 100) / 100,
@@ -2252,77 +2414,96 @@ function weekStartMs(nowMs){
   return d.getTime();
 }
 
-/* ── today's plan: spend one waveplate budget on whole runs ──
+/* ── weekly-boss planner: lay every remaining claim into game weeks ──
    `bags` are deficit bags in queue-priority order (the Farm-next walk's
-   remainders). `weeklyUsed` is how many weekly-boss claims this game week
-   has already spent — the 3/week cap counts those, so an exhausted week
-   stops the plan suggesting weekly runs at all.
-   Materials are booked to activities exactly as
-   waveplateEstimate does, but the budget then buys WHOLE runs: goal 0's
-   activities are filled first (a run at a time, largest remaining demand
-   first — water-filling), and only once they are covered does goal 1 get
-   anything. An activity shared by two goals is capped at the demand of the
-   goals reached so far, so a later goal can't pull runs forward.
-   Weekly bosses share the game's 3-claims-per-week cap.
-   Returns {runs, used, leftover, overworld, weeklyCapped}; each run is
-   {key, kind, id, runs, cost, yield}, yield in the activity's own unit
-   (mats · tier-0 forgery equivalents · EXP · credits). `id` is a material
-   id for the icon — forgery families point at their top tier. */
-function dailyPlan(bags, plates = GAME.waveplates.daily, weeklyUsed = 0){
-  const W = GAME.waveplates;
-  const YIELD = {boss:W.boss.drops, weekly:W.weekly.drops, forgery:W.forgery.t0Equiv,
-                 exp:W.simExp.exp, wexp:W.simWexp.exp, credits:W.simCredit.credits};
-  const acts = new Map(), overworld = new Set();
-  const want = (key, kind, cost, runs, p, id) => {
-    let a = acts.get(key);
-    if(!a) acts.set(key, a = {key, kind, cost, id, dem:[], runs:0});
-    a.dem[p] = (a.dem[p] || 0) + runs;
-  };
+   remainders, paused goals dropped). Only Weekly Boss materials count —
+   the one activity whose drop is DETERMINISTIC (always `weekly.drops` per
+   claim), which is what makes a multi-week forecast honest.
+   The claim sequence defaults to queue order: walking the bags, each goal
+   adds the whole claims its remaining need costs, and a shared weekly's
+   partial-claim spare carries to the later goal (the wk: merge — its
+   claims shrink). `order` (state.wkPlan) is the user's drag-reordered
+   sequence, an array of weekly-mat ids: entries are kept while that boss
+   still needs claims (stale extras drop), and newly-needed claims append
+   behind it in queue order — claims of one boss are interchangeable, so
+   the stored ORDER is all that matters.
+   Weeks then just paginate the flat sequence: the current week (start =
+   `startMs`, i.e. state.week.start) holds `perWeek − weeklyUsed` claims,
+   every later week `perWeek` — so pulling a claim forward ripples the
+   displaced one into the next week with no special cases. Week starts use
+   set-date arithmetic so the Monday-04:00 wall-clock boundary survives DST.
+   Each claim knows who it serves: the k-th claim of a boss covers mats
+   [k·drops, (k+1)·drops) of the queue-ordered demand, so the goal is the
+   first one whose cumulative need reaches past k·drops — stable under any
+   manual reordering.
+   Returns {seq, weeks, claims, finish}: seq = [{id, goal}] (goal = index
+   into `bags`), weeks = [{start, claims}] (claims = slices of seq),
+   finish = the start ms of the week the last claim lands in (null when
+   nothing is needed). */
+function addWeeksMs(startMs, n){
+  const d = new Date(startMs);
+  d.setDate(d.getDate() + 7 * n);
+  return d.getTime();
+}
+function weeklyPlan(bags, weeklyUsed = 0, startMs = 0, order = null){
+  const W = GAME.waveplates.weekly;
+  const share = new Map();                     // id → [{goal, qty}] in queue order
+  const cum = new Map(), want = new Map();     // id → mats so far · claims needed
+  const def = [];                              // default claim sequence (queue order)
   bags.forEach((bag, p) => {
     for(const [id, qty] of Object.entries(bag)){
-      if(!(qty > 0)) continue;
-      const m = MATS[id];
-      if(id === 'credits')        want('credits', 'credits', W.simCredit.cost, qty / W.simCredit.credits, p, 'credits');
-      else if(id === 'exp')       want('exp', 'exp', W.simExp.cost, qty / W.simExp.exp, p, 'exp4');
-      else if(id === 'wexp')      want('wexp', 'wexp', W.simWexp.cost, qty / W.simWexp.exp, p, 'wexp4');
-      else if(!m || m.cat === 'EXP') continue;
-      else if(m.cat === 'Boss Drops')  want('boss:' + id, 'boss', W.boss.cost, qty / W.boss.drops, p, id);
-      else if(m.cat === 'Weekly Boss') want('wk:' + id, 'weekly', W.weekly.cost, qty / W.weekly.drops, p, id);
-      else if(m.cat === 'Forgery')     want('fg:' + m.family, 'forgery', W.forgery.cost,
-                                            qty * Math.pow(3, m.tier) / W.forgery.t0Equiv, p, m.family + '3');
-      else overworld.add(id);                                  // Specialty + Enemy Drops
+      if(!(qty > 0) || !MATS[id] || MATS[id].cat !== 'Weekly Boss') continue;
+      if(!share.has(id)) share.set(id, []);
+      share.get(id).push({goal: p, qty});
+      const c = (cum.get(id) || 0) + qty;
+      cum.set(id, c);
+      const upto = Math.ceil(c / W.drops);     // whole claims this goal's need adds
+      for(let k = want.get(id) || 0; k < upto; k++) def.push(id);
+      want.set(id, upto);
     }
   });
-  const list = [...acts.values()], EPS = 1e-9;
-  const cap = (a, p) => {                       // whole runs justified by goals 0..p
-    let s = 0;
-    for(let i = 0; i <= p; i++) s += a.dem[i] || 0;
-    return Math.ceil(s - EPS);
-  };
-  // claims already spent this game week count against the 3/week cap
-  let left = plates, weekly = Math.max(0, weeklyUsed), weeklyCapped = false;
-  for(let p = 0; p < bags.length && left > 0; p++)
-    for(;;){
-      const cand = list.filter(a => {
-        if(a.cost > left || a.runs >= cap(a, p)) return false;
-        if(a.kind === 'weekly' && weekly >= W.weekly.perWeek){ weeklyCapped = true; return false; }
-        return true;
-      });
-      if(!cand.length) break;
-      // weeklies first: their 3/week cap is the one thing a big forgery demand
-      // could crowd out of today's budget and never give back
-      cand.sort((a, b) => (b.kind === 'weekly') - (a.kind === 'weekly') ||
-                          (cap(b,p) - b.runs) - (cap(a,p) - a.runs) || (a.key < b.key ? -1 : 1));
-      const a = cand[0];
-      a.runs++; left -= a.cost;
-      if(a.kind === 'weekly') weekly++;
+  let ids = def;
+  if(Array.isArray(order) && order.length){    // the user's manual order wins where it can
+    const left = new Map(want);
+    const take = id => (left.get(id) || 0) > 0 && (left.set(id, left.get(id) - 1), true);
+    ids = order.filter(take).concat(def.filter(take));
+  }
+  const kOf = new Map();
+  const seq = ids.map(id => {
+    const k = kOf.get(id) || 0;
+    kOf.set(id, k + 1);
+    let acc = 0, goal = 0;
+    for(const e of share.get(id)){ acc += e.qty; if(k * W.drops < acc){ goal = e.goal; break; } }
+    // `take` = mats of this claim actually needed — only a boss's LAST claim
+    // can be partial (its total demand isn't divisible by `drops`), and the
+    // k-index rule pins the partial to the last occurrence wherever it is
+    // dragged. `split` breaks the taken mats down per goal: a claim that
+    // straddles a goal boundary is NOT surplus — the leftover mats serve the
+    // next goal needing the same boss (the wk: merge).
+    const lo = k * W.drops, hi = Math.min(cum.get(id), lo + W.drops);
+    let at = 0; const split = [];
+    for(const e of share.get(id)){
+      const s = Math.max(lo, at), t = Math.min(hi, at + e.qty);
+      if(t > s) split.push({goal: e.goal, n: t - s});
+      at += e.qty;
+      if(at >= hi) break;
     }
-  const prio = a => a.dem.findIndex(v => v > 0);
-  const runs = list.filter(a => a.runs > 0)
-    .sort((a, b) => prio(a) - prio(b) || b.runs * b.cost - a.runs * a.cost || (a.key < b.key ? -1 : 1))
-    .map(a => ({key:a.key, kind:a.kind, id:a.id, runs:a.runs,
-                cost:a.runs * a.cost, yield:a.runs * YIELD[a.kind]}));
-  return {runs, used: plates - left, leftover: left, overworld:[...overworld], weeklyCapped};
+    return {id, goal, take: hi - lo, split};
+  });
+  const spare = {};                            // whole claims overshoot: spares per boss
+  for(const [id, c] of want){
+    const s = c * W.drops - cum.get(id);
+    if(s > 0) spare[id] = s;
+  }
+  const used = Math.max(0, Math.min(W.perWeek, Math.floor(weeklyUsed) || 0));
+  const weeks = [];
+  for(let wk = 0, i = 0; i < seq.length; wk++){
+    const cap = wk === 0 ? W.perWeek - used : W.perWeek;
+    weeks.push({start: addWeeksMs(startMs, wk), claims: seq.slice(i, i + cap)});
+    i += cap;
+  }
+  return {seq, weeks, claims: seq.length, spare,
+          finish: weeks.length ? weeks[weeks.length - 1].start : null};
 }
 
 /* ── inventory-aware deficit ──
@@ -2576,8 +2757,10 @@ const equipOf = (goals, charId) => goals.find(g => isWpn(g) && g.owner === charI
    GAME.weapons[].wtype) are the same five words, so this is a plain compare. */
 /* the game's two five/six-word vocabularies, in roster-definition order —
    the palette's filter chips iterate these */
-const ELEMENTS = [...new Set(Object.values(GAME.characters).map(c => c.element))];
-const WTYPES   = [...new Set(Object.values(GAME.characters).map(c => c.wtype))];
+// alphabetical (user's call) — these order the filter chips in the palette
+// and on the Echoes bar
+const ELEMENTS = [...new Set(Object.values(GAME.characters).map(c => c.element))].sort();
+const WTYPES   = [...new Set(Object.values(GAME.characters).map(c => c.wtype))].sort();
 const wtypeOfChar = id => (GAME.characters[id] || {}).wtype;
 const wtypeOfWpn  = id => (GAME.weapons[id] || {}).wtype;
 const canCarry = (charId, wpnId) => !!wtypeOfChar(charId) && wtypeOfChar(charId) === wtypeOfWpn(wpnId);
@@ -2724,7 +2907,8 @@ function sanitizeWeek(raw){
 const defaultState = () => ({
   goals: [newGoal('jinhsi', true), newGoal('phoebe', false), newGoal('suisui', false)],
   done: [], inv:{}, synth:true, craftMode:'reserve', hideUn:false, skipCE:false, tab:'total', teams: [],
-  builds: {}, defaults: {4: defaultGoalTgt(4), 5: defaultGoalTgt(5)}, week: freshWeek(),
+  builds: {}, defaults: {4: defaultGoalTgt(4), 5: defaultGoalTgt(5)}, week: freshWeek(), wkPlan: null,
+  statPrio: null,
 });
 
 function sanitize(raw){
@@ -2733,8 +2917,24 @@ function sanitize(raw){
               craftMode: (raw && raw.craftMode === 'priority') ? 'priority' : 'reserve',
               hideUn: !!(raw && raw.hideUn), skipCE: !!(raw && raw.skipCE),
               week: sanitizeWeek(raw && raw.week),
+              // the weekly planner's drag-reordered claim sequence — null means
+              // "queue order"; kept ids must be real Weekly Boss materials
+              // (weeklyPlan trims/extends it against live deficits every render)
+              wkPlan: null,
               // the old 'left' (Inventory) tab is gone — fold it into Total
               tab: ['total','next','done'].includes(raw && raw.tab) ? raw.tab : 'total'};
+  if(Array.isArray(raw && raw.wkPlan)){
+    const wk = raw.wkPlan.filter(id => MATS[id] && MATS[id].cat === 'Weekly Boss');
+    if(wk.length) st.wkPlan = wk;
+  }
+  // the Echoes page's GLOBAL stat-priority template (null = canonical order):
+  // an ordered list of focusable stat keys — newly focused stats slot into a
+  // character's list at this rank (per-character order still wins afterwards)
+  st.statPrio = null;
+  if(Array.isArray(raw && raw.statPrio)){
+    const p = [...new Set(raw.statPrio.filter(k => !!GAME.echo.subs[k] || k === 'elem'))];
+    if(p.length) st.statPrio = p;
+  }
   const fix = x => {
     const o = freshState();
     if(x && typeof x === 'object'){
@@ -3099,10 +3299,13 @@ const attrIco = (name, what) =>
   `<span class="attr" title="${esc(name)} ${what}">${icoImg(name, 'attr', 'attr-img')}</span>`;
 
 /* who this weapon is for (goal.owner) — an avatar sitting on the level line;
-   a faint ＋ when unlinked. Click assigns/reassigns, right-click unlinks. */
-function ownerChip(g, i){
+   a faint ＋ when unlinked. Click assigns/reassigns, right-click unlinks.
+   `attrs` carries the caller's data hooks: queue cards use
+   data-act="own" data-g (onAct), completed tiles data-down (renderSummary),
+   because a queue index can't address a goal living in state.done. */
+function ownerChip(g, attrs){
   const ch = g.owner && GAME.characters[g.owner];
-  return `<button class="ochip${ch ? '' : ' none'}" data-act="own" data-g="${i}" ` +
+  return `<button class="ochip${ch ? '' : ' none'}" ${attrs} ` +
     `title="${ch ? esc(ch.name) + ' carries this — click to reassign, right-click to unlink'
                  : 'Not linked to a character — click to assign one'}">` +
     (ch ? `<span class="avatar" style="background:${avaBg(ch)}">${ch.mono}${icoImg(ch.name, 'char', 'avatar-img')}</span>`
@@ -3128,7 +3331,7 @@ function goalHead(g, i, it, meta, fin){
 
 function wpnCard(g, i, wk, vw, ceOnly){
   const w = GAME.weapons[g.weapon];
-  const meta = ownerChip(g, i) + attrIco(w.wtype, 'weapon');
+  const meta = ownerChip(g, `data-act="own" data-g="${i}"`) + attrIco(w.wtype, 'weapon');
   return `<div class="goal${g.off ? ' off' : ''}" data-g="${i}" style="--acc:var(--weapon)">` +
     goalHead(g, i, w, meta, !Object.keys(wk.need).length) +
     `${readyBar(vw)}${goalMats(vw, ceOnly)}</div>`;
@@ -3193,7 +3396,7 @@ function onAct(e){
   if(act === 'down') return moveGoal(i, i + 2);
   if(act === 'edit'){ editIdx = i; render(); return; }
   if(act === 'off') state.goals[i].off = !state.goals[i].off;   // pause / resume: reversible in one click, no undo entry
-  if(act === 'own')   return openPal({mode:'owner', g:i});      // who carries this weapon
+  if(act === 'own')   return openPal({mode:'owner', ref: state.goals[i]});   // who carries this weapon
   const fixEdit = () => {                     // keep the pop-up pointed at the same goal
     if(editIdx !== null){
       if(editIdx === i) editIdx = null;
@@ -3236,13 +3439,15 @@ let palSel = 0;
 const palIsOpen = () => !$('#palWrap').hidden;
 /* palPick — what the palette is picking, null = the normal add-goal palette:
      {mode:'slot', t, s}    a member for a team slot   (roster chars with energy)
-     {mode:'owner', g}      a character for weapon goal #g   (Ledger owner row)
+     {mode:'owner', ref}    a character for this weapon goal — `ref` is the goal
+                            OBJECT (it may live in the queue OR in state.done,
+                            so an index can't address it)
      {mode:'equip', char}   a LEDGER weapon for a character   (Teams roster card)
    'equip' entries carry `ref`, the weapon goal object itself — weapon goals may
    be duplicated, so only the object identifies which copy was picked. */
 let palPick = null;
 const palType = () => palPick && (palPick.mode === 'owner'
-  ? wtypeOfWpn((state.goals[palPick.g] || {}).weapon)
+  ? wtypeOfWpn((palPick.ref || {}).weapon)
   : palPick.mode === 'equip' ? wtypeOfChar(palPick.char) : '');
 const PAL_PH = {
   slot:  () => 'Pick a member…',
@@ -3268,22 +3473,25 @@ function renderPalFilt(){
   if(palPick){ box.hidden = true; box.innerHTML = ''; return; }   // no filters in a pick mode
   box.hidden = false;
   const RAR = [5, 4, 3];
+  // val '' = the facet's "All" chip: FIRST in its group, lit while the facet
+  // is unfiltered, and clicking it clears the facet's picks (user's call)
   const chip = (facet, val, body, title, on) =>
-    `<button class="fchip${on ? ' on' : ''}" data-facet="${facet}" data-val="${esc(String(val))}" ` +
+    `<button class="fchip${val === '' ? ' all' : ''}${on ? ' on' : ''}" data-facet="${facet}" data-val="${esc(String(val))}" ` +
     `title="${esc(title)}">${body}</button>`;
   box.innerHTML =
     `<span class="fgrp">` + RAR.map(r =>
       chip('r', r, `<span class="rstar r${r}">${r}★</span>`, `${r}★ only`, palFilt.r.has(r))).join('') + `</span>` +
-    `<span class="fgrp">` + ELEMENTS.map(e =>
+    `<span class="fgrp">` + chip('el', '', 'All', 'Every element', !palFilt.el.size) + ELEMENTS.map(e =>
       chip('el', e, icoImg(e, 'attr', 'attr-img'), e, palFilt.el.has(e))).join('') + `</span>` +
-    `<span class="fgrp">` + WTYPES.map(t =>
+    `<span class="fgrp">` + chip('wt', '', 'All', 'Every weapon type', !palFilt.wt.size) + WTYPES.map(t =>
       chip('wt', t, icoImg(t, 'attr', 'attr-img'), t, palFilt.wt.has(t))).join('') + `</span>` +
     (palFiltOn() ? `<button class="fchip clear" data-facet="clear" title="Clear the filters">✕</button>` : '');
   box.querySelectorAll('[data-facet]').forEach(b => b.addEventListener('click', e => {
-    const f = e.currentTarget.dataset.facet;
+    const f = e.currentTarget.dataset.facet, raw = e.currentTarget.dataset.val;
     if(f === 'clear') palFiltClear();
+    else if(raw === '') palFilt[f].clear();
     else{
-      const set = palFilt[f], v = f === 'r' ? +e.currentTarget.dataset.val : e.currentTarget.dataset.val;
+      const set = palFilt[f], v = f === 'r' ? +raw : raw;
       set.has(v) ? set.delete(v) : set.add(v);
     }
     palSel = 0; renderPal();
@@ -3302,7 +3510,7 @@ function paletteEntries(q){
       if(s >= 0) out.push({score:s, kind:'char', id:g.char, name:ch.name, rarity:ch.rarity});
     }
   } else if(mode === 'owner'){   // roster characters who can WIELD it (same weapon type)
-    const wid = (state.goals[palPick.g] || {}).weapon;
+    const wid = (palPick.ref || {}).weapon;    // the goal OBJECT — it may live in the queue or in done
     for(const g of rosterGoals()){
       if(!canCarry(g.char, wid)) continue;                   // a Sword is for Sword characters
       const ch = GAME.characters[g.char];
@@ -3395,6 +3603,12 @@ function linkWeapon(wgoal, char){
   for(const g of wpnGoals()) if(g.owner === char) delete g.owner;
   if(wgoal) wgoal.owner = char;
 }
+/* right-click "unequip" from the CHARACTER side (Teams strips, Echoes header):
+   drops whatever weapon — queued or completed — the character carries */
+function unequip(charId){
+  const w = equipOf(wpnGoals(), charId);
+  if(w){ delete w.owner; save(); render(); }
+}
 /* ── a maxed goal completes itself ──
    "✓ Max goal" (editor) and the palette's right-click add both SAY the build is
    already done, so the goal moves straight to Completed instead of sitting in
@@ -3463,7 +3677,7 @@ function palActivate(it, built){
   closePal();
   const mode = pick && pick.mode;
   if(mode === 'slot')       state.teams[pick.t].chars[pick.s] = it.id;
-  else if(mode === 'owner') linkWeapon(state.goals[pick.g], it.id);
+  else if(mode === 'owner') linkWeapon(pick.ref, it.id);
   else if(mode === 'equip') linkWeapon(it.ref, pick.char);
   else{
     const g = it.kind === 'wpn' ? newWpnGoal(it.id, true) : newGoal(it.id, true, state.defaults);
@@ -3598,7 +3812,7 @@ function teamSlot(t, s, id){
       `<span class="sname">${esc(ch.name)}</span>` +
     `</button>` +
     `<button class="swpn${wp ? '' : ' none'}" data-eq="${id}" ` +
-        `title="${wp ? esc(wp.name) + ' — click to change the linked weapon'
+        `title="${wp ? esc(wp.name) + ' — click to change the linked weapon, right-click to unequip'
                      : 'No weapon linked — click to pick one from your ledger'}">` +
       (wp ? icoImg(wp.name, 'weapon') : '＋') +
     `</button>` +
@@ -3629,7 +3843,7 @@ function rosterCard(g){
       // lit sits on the right
       [...Array(cap).keys()].map(k => `<i class="${k >= cap - left ? 'on' : ''}"></i>`).join('') + `</span>` +
     `<button class="rwpn${wp ? '' : ' none'}" data-eq="${g.char}" ` +
-      `title="${wp ? esc(wp.name) + ' — click to change the linked weapon' : 'No weapon linked — click to pick one from your ledger'}">` +
+      `title="${wp ? esc(wp.name) + ' — click to change the linked weapon, right-click to unequip' : 'No weapon linked — click to pick one from your ledger'}">` +
       (wp ? icoImg(wp.name, 'weapon') + `<span class="wname">${esc(wp.name)}</span>`
           : `<span class="wname">＋ weapon</span>`) +
     `</button>` +
@@ -3711,10 +3925,16 @@ function renderTeams(){
     if(state.teams[t].chars[s]){ state.teams[t].chars[s] = null; save(); render(); }
     else openPal({mode:'slot', t, s});
   }));
-  box.querySelectorAll('.tgrid [data-eq]').forEach(b => b.addEventListener('click', e => {
-    e.stopPropagation();                   // don't let the click reach the slot
-    openPal({mode:'equip', char: e.currentTarget.dataset.eq});
-  }));
+  box.querySelectorAll('.tgrid [data-eq]').forEach(b => {
+    b.addEventListener('click', e => {
+      e.stopPropagation();                 // don't let the click reach the slot
+      openPal({mode:'equip', char: e.currentTarget.dataset.eq});
+    });
+    b.addEventListener('contextmenu', e => {   // right-click = unequip
+      e.preventDefault(); e.stopPropagation();
+      unequip(e.currentTarget.dataset.eq);
+    });
+  });
   box.querySelector('#rosterFind').addEventListener('input', e => {
     rosterFilter = e.currentTarget.value;
     renderRosterList();                  // the list only — the input keeps focus
@@ -3737,10 +3957,16 @@ function bindRosterCards(box){
     });
     card.addEventListener('dragend', () => { rosterDrag = null; card.classList.remove('dragging'); });
   });
-  box.querySelectorAll('[data-eq]').forEach(b => b.addEventListener('click', e => {
-    e.stopPropagation();
-    openPal({mode:'equip', char: e.currentTarget.dataset.eq});
-  }));
+  box.querySelectorAll('[data-eq]').forEach(b => {
+    b.addEventListener('click', e => {
+      e.stopPropagation();
+      openPal({mode:'equip', char: e.currentTarget.dataset.eq});
+    });
+    b.addEventListener('contextmenu', e => {   // right-click = unequip
+      e.preventDefault(); e.stopPropagation();
+      unequip(e.currentTarget.dataset.eq);
+    });
+  });
 }
 function bindSlotDrops(box){
   box.querySelectorAll('.slot').forEach(slot => {
@@ -3827,7 +4053,11 @@ function prioritizeTeam(i){
    here touches costs or the queue. State: state.builds[charId] (engine
    block). A build materializes only on the first edit (viewing shows a
    fresh preview). echoFilter is transient (a reload starts empty). */
-let echoFilter = '';                   // transient fuzzy filter over the cards
+let echoFilter = '';                   // transient fuzzy filter over the character bar
+let echoOpen = [];                     // charIds whose sheets are open in the center, in open order (transient)
+let focusPop = null;                   // charId whose Focus pop-up is open (transient; survives render)
+let prioPop = false;                   // the ⇅ Stat-priority pop-up (Echoes header; transient)
+let echoChips = {r: new Set(), el: new Set(), wt: new Set()};   // bar filters (transient, like palFilt)
 
 const echoNum = v => (Math.round(v * 100) / 100).toString();
 const statStr = (key, val) => echoNum(val) + (GAME.echoStats[key].pct ? '%' : '');
@@ -3841,10 +4071,18 @@ function ensureBuild(id){
    fuzzyScore as Teams / the inventory pop-up) */
 function echoRosterGoals(){
   const q = echoFilter.trim();
+  const open = g => echoOpen.includes(g.char) ? 1 : 0;
+  // chip filters: within a facet the picks OR, across facets they AND
+  const pass = ch =>
+    (!echoChips.r.size || echoChips.r.has(ch.rarity)) &&
+    (!echoChips.el.size || echoChips.el.has(ch.element)) &&
+    (!echoChips.wt.size || echoChips.wt.has(ch.wtype));
   return rosterGoals()
+    .filter(g => pass(GAME.characters[g.char]))
     .map(g => ({g, s: fuzzyScore(q, GAME.characters[g.char].name)}))
     .filter(x => x.s >= 0)
-    .sort((a, b) => q ? a.s - b.s : 0)
+    // OPEN characters float to the top of the bar (stable within each group)
+    .sort((a, b) => open(b.g) - open(a.g) || (q ? a.s - b.s : 0))
     .map(x => x.g);
 }
 
@@ -3871,23 +4109,102 @@ function setTip(name){
 /* What the build's echoes add up to, set-wise: one chip per Sonata worn, with
    its piece count and whether the bonus is live. A 3pc+2pc split shows both.
    The chip's tooltip carries the set's full effect text. */
-function echoSetSummary(build){
+/* the header's Sonata list: one LINE per set worn — just name ×count, most
+   pieces first (activeSets already sorts that way); lit when the bonus is
+   live, the effect text lives in the tooltip */
+function echoSetList(build, frozen){
   const sets = activeSets(build);
-  if(!sets.length) return `<span class="enote">No sets yet — pick one per echo.</span>`;
-  return `<span class="esets">` + sets.map(s => {
-    const bonus = !s.on ? `needs ${s.need}`
-      : s.k ? `+${s.v}% ${GAME.echoStats[s.k].label}`
-            : `${s.thr} bonus`;
-    return `<span class="eset${s.on ? ' on' : ''}" ` +
-      `title="${esc(setTip(s.name))}">` +
-      `${esc(s.name)} <b>×${s.count}</b> <i>${esc(bonus)}</i></span>`;
-  }).join('') + `</span>`;
+  // while unset (and unlocked) echoes remain, the area also ADDS a set:
+  // the quick-fill select tags them per the fill rules (fillSet)
+  const fillable = !frozen && build.echoes.some(e => !e.set && !e.lock);
+  return `<div class="ehsets">` +
+    sets.map(s => `<span class="eset${s.on ? ' on' : ''}" title="${esc(setTip(s.name))}">` +
+      `${icoImg(s.name, 'sonata', 'son-ico')}${esc(s.name)} <b>×${s.count}</b></span>`).join('') +
+    (fillable
+      ? `<select class="setfill" data-setfill title="Quick-fill the empty slots: a 3pc set takes a 4-, a 3- and a 1-cost; a 1pc takes one; a 2/5pc set takes every empty slot">` +
+          `<option value="">＋ fill a set…</option>` +
+          GAME.echo.sonata.map(s => `<option value="${esc(s.name)}">${esc(s.name)}</option>`).join('') +
+        `</select>`
+      : (sets.length ? '' : `<span class="enote">No sets yet — pick one per echo.</span>`)) +
+  `</div>`;
+}
+
+/* quick-fill `name` onto the build's UNSET (and unlocked) echoes.
+   Threshold sets take exactly their piece count — a 3pc lands on a 4-cost,
+   then a 3-cost, then a 1-cost (user's fill; any unset slot as fallback), a
+   1pc on the biggest free slot. Classic 2/5 sets take EVERY empty slot, so
+   "Rejuvenating Glow on a fresh build" tags all five, and filling Crown of
+   Valor (4/3/1) then Void Thunder leaves the remaining 3+1 as Void Thunder. */
+function fillSet(id, name){
+  const b = ensureBuild(id);
+  const s = GAME.echo.sonata.find(x => x.name === name);
+  if(!s) return;
+  const empty = b.echoes.map((e, i) => (!e.set && !e.lock) ? i : null).filter(i => i !== null);
+  if(!empty.length) return;
+  let take = empty;                            // classic 2/5: as many as fit
+  if(s.thr){                                   // threshold: exactly its piece count
+    const need = setNeed(s);
+    take = [];
+    for(const c of [4, 3, 1]){
+      const i = empty.find(i2 => !take.includes(i2) && b.echoes[i2].cost === c);
+      if(i !== undefined) take.push(i);
+      if(take.length === need) break;
+    }
+    for(const i of empty){ if(take.length >= need) break; if(!take.includes(i)) take.push(i); }
+    take = take.slice(0, need);
+  }
+  for(const i of take) b.echoes[i].set = name;
+  save(); render();
+}
+
+/* CONDITIONAL effects (left column, under the sets): weapon passives and
+   5pc/threshold set bonuses are prose in the game, so the user transcribes
+   them — stat + value + label (the texts sit in the weapon-line and set
+   tooltips). Ticked entries fold into the totals/finals; unticked wait. */
+function echoCondList(build, frozen, wp){
+  const conds = build.conds || [];
+  if(frozen && !conds.length) return '';
+  const dis = frozen ? ' disabled' : '';
+  // a conditional may carry its SOURCE's icon: the linked weapon or a worn set
+  const srcIco = c => c.src === 'weapon' ? (wp ? icoImg(wp.name, 'weapon', 'son-ico') : '')
+                    : c.src ? icoImg(c.src, 'sonata', 'son-ico') : '';
+  const rows = conds.map((c, i) =>
+    `<label class="econd${c.on ? ' on' : ''}">` +
+      `<input type="checkbox" data-cond="${i}"${c.on ? ' checked' : ''}${dis}>` +
+      srcIco(c) +
+      `<b class="num">+${echoNum(c.val)}${GAME.echoStats[c.key].pct ? '%' : ''} ${esc(CHIP_LABEL[c.key] || GAME.echoStats[c.key].label)}</b>` +
+      `<button class="tiny danger" data-condrm="${i}"${dis} title="Remove it">✕</button>` +
+    `</label>`).join('');
+  const srcs = [...(wp ? [['weapon', 'Weapon — ' + wp.name]] : []),
+                ...activeSets(build).map(s => [s.name, s.name])];
+  const addRow = frozen ? '' :
+    `<div class="econd-add">` +
+      (srcs.length ? `<select data-conds title="Attach the source’s icon — the linked weapon or a worn set">` +
+        `<option value="">— icon —</option>` +
+        srcs.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('') +
+      `</select>` : '') +
+      `<select data-condk title="Which stat the effect grants — conditional values are percentages">${(() => {
+        // the six element keys condense into ONE "Elemental DMG" option that
+        // resolves to the character's OWN element when added (user's rule)
+        const ELEM_SET = ['glacio','fusion','electro','aero','spectro','havoc'];
+        const keys = [];
+        for(const k of GAME.echoStatOrder){
+          if(!GAME.echoStats[k].pct) continue;
+          if(ELEM_SET.includes(k)){ if(!keys.includes('elem')) keys.push('elem'); continue; }
+          keys.push(k);
+        }
+        return keys.map(k => `<option value="${k}">${esc(k === 'elem' ? CHIP_LABEL.elem : GAME.echoStats[k].label)}</option>`).join('');
+      })()}</select>` +
+      `<input type="number" data-condv min="0" step="any" placeholder="%" title="How much it grants, in percent">` +
+      `<button class="tiny" data-condadd title="Add — counts into the finals only while ticked">＋</button>` +
+    `</div>`;
+  return `<div class="ehconds"><span class="elab">Conditionals</span>${rows}${addRow}</div>`;
 }
 
 // a substat row; highlighted (`.focus`) when its stat is one this build chases.
 // `taken` = substat keys already used by the echo's OTHER rows — excluded from
 // this row's options so no echo can hold two of the same substat.
-function echoSubRow(sub, ei, si, focus, taken){
+function echoSubRow(sub, ei, si, focus, taken, dis){
   const key = sub ? sub.key : '';
   const on = key && focus.includes(key);
   const keyOpts = `<option value="">— substat —</option>` +
@@ -3896,74 +4213,222 @@ function echoSubRow(sub, ei, si, focus, taken){
   const valOpts = (key ? GAME.echo.subs[key] : []).map(v =>
     `<option value="${v}"${sub && sub.val === v ? ' selected' : ''}>${statStr(key, v)}</option>`).join('');
   return `<div class="esub${on ? ' focus' : ''}">` +
-    `<select data-ei="${ei}" data-si="${si}" data-esub>${keyOpts}</select>` +
-    `<select data-ei="${ei}" data-si="${si}" data-eval${key ? '' : ' disabled'}>${valOpts}</select>` +
+    `<select data-ei="${ei}" data-si="${si}" data-esub${dis || ''}>${keyOpts}</select>` +
+    `<select data-ei="${ei}" data-si="${si}" data-eval${key && !dis ? '' : ' disabled'}>${valOpts}</select>` +
   `</div>`;
 }
 // one echo column. The FIRST echo is the lead (positional — no marker; its
 // name field just hints "lead echo…"). A grip drags the column to reorder.
 // Header: grip + an editable echo NAME; below it the compact cost select sits
 // to the LEFT of the main-stat select.
-function echoCol(e, ei, cid, focus){
+// flat, filled padlock glyphs (inline SVG, currentColor — no emoji)
+const LOCK_ICO = '<svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" aria-hidden="true">' +
+  '<path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9V6z"/></svg>';
+const UNLOCK_ICO = '<svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" aria-hidden="true">' +
+  '<path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6h2c0-1.66 1.34-3 3-3s3 1.34 3 3v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2z"/></svg>';
+function echoCol(e, ei, cid, focus, frozen){
   const sec = GAME.echo.secondary[e.cost];
   const mv = echoMainVal(e.cost, e.main);
-  return `<div class="ecol${ei === 0 ? ' lead' : ''}" data-ei="${ei}">` +
+  // a LOCKED echo (or a frozen build) is read-only: every control disabled,
+  // the grip inert; the lock button itself only freezes with the build
+  const dis = (frozen || e.lock) ? ' disabled' : '';
+  // only the LEAD echo carries a name field (user's call) — the others'
+  // header is just the drag grip
+  return `<div class="ecol${ei === 0 ? ' lead' : ''}${e.lock ? ' locked' : ''}" data-ei="${ei}">` +
     `<div class="ecol-h">` +
-      `<span class="egrip" draggable="true" title="Drag to reorder · the first echo is the lead">⠿</span>` +
-      `<input class="ename" type="text" data-ei="${ei}" data-ename value="${esc(e.name || '')}" ` +
-        `placeholder="${ei === 0 ? 'lead echo…' : 'echo name…'}" autocomplete="off" spellcheck="false" ` +
-        `title="Name this echo (e.g. the lead monster you want)">` +
+      `<span class="egrip"${dis ? '' : ' draggable="true"'} title="${dis ? 'Locked — unlock to reorder' : 'Drag to reorder · the first echo is the lead'}">⠿</span>` +
+      (ei === 0
+        ? `<input class="ename" type="text" data-ei="${ei}" data-ename value="${esc(e.name || '')}"${dis} ` +
+            `placeholder="lead echo…" autocomplete="off" spellcheck="false" ` +
+            `title="Name this echo (e.g. the lead monster you want)">`
+        : '') +
+      `<button class="tiny elock${e.lock ? ' on' : ''}" data-elock="${ei}"${frozen ? ' disabled' : ''} ` +
+        `title="${e.lock ? 'Unlock this echo — editable again' : 'Lock this echo — keeps it from being altered'}">${e.lock ? LOCK_ICO : UNLOCK_ICO}</button>` +
     `</div>` +
-    `<select class="esetsel" data-ei="${ei}" data-eset title="${esc(setTip(e.set))}">` +
-      `<option value="">— no set —</option>` +
-      GAME.echo.sonata.map(s =>
-        `<option value="${esc(s.name)}"${s.name === e.set ? ' selected' : ''}>${esc(s.name)}</option>`).join('') +
-    `</select>` +
+    `<div class="esetrow">` +
+      (e.set ? icoImg(e.set, 'sonata', 'son-ico') : '') +
+      `<select class="esetsel" data-ei="${ei}" data-eset${dis} title="${esc(setTip(e.set))}">` +
+        `<option value="">— no set —</option>` +
+        GAME.echo.sonata.map(s =>
+          `<option value="${esc(s.name)}"${s.name === e.set ? ' selected' : ''}>${esc(s.name)}</option>`).join('') +
+      `</select>` +
+    `</div>` +
     `<div class="ecostmain">` +
-      `<select class="ecost" data-ei="${ei}" data-ecost title="Echo cost">${GAME.echo.costs.map(c =>
+      `<select class="ecost" data-ei="${ei}" data-ecost${dis} title="Echo cost">${GAME.echo.costs.map(c =>
         `<option value="${c}"${c === e.cost ? ' selected' : ''}>${c}</option>`).join('')}</select>` +
-      `<select data-ei="${ei}" data-emain>${GAME.echo.mains[e.cost].map(m =>
+      `<select data-ei="${ei}" data-emain${dis}>${GAME.echo.mains[e.cost].map(m =>
         `<option value="${m.key}"${m.key === e.main ? ' selected' : ''}>${esc(GAME.echoStats[m.key].label)}</option>`).join('')}</select>` +
     `</div>` +
-    `<div class="emval"><b>${statStr(e.main, mv)}</b>${sec ? ` <span class="esec">+ ${echoNum(sec.val)} ${esc(GAME.echoStats[sec.key].label)}</span>` : ''}</div>` +
-    `<div class="esubs">${[0,1,2,3,4].map(si =>
-      echoSubRow(e.subs[si], ei, si, focus, e.subs.filter((_, i) => i !== si).map(s => s.key))).join('')}</div>` +
+    `<div class="emval"><b>${statStr(e.main, mv)}</b>${sec ? ` <span class="esec">+ ${echoNum(sec.val)} ${esc(GAME.echoStats[sec.key].label)}</span>` : ''}` +
+      ((cv => cv != null ? `<span class="ecv" title="Crit Value — 2×Crit Rate + Crit DMG from this echo’s substats">CV ${echoNum(cv)}</span>` : '')(echoCV(e))) +
+    `</div>` +
+    `<div class="esubs">${(v => [0,1,2,3,4].map(si =>
+      echoSubRow(v[si], ei, si, focus, v.filter((_, i) => i !== si && v[i]).map(s => s.key), dis)).join('')
+    )(sortSubsView(e.subs, focus))}</div>` +
   `</div>`;
+}
+/* display order for an echo's substats: FOCUSED stats first, in the build's
+   focus order, then the unfocused rest in canonical order (empty rows trail
+   naturally — only filled subs exist in the array). readEchoSubs re-reads
+   rows in display order, so the stored order follows the view — harmless,
+   an echo's subs are a set. */
+function sortSubsView(subs, focus){
+  const pos = k => { const i = focus.indexOf(k); return i >= 0 ? i : 100 + GAME.echoStatOrder.indexOf(k); };
+  return subs.slice().sort((a, b) => pos(a.key) - pos(b.key));
 }
 
 // compact chip labels for the four long skill-DMG bonuses (full name in the tooltip)
-const CHIP_LABEL = {basic:'Basic', heavy:'Heavy', skill:'Skill', lib:'Liberation'};
-// the focus-substat picker: a toggle chip per substat type; active chips are
-// the stats this build chases (highlighted where they land as substats)
-function echoFocusRow(focus){
-  const chips = GAME.echoStatOrder.filter(k => GAME.echo.subs[k]).map(k =>
-    `<button class="fochip${focus.includes(k) ? ' on' : ''}" data-focus="${k}" ` +
-      `title="Highlight ${esc(GAME.echoStats[k].label)} where it appears as a substat">` +
-      `${esc(CHIP_LABEL[k] || GAME.echoStats[k].label)}</button>`).join('');
-  return `<div class="efocus"><span class="elab">Focus substats</span>` +
-    `<div class="fchips">${chips}</div></div>`;
+const CHIP_LABEL = {basic:'Basic', heavy:'Heavy', skill:'Skill', lib:'Liberation',
+                    elem:'Elemental DMG',        // the condensed focus chip
+                    glacio:'Glacio', fusion:'Fusion', electro:'Electro',
+                    aero:'Aero', spectro:'Spectro', havoc:'Havoc'};
+// every focusable stat key, in canonical order: the substat keys plus ONE
+// condensed "Elemental DMG" key ('elem', the character's own element)
+// between Energy Regen and Basic — never six per-element entries
+function focusableKeys(){
+  const keys = GAME.echoStatOrder.filter(k => GAME.echo.subs[k]);
+  keys.splice(keys.indexOf('basic'), 0, 'elem');
+  return keys;
+}
+/* the GLOBAL stat-priority template, as a full ranking: state.statPrio (an
+   ordered subset survives — unlisted stats trail in canonical order), or the
+   canonical order when unset */
+function statPrioList(){
+  const all = focusableKeys();
+  if(!Array.isArray(state.statPrio) || !state.statPrio.length) return all;
+  const head = state.statPrio.filter(k => all.includes(k));
+  return head.concat(all.filter(k => !head.includes(k)));
+}
+/* the ⇅ Stat-priority pop-up (Echoes section header): every focusable stat
+   as one ranked row with ▲▼ — the template every character's focus list
+   DEFAULTS to; per-character reordering is untouched. */
+function prioPopup(){
+  const list = statPrioList();
+  return `<div class="fpop">` +
+    `<div class="enote" style="margin-bottom:6px">Rank the stats once — a newly focused stat slots into a character’s list at this rank.</div>` +
+    list.map((k, i) =>
+      `<div class="frow"><span class="fnum">${i + 1}</span>` +
+        `<span class="fname">${esc(CHIP_LABEL[k] || GAME.echoStats[k].label)}</span>` +
+        `<button class="tiny" data-pup="${i}"${i === 0 ? ' disabled' : ''} title="Move up">▲</button>` +
+        `<button class="tiny" data-pdn="${i}"${i === list.length - 1 ? ' disabled' : ''} title="Move down">▼</button>` +
+      `</div>`).join('') +
+    (state.statPrio ? `<div class="fadd"><button class="tiny" id="prioReset" title="Forget the custom ranking — back to the default order">↺ default order</button></div>` : '') +
+  `</div>`;
+}
+function bindPrioPop(slot){
+  const move = (i, d) => {
+    const list = statPrioList(), j = i + d;
+    if(j < 0 || j >= list.length) return;
+    [list[i], list[j]] = [list[j], list[i]];
+    state.statPrio = list;
+    save(); render();
+  };
+  slot.querySelectorAll('[data-pup]').forEach(b => b.addEventListener('click', e => move(+e.currentTarget.dataset.pup, -1)));
+  slot.querySelectorAll('[data-pdn]').forEach(b => b.addEventListener('click', e => move(+e.currentTarget.dataset.pdn, 1)));
+  const rst = slot.querySelector('#prioReset');
+  if(rst) rst.addEventListener('click', () => { state.statPrio = null; save(); render(); });
+}
+/* the Focus pop-up (replaces the old chip row): the chased stats as an
+   ORDERED list — n. label ▲ ▼ ✕ — then the remaining stats as add-chips
+   (click appends at the end). The order matters: it decides how every
+   echo's substats are listed on this card (unfocused stats go last). */
+function focusPopup(build, frozen){
+  const focus = build.focus || [], goals = build.goals || {};
+  const rows = focus.map((k, i) =>
+    `<div class="frow"><span class="fnum">${i + 1}</span>` +
+      `<span class="fname">${esc(CHIP_LABEL[k] || GAME.echoStats[k].label)}</span>` +
+      `<span class="fgoal" title="Goal — the FINAL value to reach, at least (e.g. 65 for 65% Crit Rate). Empty = no goal.">≥` +
+        `<input type="number" min="0" step="any" data-fgoal="${k}" value="${goals[k] != null ? goals[k] : ''}" placeholder="—"></span>` +
+      `<button class="tiny" data-fup="${i}"${frozen || i === 0 ? ' disabled' : ''} title="Move up">▲</button>` +
+      `<button class="tiny" data-fdn="${i}"${frozen || i === focus.length - 1 ? ' disabled' : ''} title="Move down">▼</button>` +
+      `<button class="tiny danger" data-frm="${i}"${frozen ? ' disabled' : ''} title="Stop chasing it (its goal is kept, dormant)">✕</button>` +
+    `</div>`).join('');
+  // a frozen build edits ONLY the goals — no adding or rearranging stats
+  const adds = (frozen ? [] : statPrioList().filter(k => !focus.includes(k))).map(k =>
+    `<button class="fochip" data-fadd="${k}" title="${k === 'elem'
+      ? 'Track the character’s own element DMG — mains and sets carry it, no substat rolls it'
+      : 'Chase ' + esc(GAME.echoStats[k].label) + ' — highlighted where it rolls as a substat'}">` +
+    `${esc(CHIP_LABEL[k] || GAME.echoStats[k].label)}</button>`).join('');
+  return `<div class="fpop">` +
+    (focus.length ? rows : `<div class="enote">Nothing chased yet — add stats below; their order sorts the echo substats.</div>`) +
+    (adds ? `<div class="fadd">${adds}</div>` : '') +
+  `</div>`;
 }
 
 const fmtInt = v => String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 const finalStr = t => t.pct ? echoNum(t.val) + '%' : fmtInt(t.val);
 
+/* finals fold the flat+% pairs into one row — shared by the bar stats and
+   the stat goals; 'elem' resolves to the character's own element key */
+const FOCUS_FOLD = {atkp:'atk', hpp:'hp', defp:'def'};
+const finKeyOf = (k, ek) => k === 'elem' ? ek : (FOCUS_FOLD[k] || k);
+/* the goal set for a FINAL-stats row, if any focus-vocabulary key maps to
+   it (goals are stated in final terms — "at least 65% Crit Rate") */
+function goalFor(build, finKey, ek){
+  for(const [k, v] of Object.entries(build.goals || {}))
+    if(finKeyOf(k, ek) === finKey) return v;
+  return null;
+}
+/* every goal reached? (needs at least one goal, and finals on file) —
+   gates the ✓ Complete button */
+function allGoalsMet(g, build){
+  const goals = Object.entries(build.goals || {});
+  if(!goals.length) return false;
+  const fin = finalStats(build, g.char, equipOf(wpnGoals(), g.char), forteStatTotals(g, 'tgt'));
+  if(!fin) return false;
+  const ek = GAME.characters[g.char].element.toLowerCase();
+  const val = {};
+  for(const t of fin.stats) val[t.key] = t.val;
+  return goals.every(([k, v]) => (val[finKeyOf(k, ek)] || 0) >= v);
+}
+
 /* the card's bottom panel: FINAL stats (base folded with gear) when this
    character's Lv90 base is on file, otherwise the gear-only breakdown. */
 function echoTotalsPanel(g, build, w, forte){
+  const ek = GAME.characters[g.char].element.toLowerCase();
   const fin = finalStats(build, g.char, w, forte);
+  // a FOCUSED stat's NAME reads bold (same color) — just the label
+  const focusKeys = new Set((build.focus || []).map(k => finKeyOf(k, ek)));
+  const lab = t => `<span class="etk${focusKeys.has(t.key) ? ' foc' : ''}">${esc(t.label)}</span>`;
   if(fin){
     const linkedNoData = w && !fin.weapon;   // a weapon is linked but its base isn't on file
+    // a goal'd row: while SHORT it reads "value / goal" (gap in the tooltip);
+    // once REACHED it shows just the value in the gold tone — the goal itself
+    // retires to the tooltip (user's call)
+    const row = t => {
+      const goal = goalFor(build, t.key, ek);
+      if(goal == null)
+        return `<div class="etrow">${lab(t)}<span class="etv">${finalStr(t)}</span></div>`;
+      const goalStr = finalStr({...t, val: goal});
+      const met = t.val >= goal;
+      return `<div class="etrow">${lab(t)}` +
+        (met ? `<span class="etv met" title="${esc(`Goal reached — ≥ ${goalStr}`)}">${finalStr(t)}</span>`
+             : `<span class="etv short" title="${esc(`${echoNum(goal - t.val)}${t.pct ? '%' : ''} to go — goal ≥ ${goalStr}`)}">` +
+               `${finalStr(t)}<span class="goalp"> / ${goalStr}</span></span>`) +
+      `</div>`;
+    };
+    // a goal on a stat with no final row yet still deserves a line (at 0)
+    const shown = new Set(fin.stats.map(t => t.key));
+    const extra = Object.keys(build.goals || {})
+      .map(k => finKeyOf(k, ek))
+      .filter((k, i, a) => !shown.has(k) && a.indexOf(k) === i && GAME.echoStats[k])
+      .map(k => row({key: k, label: GAME.echoStats[k].label, pct: GAME.echoStats[k].pct, val: 0}));
     return `<div class="etotals"><div class="et-h">Final stats` +
-      `<span class="sub">base + echoes + set 2pc + forte${fin.weapon ? ' + weapon' : ''}</span></div>` +
-      `<div class="etgrid">${fin.stats.map(t =>
-        `<div class="etrow"><span class="etk">${esc(t.label)}</span><span class="etv">${finalStr(t)}</span></div>`).join('')}</div>` +
+      `<span class="sub">base + echoes + set 2pc + forte${fin.weapon ? ' + weapon' : ''}` +
+      `${(build.conds || []).some(c => c.on) ? ' + conditionals' : ''}</span></div>` +
+      `<div class="etgrid">${fin.stats.map(row).join('') + extra.join('')}</div>` +
       (linkedNoData ? `<div class="etnote">The linked weapon's base stats aren't on file yet — excluded from ATK.</div>` : '') +
     `</div>`;
   }
   const totals = buildTotals(build, forte);   // fallback: no base stats for this character
+  // goals are stated in FINAL terms, which don't exist here — show them
+  // uncolored (no met/short judgment) against the gear totals
+  const gGoal = k => (build.goals || {})[k === ek ? 'elem' : k];
+  const gFocus = new Set((build.focus || []).map(k => k === 'elem' ? ek : k));   // unfolded keys here
   return `<div class="etotals"><div class="et-h">Gear totals<span class="sub">echoes + set 2pc + forte grant</span></div>` +
     (totals.length ? `<div class="etgrid">${totals.map(t =>
-        `<div class="etrow"><span class="etk">${esc(t.label)}</span><span class="etv">${echoNum(t.val)}${t.pct ? '%' : ''}</span></div>`).join('')}</div>`
+        `<div class="etrow"><span class="etk${gFocus.has(t.key) ? ' foc' : ''}">${esc(t.label)}</span><span class="etv">${echoNum(t.val)}${t.pct ? '%' : ''}` +
+        `${gGoal(t.key) != null ? ` / ${echoNum(gGoal(t.key))}${t.pct ? '%' : ''}` : ''}</span></div>`).join('')}</div>`
       : `<div class="empty">Fill in echoes to see totals.</div>`) +
     `<div class="etnote">Final ATK / HP / DEF need this character's Lv90 base stats (not on file yet).</div>` +
   `</div>`;
@@ -3978,22 +4443,42 @@ function echoBuildCard(g){
   const cost = buildCost(build), over = cost > GAME.echo.budget;
   const focus = build.focus || [];
   const forte = forteStatTotals(g, 'tgt');
-  return `<div class="ebuild" data-ec="${g.char}" style="--acc:${ch.elColor}">` +
-    `<div class="ehead">` +
-      `<span class="avatar" style="background:${avaBg(ch)}">${ch.mono}${icoImg(ch.name, 'char', 'avatar-img')}</span>` +
-      `<div class="ehmeta"><div class="ehname">${esc(ch.name)}</div>` +
-        `<div class="gmeta">${attrIco(ch.element, 'element')}${attrIco(ch.wtype, 'weapon type')}<span class="lvl">· ${lvlLabel(g)}</span></div>` +
-        `<div class="ehwpn"${wp ? ` title="${esc(wpnTip(w.weapon))}"` : ''}>` +
-        (wp ? icoImg(wp.name, 'weapon') + esc(wp.name) +
-              (GAME.weaponFx[w.weapon] ? ` <i class="wfx">${esc(GAME.weaponFx[w.weapon].n)}</i>` : '')
-            : '<span class="faint">no weapon linked</span>') + `</div>` +
+  const frozen = !!build.frozen;
+  return `<div class="ebuild${frozen ? ' frozen' : ''}" data-ec="${g.char}" style="--acc:${ch.elColor}">` +
+    `<div class="ehdr">` +
+      `<div class="ehleft">` +
+        `<div class="ehead">` +
+          `<span class="avatar" style="background:${avaBg(ch)}">${ch.mono}${icoImg(ch.name, 'char', 'avatar-img')}</span>` +
+          `<div class="ehmeta"><div class="ehname">${esc(ch.name)}</div>` +
+            `<div class="gmeta">${attrIco(ch.element, 'element')}${attrIco(ch.wtype, 'weapon type')}<span class="lvl">· ${lvlLabel(g)}</span></div>` +
+            `<div class="ehwpn" title="${esc(wp ? wpnTip(w.weapon) + ' · click to change · right-click to unequip'
+                                                : 'No weapon linked — click to pick one from your ledger')}">` +
+            (wp ? icoImg(wp.name, 'weapon') + esc(wp.name) +
+                  (GAME.weaponFx[w.weapon] ? ` <i class="wfx">${esc(GAME.weaponFx[w.weapon].n)}</i>` : '')
+                : '<span class="faint">no weapon linked</span>') + `</div>` +
+          `</div>` +
+        `</div>` +
+        echoSetList(build, frozen) +
+        echoCondList(build, frozen, wp) +
       `</div>` +
-      `<span class="ebudget${over ? ' over' : ''}" title="Total echo cost — the standard cap is 12">${cost} / ${GAME.echo.budget}</span>` +
+      `<div class="ehright">` +
+        `<div class="ehctl">` +
+          `<button class="tiny fbtn${focusPop === g.char ? ' on' : ''}" data-fbtn ` +
+            `title="Pick and ORDER the stats this build chases — the order also sorts each echo’s substats">` +
+            `Focus${focus.length ? ` (${focus.length})` : ''} ▾</button>` +
+          (focusPop === g.char ? focusPopup(build, frozen) : '') +
+          (frozen
+            ? `<button class="tiny good" data-unfreeze title="Unfreeze the build — everything editable again">✎ Edit</button>`
+            : allGoalsMet(g, build)
+              ? `<button class="tiny good" data-freeze title="Every goal is met — freeze the build; only the goals stay editable">✓ Complete</button>`
+              : '') +
+          `<span class="ebudget${over ? ' over' : ''}" title="Total echo cost — the standard cap is 12">${cost} / ${GAME.echo.budget}</span>` +
+          `<button class="tiny eclose" data-eclose title="Close this sheet — ${esc(ch.name)} goes back to the character bar">⇤</button>` +
+        `</div>` +
+        echoTotalsPanel(g, build, w, forte) +
+      `</div>` +
     `</div>` +
-    `<div class="erow"><span class="elab">Sonata</span>${echoSetSummary(build)}</div>` +
-    echoFocusRow(focus) +
-    `<div class="egrid">${build.echoes.map((e, ei) => echoCol(e, ei, g.char, focus)).join('')}</div>` +
-    echoTotalsPanel(g, build, w, forte) +
+    `<div class="egrid">${build.echoes.map((e, ei) => echoCol(e, ei, g.char, focus, frozen)).join('')}</div>` +
   `</div>`;
 }
 
@@ -4017,6 +4502,33 @@ function readEchoSubs(card, ei){
 function bindEchoSheet(grid){
   grid.querySelectorAll('.ebuild').forEach(card => {
     const id = card.dataset.ec;
+    // ⇤ sends the sheet back to the character bar (view state only)
+    card.querySelector('[data-eclose]').addEventListener('click', () => {
+      echoOpen = echoOpen.filter(x => x !== id);
+      render();
+    });
+    const frozen = !!(state.builds[id] && state.builds[id].frozen);
+    // ✓ Complete freezes the build (gear read-only, goals still edit);
+    // ✎ Edit thaws it back to default behavior
+    const frz = card.querySelector('[data-freeze]');
+    if(frz) frz.addEventListener('click', () => { ensureBuild(id).frozen = true; save(); render(); });
+    const unf = card.querySelector('[data-unfreeze]');
+    if(unf) unf.addEventListener('click', () => { delete ensureBuild(id).frozen; save(); render(); });
+    // per-echo lock: read-only echo, tinted; inert while the build is frozen
+    card.querySelectorAll('[data-elock]').forEach(b => b.addEventListener('click', e => {
+      if(frozen) return;
+      const echo = ensureBuild(id).echoes[+e.currentTarget.dataset.elock];
+      if(echo.lock) delete echo.lock; else echo.lock = true;
+      save(); render();
+    }));
+    // the header's weapon line is a link surface like the Teams strips:
+    // click picks/changes the ledger weapon, right-click unequips — but a
+    // FROZEN build keeps its weapon too
+    const wline = card.querySelector('.ehwpn');
+    if(wline && !frozen){
+      wline.addEventListener('click', () => openPal({mode:'equip', char: id}));
+      wline.addEventListener('contextmenu', e => { e.preventDefault(); unequip(id); });
+    }
     card.querySelectorAll('[data-eset]').forEach(s => s.addEventListener('change', e => {
       ensureBuild(id).echoes[+e.target.dataset.ei].set = e.target.value || null;
       save(); render();
@@ -4034,15 +4546,86 @@ function bindEchoSheet(grid){
     card.querySelectorAll('[data-ename]').forEach(inp => inp.addEventListener('input', e => {
       ensureBuild(id).echoes[+e.target.dataset.ei].name = e.target.value.slice(0, 40); save();
     }));
-    card.querySelectorAll('[data-focus]').forEach(b => b.addEventListener('click', e => {
-      const k = e.currentTarget.dataset.focus, f = ensureBuild(id).focus;
-      const i = f.indexOf(k);
-      if(i < 0) f.push(k); else f.splice(i, 1);
+    // the Focus pop-up: ▾ toggles it (transient, survives render); rows
+    // reorder with ▲▼, ✕ removes, the chips below append — all live-apply
+    const fbtn = card.querySelector('[data-fbtn]');
+    if(fbtn) fbtn.addEventListener('click', () => {
+      focusPop = focusPop === id ? null : id;
+      render();
+    });
+    const fmove = (i, d) => {
+      const f = ensureBuild(id).focus, j = i + d;
+      if(j < 0 || j >= f.length) return;
+      [f[i], f[j]] = [f[j], f[i]];
+      save(); render();
+    };
+    card.querySelectorAll('[data-fup]').forEach(b => b.addEventListener('click',
+      e => fmove(+e.currentTarget.dataset.fup, -1)));
+    card.querySelectorAll('[data-fdn]').forEach(b => b.addEventListener('click',
+      e => fmove(+e.currentTarget.dataset.fdn, 1)));
+    card.querySelectorAll('[data-frm]').forEach(b => b.addEventListener('click', e => {
+      ensureBuild(id).focus.splice(+e.currentTarget.dataset.frm, 1); save(); render();
+    }));
+    card.querySelectorAll('[data-fadd]').forEach(b => b.addEventListener('click', e => {
+      const k = e.currentTarget.dataset.fadd, f = ensureBuild(id).focus;
+      // a custom GLOBAL template slots the new stat at its rank (default:
+      // append) — the existing per-character order is never re-sorted
+      let at = f.length;
+      if(state.statPrio){
+        const p = statPrioList(), j = f.findIndex(x => p.indexOf(x) > p.indexOf(k));
+        if(j >= 0) at = j;
+      }
+      f.splice(at, 0, k);
+      save(); render();
+    }));
+    // set quick-fill: tags the unset echoes per the fill rules
+    const sf = card.querySelector('[data-setfill]');
+    if(sf) sf.addEventListener('change', e => { if(e.target.value) fillSet(id, e.target.value); });
+    // conditionals: tick to count, ✕ removes, the add row appends (on by default)
+    card.querySelectorAll('[data-cond]').forEach(cb => cb.addEventListener('change', e => {
+      ensureBuild(id).conds[+e.currentTarget.dataset.cond].on = e.currentTarget.checked;
+      save(); render();
+    }));
+    card.querySelectorAll('[data-condrm]').forEach(b => b.addEventListener('click', e => {
+      ensureBuild(id).conds.splice(+e.currentTarget.dataset.condrm, 1);
+      save(); render();
+    }));
+    const condAdd = card.querySelector('[data-condadd]');
+    if(condAdd) condAdd.addEventListener('click', () => {
+      let key = card.querySelector('[data-condk]').value;
+      if(key === 'elem') key = GAME.characters[id].element.toLowerCase();   // own element
+      const val = parseFloat(card.querySelector('[data-condv]').value);
+      if(!GAME.echoStats[key] || !Number.isFinite(val) || val <= 0) return;
+      const b = ensureBuild(id);
+      if(!b.conds) b.conds = [];
+      const cond = {key, val, on: true};
+      const srcSel = card.querySelector('[data-conds]');
+      if(srcSel && srcSel.value) cond.src = srcSel.value;
+      b.conds.push(cond);
+      save(); render();
+    });
+    // stat goals: "≥ N" on a chased-stat row; empty or 0 clears it
+    card.querySelectorAll('[data-fgoal]').forEach(inp => inp.addEventListener('change', e => {
+      const b = ensureBuild(id);
+      if(!b.goals) b.goals = {};
+      const k = e.currentTarget.dataset.fgoal, v = parseFloat(e.currentTarget.value);
+      if(Number.isFinite(v) && v > 0) b.goals[k] = v; else delete b.goals[k];
       save(); render();
     }));
     card.querySelectorAll('[data-esub], [data-eval]').forEach(s => s.addEventListener('change', e => {
-      ensureBuild(id).echoes[+e.target.dataset.ei].subs = readEchoSubs(card, +e.target.dataset.ei);
+      const ei = +e.target.dataset.ei;
+      const picked = e.target.matches('[data-esub]') ? e.target.value : null;
+      ensureBuild(id).echoes[ei].subs = readEchoSubs(card, ei);
       save(); render();
+      // the edited row may have HOPPED to its sorted slot (display follows the
+      // focus order) — land the keyboard on its VALUE select at the new
+      // position so Tab keeps flowing from where the user is working
+      if(picked){
+        const c2 = document.querySelector(`.ebuild[data-ec="${id}"]`);
+        const k2 = c2 && [...c2.querySelectorAll(`[data-esub][data-ei="${ei}"]`)].find(x => x.value === picked);
+        const v2 = k2 && c2.querySelector(`[data-eval][data-ei="${ei}"][data-si="${k2.dataset.si}"]`);
+        if(v2) v2.focus();
+      }
     }));
     // drag echoes to reorder (within this card). Dropping at index 0 makes the
     // dragged echo the lead. jsdom rects are 0, so the drop target's own index
@@ -4083,15 +4666,127 @@ function moveEcho(id, from, to){
   save(); render();
 }
 
+/* the bar card's HIGHLIGHTED stats: the build's focus keys, valued from the
+   FINAL stats (base + echoes + weapon + forte — user's rule) whenever the
+   character's base is on file, else the gear-only totals. Finals fold ATK%
+   into the ATK row (etc.), so a % focus key reads off its folded row there. */
+function echoFocusStats(g, build){
+  const focus = build.focus || [];
+  if(!focus.length) return '';
+  const w = equipOf(wpnGoals(), g.char);
+  const forte = forteStatTotals(g, 'tgt');
+  const fin = finalStats(build, g.char, w, forte);
+  const rows = fin ? fin.stats : buildTotals(build, forte);
+  // finals fold ATK% into the ATK row (etc., FOCUS_FOLD) — focusing both
+  // shows ONE entry; 'elem' resolves to the character's OWN element DMG key
+  const ek = GAME.characters[g.char].element.toLowerCase();
+  const wanted = new Set(focus.map(k => k === 'elem' ? ek : fin ? finKeyOf(k, ek) : k));
+  const chip = (lab, val, met) =>
+    `<span class="est"><i>${esc(lab)}</i><b class="num${met ? ' met' : ''}">${val}</b></span>`;
+  // listed in the SAME order as the sheet's Final-stats panel (user's rule);
+  // a focused stat with no row yet trails at the end as "–". Same goal logic
+  // as the finals grid: an ACHIEVED stat reads ochre, unmet/unset neutral.
+  const out = rows.filter(t => wanted.has(t.key))
+    .map(t => {
+      wanted.delete(t.key);
+      const goal = fin ? goalFor(build, t.key, ek) : null;
+      return chip(CHIP_LABEL[t.key] || t.label, finalStr(t), goal != null && t.val >= goal);
+    });
+  for(const k of wanted) out.push(chip(CHIP_LABEL[k] || GAME.echoStats[k].label, '–', false));
+  return out.join('');
+}
+
+/* one character in the left bar — COMPACT: the portrait with the linked
+   weapon's icon at its side, the focused stats on the right. Name, level
+   and the weapon's name live in the hover tooltip (user's call). Click
+   opens the full sheet in the center panel. */
+function echoCharCard(g){
+  const ch = GAME.characters[g.char];
+  const build = state.builds[g.char] || freshBuild();
+  const w = equipOf(wpnGoals(), g.char);
+  const wp = w && GAME.weapons[w.weapon];
+  const open = echoOpen.includes(g.char);
+  const foc = echoFocusStats(g, build);
+  const tip = `${ch.name} — ${state.done.includes(g) ? 'completed' : ORD_LABEL(g.cur.ord)}` +
+    ` · ${wp ? wp.name : 'no weapon linked'}` +
+    (open ? ' · click to close the sheet' : ' · click to open the echo sheet');
+  return `<div class="echar${open ? ' open' : ''}" data-ec="${g.char}" style="--acc:${ch.elColor}" ` +
+      `title="${esc(tip)}">` +
+    `<div class="ectop">` +
+      `<span class="avatar" style="background:${avaBg(ch)}">${ch.mono}${icoImg(ch.name, 'char', 'avatar-img')}</span>` +
+      (wp ? `<span class="ecw">${icoImg(wp.name, 'weapon')}</span>` : '') +
+      (foc ? `<div class="ecfoc">${foc}</div>` : '') +
+    `</div>` +
+    `<div class="ecbot">` +
+      `<span class="ecname">${esc(ch.name)}</span>` +
+      attrIco(ch.element, 'element') + attrIco(ch.wtype, 'weapon type') +
+      `<span class="num">${state.done.includes(g) ? '✓ done' : esc(ORD_LABEL(g.cur.ord))}</span>` +
+    `</div>` +
+  `</div>`;
+}
+
+/* bar filter chips: rarity · element · weapon type, the palette's semantics
+   (within a facet OR, across facets AND; transient). Rebuilt on toggle;
+   the row sits OUTSIDE #elist so the list redraw never touches it. */
+function renderEchoChips(){
+  const box = $('#echoChipRow');
+  if(!box) return;
+  const on = echoChips.r.size || echoChips.el.size || echoChips.wt.size;
+  // val '' = the facet's "All" chip — first in its group, lit while the
+  // facet is unfiltered; clicking clears the facet's picks (user's call)
+  const chip = (facet, val, body, title, lit) =>
+    `<button class="fchip${val === '' ? ' all' : ''}${lit ? ' on' : ''}" data-facet="${facet}" data-val="${esc(String(val))}" ` +
+    `title="${esc(title)}">${body}</button>`;
+  box.innerHTML =
+    `<span class="fgrp">` + [5, 4].map(r =>
+      chip('r', r, `<span class="rstar r${r}">${r}★</span>`, `${r}★ only`, echoChips.r.has(r))).join('') + `</span>` +
+    `<span class="fgrp">` + chip('el', '', 'All', 'Every element', !echoChips.el.size) + ELEMENTS.map(e =>
+      chip('el', e, icoImg(e, 'attr', 'attr-img'), e, echoChips.el.has(e))).join('') + `</span>` +
+    `<span class="fgrp">` + chip('wt', '', 'All', 'Every weapon type', !echoChips.wt.size) + WTYPES.map(t =>
+      chip('wt', t, icoImg(t, 'attr', 'attr-img'), t, echoChips.wt.has(t))).join('') + `</span>` +
+    (on ? `<button class="fchip clear" data-facet="clear" title="Clear the filters">✕</button>` : '');
+  box.querySelectorAll('[data-facet]').forEach(b => b.addEventListener('click', e => {
+    const f = e.currentTarget.dataset.facet, raw = e.currentTarget.dataset.val;
+    if(f === 'clear') echoChips = {r: new Set(), el: new Set(), wt: new Set()};
+    else if(raw === '') echoChips[f].clear();
+    else{
+      const set = echoChips[f], v = f === 'r' ? +raw : raw;
+      set.has(v) ? set.delete(v) : set.add(v);
+    }
+    renderEchoChips();
+    renderEchoList();
+  }));
+  bindIcons(box);
+}
+
 /* rebuilt on every filter keystroke — SAFE because the filter input lives
-   OUTSIDE #esheets (the same rule Teams / the inventory pop-up follow) */
+   OUTSIDE #elist (the same rule Teams / the inventory pop-up follow) */
+function renderEchoList(){
+  const list = $('#elist');
+  if(!list) return;
+  const roster = echoRosterGoals();
+  list.innerHTML = roster.length ? roster.map(echoCharCard).join('')
+    : `<div class="empty">${echoFilter.trim() ? 'No character matches that.'
+                                              : 'No characters yet — add goals on the Ledger page first.'}</div>`;
+  list.querySelectorAll('.echar').forEach(c => c.addEventListener('click', () => {
+    const id = c.dataset.ec;
+    // click TOGGLES: open if closed (newest lands ON TOP), close if open
+    echoOpen = echoOpen.includes(id) ? echoOpen.filter(x => x !== id) : [id, ...echoOpen];
+    render();
+  }));
+  bindIcons(list);
+}
+
+/* the center panel: one full sheet per OPEN character, in open order */
 function renderEchoSheets(){
   const grid = $('#esheets');
   if(!grid) return;
-  const roster = echoRosterGoals();
-  grid.innerHTML = roster.length ? roster.map(echoBuildCard).join('')
-    : `<div class="empty">${echoFilter.trim() ? 'No character matches that.'
-                                              : 'No characters yet — add goals on the Ledger page first.'}</div>`;
+  const roster = rosterGoals();
+  const open = echoOpen.map(id => roster.find(g => g.char === id)).filter(Boolean);
+  grid.innerHTML = open.length ? open.map(echoBuildCard).join('')
+    : `<div class="empty">${roster.length
+        ? 'Pick a character on the left to open their echo sheet — several can be open at once.'
+        : 'No characters yet — add goals on the Ledger page first.'}</div>`;
   bindEchoSheet(grid);
   bindIcons(grid);
 }
@@ -4099,19 +4794,36 @@ function renderEchoSheets(){
 function renderEcho(){
   const box = $('#echoBody');
   if(!box) return;
+  // view state follows the roster: a character who left closes their sheet
+  echoOpen = echoOpen.filter(id => rosterGoals().some(g => g.char === id));
+  if(focusPop && !echoOpen.includes(focusPop)) focusPop = null;   // pop-up dies with its sheet
+  // no sheet open → the characters SHOWCASE as a full-width grid; opening one
+  // collapses them to the side bar, closing the last rescales them back
+  const showcase = !echoOpen.length;
   box.innerHTML =
-    `<div class="efilter-row">
-       <input id="echoFind" class="rfind" type="text" placeholder="Filter characters…"
-              autocomplete="off" spellcheck="false" value="${esc(echoFilter)}">
-       <span class="sub">One sheet per character · 12-cost budget · totals are gear only (MVP)</span>
-     </div>
-     <div class="esheets" id="esheets"></div>`;
+    `<div class="ecols${showcase ? ' showcase' : ''}">
+       <aside class="epanel">
+         <input id="echoFind" class="rfind" type="text" placeholder="Filter characters…"
+                autocomplete="off" spellcheck="false" value="${esc(echoFilter)}">
+         <div class="echips" id="echoChipRow"></div>
+         <div id="elist"></div>
+       </aside>
+       <div class="esheets" id="esheets"></div>
+     </div>`;
   box.querySelector('#echoFind').addEventListener('input', e => {
     echoFilter = e.currentTarget.value;
-    renderEchoSheets();
+    renderEchoList();
   });
+  renderEchoChips();
+  renderEchoList();
   renderEchoSheets();
+  // the ⇅ Stat-priority pop-up hangs off the section header's static anchor
+  const slot = $('#prioPopSlot');
+  slot.innerHTML = prioPop ? prioPopup() : '';
+  if(prioPop) bindPrioPop(slot);
+  $('#prioBtn').classList.toggle('on', prioPop);
 }
+$('#prioBtn').addEventListener('click', () => { prioPop = !prioPop; render(); });
 
 /* ── inventory pop-up: game-style stock grid (Ctrl+I) ──
    Every registry item as a rarity tile (icon + quantity input, full name
@@ -4177,6 +4889,13 @@ function showTip(t){
   } else {
     html = `<div class="tip-h">${esc(title.split(' · needed by ')[0].split(' · click to log drops')[0])}</div>`;
   }
+  showPop(t, html);
+}
+/* shared popover plumbing (tiles + weekly claim cells): inject, position
+   above/below the element, and suppress its native title while shown */
+function showPop(t, html){
+  const title = t.getAttribute('title');
+  if(title == null || !html) return;
   const pop = $('#tipPop');
   pop.innerHTML = html;
   bindIcons(pop);
@@ -4319,60 +5038,126 @@ $('#farmWrap').addEventListener('click', e => { if(e.target === e.currentTarget)
 /* ── summary panel ── */
 const TABS = [['total','Total'], ['next','Farm next'], ['done','Completed']];
 
-/* ── today's plan (Farm next) ──
-   dailyPlan does the allocation; this only phrases it. Run rows carry the
-   activity's icon, how many runs, what it yields, and what it costs. */
-const RUN_NAME = {
-  boss:    r => `${MATS[r.id].name} boss`,
-  weekly:  r => `${MATS[r.id].name} weekly`,
-  forgery: r => `${MATS[r.id].name} forgery`,
-  exp:     () => 'Resonator EXP simulation',
-  wexp:    () => 'Weapon EXP simulation',
-  credits: () => 'Shell Credit simulation',
-};
-const RUN_GAIN = {
-  boss:    r => `≈${Math.round(r.yield)} mats`,
-  weekly:  r => `≈${Math.round(r.yield)} mats`,
-  forgery: r => `≈${fmtShort(Math.round(r.yield))} base-tier`,
-  exp:     r => `≈${fmtShort(r.yield)} EXP`,
-  wexp:    r => `≈${fmtShort(r.yield)} weapon EXP`,
-  credits: r => `≈${fmtShort(r.yield)} credits`,
-};
-let RUNS = [];                                 // today's runs by index (no ids in data attrs)
-function todayBox(plan){
-  RUNS = plan.runs;
+/* ── weekly-boss planner (Farm next) ──
+   weeklyPlan (engine) does the allocation; this renders one row per game
+   week, three claim slots each. Cells carry data-ci — an index into WKSEQ,
+   the flat claim sequence (data attributes never carry material ids).
+   Interactions: LEFT-click opens the farm pop-up on the boss material (like
+   every other tile), RIGHT-click on a CURRENT-week cell ✓-claims it (the
+   weekly drop is deterministic: exactly `weekly.drops` mats, one claim
+   spent, undoable), and any cell drags to reorder — the manual order
+   persists as state.wkPlan until ↺ resets it to queue priority. */
+let WKSEQ = [];                                // flat claim sequence by index
+let WKTIPS = [];                               // per-claim hover popover HTML (character chips)
+let WKROWS = [];                               // per-week {start, len} slice of WKSEQ
+let wkDrag = null;                             // dragged claim index (transient, like ordDrag)
+let wkRowDrag = null;                          // dragged WEEK index (whole-row move)
+const dateTxt = ms => new Date(ms).toLocaleDateString('en-US', {month:'short', day:'numeric'});
+function weeklyBox(plan, walk){
+  WKSEQ = plan.seq;
+  WKTIPS = [];
   const W = GAME.waveplates.weekly;
-  const wkLeft = Math.max(0, W.perWeek - state.week.used);
-  const wkLine = `<div class="wk-line" title="Weekly bosses give ${W.drops} materials a claim, ${W.perWeek} claims a week. Resets Monday 04:00.">` +
-    `Weekly claims <b class="num">${wkLeft} / ${W.perWeek}</b> left this week</div>`;
-  const head = `<div class="today-h">Today’s ${fmt(GAME.waveplates.daily)}${wpIco()}` +
-    `<span class="budget num">${fmt(plan.used)} / ${fmt(GAME.waveplates.daily)}${wpIco()}</span></div>`;
-  if(!plan.runs.length)
-    return `<div class="today">${head}<div style="color:var(--faint);font-size:12px">${plan.overworld.length
-      ? 'Nothing to spend waveplates on — only overworld pickups are left.'
-      : 'Nothing left to farm.'}</div>${wkLine}</div>`;
-  const rows = plan.runs.map((r, i) => {
-    // weekly drops are deterministic → a ✓ can credit the exact amount.
-    // Everything else is an average, so the row opens the farm pop-up to log
-    // what really dropped.
-    const wk = r.kind === 'weekly';
-    const tip = RUN_NAME[r.kind](r) + ' ×' + r.runs + ' — ' + RUN_GAIN[r.kind](r) +
-      ' for ' + r.cost + ' waveplates · ' +
-      (wk ? 'click ✓ to claim (always ' + W.drops + ' each)' : 'click to log what dropped');
-    return `<div class="run" data-run="${i}" title="${esc(tip)}">` +
-      matIco(r.id) +
-      `<span class="rname">${esc(RUN_NAME[r.kind](r))}</span><span class="x num">×${r.runs}</span>` +
-      `<span class="gain">${RUN_GAIN[r.kind](r)}</span><span class="plates num">${fmt(r.cost)}${wpIco()}</span>` +
-      (wk ? `<button class="tiny good run-claim" data-claim="${i}" title="Claim it: adds exactly ${fmt(r.yield)} ${esc(MATS[r.id].name)} and spends ${r.runs} of your ${W.perWeek} weekly claims">✓</button>`
-          : `<span class="run-claim-sp"></span>`) +
+  const used = Math.min(state.week.used, W.perWeek);
+  // the finish is the week the last claim lands IN — name the current week
+  // plainly rather than as a (seemingly past) Monday date
+  const finTxt = plan.weeks.length === 1 ? 'this week' : dateTxt(plan.finish);
+  const head = `<div class="today-h">Weekly bosses` +
+    (plan.claims ? `<span class="budget num">${plan.claims} claim${plan.claims > 1 ? 's' : ''} · done ${finTxt}</span>` : '') +
     `</div>`;
+  const wkLine = `<div class="wk-line" title="Weekly bosses give ${W.drops} materials a claim, ${W.perWeek} claims a week. Resets Monday 04:00.">` +
+    `<span>Weekly claims <b class="num">${Math.max(0, W.perWeek - used)} / ${W.perWeek}</b> left this week</span>` +
+    (state.wkPlan ? `<button class="tiny" id="wkReset" title="Forget the manual claim order — back to queue priority">↺ queue order</button>` : '') +
+    `</div>`;
+  if(!plan.claims)
+    return `<div class="wkplan">${head}<div style="color:var(--faint);font-size:12px">` +
+      `No weekly-boss materials needed — every active goal’s weeklies are covered.</div>${wkLine}</div>`;
+  const charOf = gi => GAME.characters[(walk[gi].goal || {}).char];
+  const cell = (c, ci, cur) => {
+    const it = charOf(c.goal);                 // weeklies only ever come from characters
+    // ×take = what this claim actually COVERS (the last claim of a boss can
+    // be partial); a claim straddling a goal boundary names both takers —
+    // those mats serve the next hero, they are not surplus
+    const part = c.take < W.drops;
+    const forWho = c.split.length > 1
+      ? c.split.map(s => `${s.n} for ${(charOf(s.goal) || {}).name}`).join(', ')
+      : (it ? 'for ' + it.name : '');
+    const tip = `${MATS[c.id].name} ×${c.take}${forWho ? ' — ' + forWho : ''}` +
+      (part ? ` · only ${c.take} of the ${W.drops} it drops are still needed` : '') +
+      (cur ? ` · right-click ✓ claims it: adds exactly ${W.drops} and spends 1 of the ${W.perWeek} weekly claims` : '') +
+      ' · drag to reorder (pull a later goal’s boss forward) · click to log drops';
+    // hover popover (title attributes can't carry images): the takers as
+    // avatar chips with each one's share of this claim
+    WKTIPS[ci] = `<div class="tip-h">${esc(MATS[c.id].name)} — <b class="num">×${c.take}</b>` +
+      (part ? ` <span style="color:var(--faint)">of the ${W.drops} it drops</span>` : '') + `</div>` +
+      `<div class="tip-need"><span class="tip-lbl">For</span>` +
+      c.split.map(s => {
+        const ch = charOf(s.goal);
+        return ch ? `<span class="tip-chip">${icoImg(ch.name, 'char', 'tip-av')}` +
+          `<span>${esc(ch.name)}</span><b class="tip-q num">×${s.n}</b></span>` : '';
+      }).join('') + `</div>`;
+    return `<div class="wkcell${cur ? ' cur' : ''}" draggable="true" data-ci="${ci}" title="${esc(tip)}">` +
+      matIco(c.id) + `<span class="x num${part ? ' part' : ''}">×${c.take}</span>` +
+      (it ? `<span class="avatar" style="background:${avaBg(it)}">${it.mono}${icoImg(it.name, 'char', 'avatar-img')}</span>` : '') +
+    `</div>`;
+  };
+  let ci = 0;
+  WKROWS = [];
+  const rows = plan.weeks.map((wk, wi) => {
+    WKROWS.push({start: ci, len: wk.claims.length});
+    const cells = [];
+    if(wi === 0) for(let s = 0; s < used; s++)
+      cells.push(`<div class="wkcell spent" title="Already claimed this week">✓</div>`);
+    for(const c of wk.claims) cells.push(cell(c, ci++, wi === 0));
+    while(cells.length < W.perWeek)            // free claims left over that week
+      cells.push(`<div class="wkcell empty" title="Free claim — drag one here to schedule it last">–</div>`);
+    // the date label drags the WHOLE week's claims as a block
+    const grab = wk.claims.length
+      ? ` draggable="true" data-wk="${wi}" title="Drag to move this whole week’s claims earlier or later"` : '';
+    return `<div class="wkrow" data-row="${wi}"><span class="wklbl${wi === 0 ? ' now' : ''}"${grab}>${wi === 0 ? 'This week' : dateTxt(wk.start)}</span>` +
+      `<div class="wkslots">${cells.join('')}</div></div>`;
   }).join('');
-  const notes = [];
-  if(plan.leftover) notes.push(`${fmt(plan.leftover)}${wpIco()} spare — too little for another run.`);
-  if(plan.weeklyCapped) notes.push(`Weekly bosses are capped at ${W.perWeek} claims per week.`);
-  if(plan.overworld.length) notes.push('Specialty and enemy mats are overworld pickups — no waveplates.');
-  return `<div class="today">${head}${rows}${wkLine}` +
-    (notes.length ? `<div class="today-f">${notes.join(' ')}</div>` : '') + `</div>`;
+  // whole claims overshoot: what's left over once every needer is served.
+  // Icon tiles, not text (user's call) — the title carries the words, and the
+  // "name — " prefix keeps them on the shared tile click/hover pipeline.
+  const spares = Object.entries(plan.spare);
+  const spareLine = spares.length
+    ? `<div class="wk-spare"><span class="slbl" title="Whole claims overshoot a little — mats left over once every goal is served">Surplus</span>` +
+      `<div class="tiles">` + spares.map(([id, n]) =>
+        `<div class="tile r${MATS[id].r}" title="${esc(`${MATS[id].name} — ×${n} spare after its last claim`)} · click to log drops">` +
+          matIco(id) + `<span class="qty num">+${n}</span></div>`).join('') +
+      `</div></div>`
+    : '';
+  const note = `<div class="today-f">One row per game week, ${W.perWeek} claims each. ` +
+    `Right-click a claim in the current week to ✓ it; drag claims to prioritize a later goal’s boss.</div>`;
+  return `<div class="wkplan">${head}${rows}${wkLine}${spareLine}${note}</div>`;
+}
+/* reorder the flat claim sequence — `to` is the pre-removal insertion index
+   (moveGoal semantics). Weeks are just pagination, so a drop into a full
+   week ripples the displaced claim into the next automatically. The new
+   order becomes state.wkPlan; weeklyPlan reconciles it as deficits move. */
+function moveClaim(from, to){
+  if(from === null || from === to || from + 1 === to) return;
+  const ids = WKSEQ.map(c => c.id);
+  const [id] = ids.splice(from, 1);
+  ids.splice(to > from ? to - 1 : to, 0, id);
+  state.wkPlan = ids;
+  save(); render();
+}
+/* move a whole WEEK's claims as a block — dragging the date label drops the
+   block before the target week's claims (same insert-before rule as cells).
+   Weeks are pagination, so after the move the calendar rows simply refill:
+   the moved block lands as early/late as the slot pattern allows. */
+function moveWeek(from, to){
+  if(from === null || from === to) return;
+  const r = WKROWS[from], t = WKROWS[to];
+  if(!r || !t || !r.len) return;
+  const ids = WKSEQ.map(c => c.id);
+  const block = ids.splice(r.start, r.len);
+  const at = to > from ? t.start - r.len : t.start;
+  if(at === r.start) return;                   // dropped just below itself — no move
+  ids.splice(at, 0, ...block);
+  state.wkPlan = ids;
+  save(); render();
 }
 
 function renderSummary(){
@@ -4413,6 +5198,9 @@ function renderSummary(){
         `<span class="avatar" style="background:${avaBg(it)}">${it.mono}${icoImg(it.name, isW ? 'weapon' : 'char', 'avatar-img')}</span>` +
         `<span class="dname">${esc(it.name)}</span>` +
         `<button class="tiny" data-undone="${i}" title="Return ${esc(it.name)} to the end of the queue">↩</button>` +
+        // a completed weapon keeps its carrier link — the chip works exactly
+        // like the queue card's (click assigns/reassigns, right-click unlinks)
+        (isW ? ownerChip(g, `data-down="${i}"`) : '') +
       `</div>`;
     };
     // keep each goal's INDEX into state.done — the display order is not the stored order
@@ -4444,6 +5232,17 @@ function renderSummary(){
       state.goals.push(state.done.splice(+e.currentTarget.dataset.undone, 1)[0]);
       save(); render();
     }));
+    el.querySelectorAll('[data-down]').forEach(b => {   // completed weapon's owner chip
+      b.addEventListener('click', e => {
+        e.stopPropagation();
+        openPal({mode:'owner', ref: state.done[+e.currentTarget.dataset.down]});
+      });
+      b.addEventListener('contextmenu', e => {
+        e.preventDefault();
+        delete state.done[+e.currentTarget.dataset.down].owner;
+        save(); render();
+      });
+    });
     bindIcons(el);
     return;
   }
@@ -4489,15 +5288,42 @@ function renderSummary(){
     return;
   }
 
-  /* Farm next = what to do with today's stamina, then what needs none at all.
-     The old per-goal walk rows are gone: they just restated the Ledger's
-     priority order, which the cards and the Total tab already show. */
+  /* Farm next = the weekly-boss planner (rows of weeks), then one box per
+     waveplate activity — boss / forgery / simulations — and finally what
+     needs no stamina at all. The per-activity boxes show the SAME deficit
+     tiles as the Total tab (covered mats keep their dimmed ✓), just split
+     by where you'd farm them; a box only renders while something in it is
+     still missing. */
   const walk = theWalk().filter(w => !w.off);           // paused goals farm nothing
-  const rem = remainingBag(viewBag(need), state.inv, state.synth).rem;
+  const needV = viewBag(need);
+  const rem = remainingBag(needV, state.inv, state.synth).rem;
   const free = overworldBag(rem);                       // costs no waveplates
   const order = priorityMatIds(live);
-  // claims already spent this week shrink the 3/week cap the plan may book
-  let html = todayBox(dailyPlan(walk.map(w => viewBag(w.rem)), GAME.waveplates.daily, state.week.used));
+  // claims already spent this week shrink the current row of the planner
+  const plan = weeklyPlan(walk.map(w => w.rem), state.week.used, state.week.start, state.wkPlan);
+  // the planner leads the tab while a weekly claim is still available; an
+  // exhausted week (all 3 spent) demotes it to the BOTTOM — nothing actionable
+  // up top — until Monday's reset brings it back (user's rule)
+  const wkBox = weeklyBox(plan, walk);
+  const wkSpent = state.week.used >= GAME.waveplates.weekly.perWeek;
+  let html = wkSpent ? '' : wkBox;
+
+  const WP = GAME.waveplates;
+  const actBox = (title, blurb, pick) => {
+    const ids = Object.keys(needV).filter(pick);
+    if(!ids.some(id => rem[id])) return '';
+    const bag = {};
+    for(const id of ids) bag[id] = needV[id];
+    return `<div class="freefarm"><div class="today-h">${title}</div>` +
+      `<div class="gmeta" style="margin-bottom:2px">${blurb}</div>` +
+      deficitTiles(bag, rem, order) + `</div>`;
+  };
+  html += actBox('Boss materials', `World bosses — ${WP.boss.cost} waveplates a run, ≈${WP.boss.drops} drops each.`,
+                 id => MATS[id] && MATS[id].cat === 'Boss Drops');
+  html += actBox('Forgery materials', `Forgery Challenge domains — ${WP.forgery.cost} waveplates a run; a family's tiers share one domain.`,
+                 id => MATS[id] && MATS[id].cat === 'Forgery');
+  html += actBox('Simulations', `EXP, weapon-EXP and credit simulations — ${WP.simExp.cost} waveplates a run.`,
+                 id => id === 'credits' || id === 'exp' || id === 'wexp');
 
   html += `<div class="freefarm"><div class="today-h">No waveplates needed</div>` +
     `<div class="gmeta" style="margin-bottom:2px">Overworld pickups and common enemy drops — farm these any time, whatever your stamina.</div>`;
@@ -4511,30 +5337,54 @@ function renderSummary(){
   }
   if(!any) html += '<div class="empty">Nothing left to pick up — every overworld material is covered.</div>';
   html += `</div>`;
+  if(wkSpent) html += wkBox;                   // exhausted week: the planner sinks to the bottom
 
   el.innerHTML = html;
-  /* Making a run actionable. Yields are crowdsourced AVERAGES for boss /
-     forgery / sims, so we never write those into the inventory — clicking the
-     row opens the farm pop-up on that material instead, and you log what
-     actually dropped (an EXP-sim row opens the potion ladder, which is the
-     only way those runs could be logged at all). The WEEKLY boss is the one
-     activity with a deterministic drop (always `weekly.drops` per claim), so
-     it gets a ✓ that credits the exact amount and spends one of the 3 weekly
-     claims. Both go through withUndo — a misclick is one Ctrl+Z. */
-  el.querySelectorAll('.run[data-run]').forEach(row => row.addEventListener('click', e => {
-    if(e.target.closest('[data-claim]')) return;        // the ✓ has its own handler
-    const r = RUNS[+row.dataset.run];
-    if(r) openFarm(r.id);
-  }));
-  el.querySelectorAll('[data-claim]').forEach(b => b.addEventListener('click', e => {
-    e.stopPropagation();
-    const r = RUNS[+e.currentTarget.dataset.claim];
-    if(!r) return;
-    withUndo(`Claimed ${MATS[r.id].name} ×${fmt(r.yield)}`, () => {
-      state.inv[r.id] = (state.inv[r.id] || 0) + r.yield;
-      state.week.used = clamp(state.week.used + r.runs, 0, GAME.waveplates.weekly.perWeek);
+  /* Planner interactions. LEFT-click logs (the farm pop-up, like every
+     other tile). RIGHT-click ✓-claims — only in the current week, because
+     the weekly drop is the one deterministic yield (always `weekly.drops`
+     per claim); it goes through withUndo, so a misclick is one Ctrl+Z.
+     With a manual order in place, claiming removes exactly the clicked
+     claim from state.wkPlan (reconciliation alone would trim that boss's
+     LAST occurrence and quietly reshuffle a deliberate interleave). */
+  el.querySelectorAll('.wkcell[data-ci]').forEach(cellEl => {
+    const ci = +cellEl.dataset.ci;
+    cellEl.addEventListener('mouseenter', () => showPop(cellEl, WKTIPS[ci]));
+    cellEl.addEventListener('mouseleave', hideTip);
+    cellEl.addEventListener('click', () => { hideTip(); const c = WKSEQ[ci]; if(c) openFarm(c.id); });
+    cellEl.addEventListener('contextmenu', e => {
+      e.preventDefault();
+      const c = WKSEQ[ci];
+      if(!c || !cellEl.classList.contains('cur')) return;
+      withUndo(`Claimed ${MATS[c.id].name} ×${GAME.waveplates.weekly.drops}`, () => {
+        state.inv[c.id] = (state.inv[c.id] || 0) + GAME.waveplates.weekly.drops;
+        state.week.used = clamp(state.week.used + 1, 0, GAME.waveplates.weekly.perWeek);
+        if(state.wkPlan){ const ids = WKSEQ.map(x => x.id); ids.splice(ci, 1); state.wkPlan = ids; }
+      });
     });
-  }));
+    cellEl.addEventListener('dragstart', () => { wkDrag = ci; wkRowDrag = null; });
+    cellEl.addEventListener('dragover', e => e.preventDefault());
+    cellEl.addEventListener('drop', e => { e.preventDefault(); moveClaim(wkDrag, ci); wkDrag = null; });
+  });
+  el.querySelectorAll('.wkcell.empty').forEach(cellEl => {    // free tail slots = "schedule last"
+    cellEl.addEventListener('dragover', e => e.preventDefault());
+    cellEl.addEventListener('drop', e => { e.preventDefault(); moveClaim(wkDrag, WKSEQ.length); wkDrag = null; });
+  });
+  // dragging a date label moves the whole week; any spot on a row is its target
+  el.querySelectorAll('.wklbl[data-wk]').forEach(lb => {
+    lb.addEventListener('dragstart', () => { wkRowDrag = +lb.dataset.wk; wkDrag = null; });
+  });
+  el.querySelectorAll('.wkrow[data-row]').forEach(row => {
+    row.addEventListener('dragover', e => { if(wkRowDrag !== null) e.preventDefault(); });
+    row.addEventListener('drop', e => {
+      if(wkRowDrag === null) return;           // a cell drag landing here is not ours
+      e.preventDefault();
+      moveWeek(wkRowDrag, +row.dataset.row);
+      wkRowDrag = null;
+    });
+  });
+  const wkReset = el.querySelector('#wkReset');
+  if(wkReset) wkReset.addEventListener('click', () => { state.wkPlan = null; save(); render(); });
   bindIcons(el);
   bindTileClicks(el);
 }
@@ -4823,12 +5673,17 @@ const KEYS = [
   ]],
   ['Weapon links', [
     [['click the owner'], 'Assign / change who carries a weapon (same type only)'],
-    [['right-click it'],  'Unlink the carrier'],
+    [['right-click it'],  'Unlink — works on the chip (queue & Completed), the Teams strips, and the Echoes header'],
   ]],
   ['Materials & farming', [
     [['click any tile'],  'Log what dropped (farm pop-up on that family)'],
     [['hover a tile'],    'Who needs it and how each goal is doing'],
     [['✓ Max goal'],      'Mark a build done — it flies to the Completed tab'],
+  ]],
+  ['Weekly planner', [
+    [['right-click a claim'], '✓ it — 3 mats in, one weekly claim spent (this week only)'],
+    [['drag a claim'],        'Reschedule it — pull a later goal’s boss forward'],
+    [['drag a week date'],    'Move that whole week’s claims earlier or later'],
   ]],
 ];
 const keysIsOpen = () => !$('#keysWrap').hidden;

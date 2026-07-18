@@ -40,6 +40,10 @@ for (const id of Object.keys(MATS))
 const attrs = [...new Set(Object.values(GAME.characters).flatMap(c => [c.element, c.wtype]))];
 for (const a of attrs)
   if (!exists('attr', a)) want.push({kind:'attr', name:a, title:`File:${a} Icon.png`});
+// Sonata set icons (Echoes page): the wiki files are "Icon <Name>.png" —
+// note the PREFIX form, unlike the element glyphs' "<Name> Icon.png"
+for (const s of GAME.echo.sonata)
+  if (!exists('sonata', s.name)) want.push({kind:'sonata', name:s.name, title:`File:Icon ${wikiName(s.name)}.png`});
 
 const UA = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'};
 const api = 'https://wutheringwaves.fandom.com/api.php';

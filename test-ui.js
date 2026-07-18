@@ -26,11 +26,13 @@ const reset = () => w.eval(`
   const D = {4: defaultGoalTgt(4), 5: defaultGoalTgt(5)};
   state = {goals: ['jinhsi','phoebe','suisui'].map(c => newGoal(c, false, D)),
            done: [], inv: {}, synth: true, craftMode: 'reserve', hideUn: false, skipCE: false,
-           tab: 'total', teams: [], builds: {}, defaults: D, week: freshWeek()};
+           tab: 'total', teams: [], builds: {}, defaults: D, week: freshWeek(), wkPlan: null,
+           statPrio: null};
   undoStack.length = 0; clearTimeout(undoTimer);
   editIdx = null; editTpl = null; palPick = null; palSel = 0;
-  echoFilter = '';
-  farmId = null; ordDrag = null; invFilter = '';
+  echoFilter = ''; echoOpen = []; focusPop = null; prioPop = false;
+  echoChips = {r: new Set(), el: new Set(), wt: new Set()};
+  farmId = null; ordDrag = null; wkDrag = null; invFilter = '';
   for(const s of ['#modalWrap','#palWrap','#ordWrap','#invWrap','#farmWrap','#undoBar'])
     $(s).hidden = true;
   if(location.hash) location.hash = '';
@@ -120,9 +122,9 @@ ok('tiles carry rarity grounds', d.querySelector('#summary .tile.r5') !== null &
   ok('setting persists in the save',
      JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).skipCE === true);
   fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Farm next'), 'click');
-  ok('Farm next: today’s plan drops the EXP/credit simulation runs',
-     [...d.querySelectorAll('#summary .today .run .rname')].length > 0 &&
-     ![...d.querySelectorAll('#summary .today .run .rname')].some(r => /simulation/i.test(r.textContent)) &&
+  ok('Farm next: the Simulations box vanishes with credits & EXP ignored',
+     [...d.querySelectorAll('#summary .today-h')].some(h => /Boss materials/.test(h.textContent)) &&
+     ![...d.querySelectorAll('#summary .today-h')].some(h => /Simulations/.test(h.textContent)) &&
      ![...d.querySelectorAll('#summary .tile')]
        .some(t => (t.getAttribute('title') || '').startsWith('Shell Credit')));
   fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Total'), 'click');
@@ -367,46 +369,60 @@ const palAdd = q => {
      JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).synth === false);
 }
 
-// ── Farm next tab: today's plan, then the no-waveplate materials ──
+// ── Farm next tab: weekly planner, per-activity boxes, then the free farm ──
 fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Farm next'), 'click');
 ok('the per-goal walk rows are gone (they just restated the Ledger order)',
    d.querySelectorAll('#summary .goalstat').length === 0);
-ok('the tab leads with today’s plan, then the free-farm section',
-   d.querySelector('#summary .today') !== null &&
+ok('the tab leads with the weekly planner, then the activity boxes and the free farm',
+   d.querySelector('#summary .wkplan') !== null &&
    d.querySelector('#summary .freefarm') !== null &&
-   d.querySelector('#summary').firstElementChild.classList.contains('today'));
+   d.querySelector('#summary').firstElementChild.classList.contains('wkplan'));
+ok('the boxes run weekly → boss → forgery → simulations → no-waveplate', (() => {
+   const heads = [...d.querySelectorAll('#summary .today-h')].map(h => h.textContent);
+   return /^Weekly bosses/.test(heads[0]) && /Boss materials/.test(heads[1]) &&
+          /Forgery materials/.test(heads[2]) && /Simulations/.test(heads[3]) &&
+          /No waveplates needed/.test(heads[4]); })());
+ok('activity boxes carry the same deficit tiles as the Total tab',
+   [...d.querySelectorAll('#summary .freefarm .tile')].length > 0 &&
+   [...d.querySelectorAll('#summary .freefarm .tile')]
+     .every(t => /click to log drops/.test(t.getAttribute('title') || '')));
 ok('free-farm groups by category, like the inventory',
    [...d.querySelectorAll('#summary .freefarm .ffcat')].map(c => c.textContent).join(',')
      === 'Specialty,Enemy Drops');
 ok('free-farm lists ONLY no-waveplate materials (no boss/weekly/forgery/credits/EXP)', (() => {
-   const tiles = [...d.querySelectorAll('#summary .freefarm .tile')];
+   const box = [...d.querySelectorAll('#summary .freefarm')].pop();
+   const tiles = [...box.querySelectorAll('.tile')];
    return tiles.length > 0 && tiles.every(t => w.eval(
      `isOverworld(MAT_ID_BY_NAME[${JSON.stringify((t.getAttribute('title') || '').split(' — ')[0])}]) === true`));
 })());
-ok('free-farm tiles carry the deficit and open the farm pop-up on click',
-   [...d.querySelectorAll('#summary .freefarm .tile')]
-     .every(t => /click to log drops/.test(t.getAttribute('title') || '')));
 
-// ── today's plan: the daily budget split into whole runs ──
+// ── the weekly planner: one row per game week, three claim slots each ──
 {
-  const runs = () => [...d.querySelectorAll('#summary .today .run')];
-  ok('the tab leads with today’s plan', d.querySelector('#summary .today') !== null &&
-     d.querySelector('#summary').firstElementChild.classList.contains('today') && runs().length > 0);
-  ok('the header shows what the plan spends of the daily budget, iconized', (() => {
-     const b = d.querySelector('#summary .today-h .budget');
-     return /\d+ \/ 240$/.test(b.textContent.trim()) && b.querySelector('.wp-ico') !== null; })());
-  ok('every run names an activity, a run count, a yield and an iconized plate cost',
-     runs().every(r => r.querySelector('.rname').textContent.length > 0 &&
-       /^×\d+$/.test(r.querySelector('.x').textContent) &&
-       r.querySelector('.gain').textContent.startsWith('≈') &&
-       /^[\d,]+$/.test(r.querySelector('.plates').textContent) &&
-       r.querySelector('.plates .wp-ico') !== null));
-  ok('run rows carry the activity’s icon', runs().every(r => r.querySelector('.ico-wrap img') !== null));
-  ok('the plan never overspends the budget',
-     runs().reduce((s, r) => s + +r.querySelector('.plates').textContent.replace(/[^\d]/g, ''), 0) <= 240);
-  ok('a spare-plates / cap / overworld note explains the leftovers',
-     d.querySelector('#summary .today-f') === null ||
-     d.querySelector('#summary .today-f').textContent.length > 0);
+  const cells = () => [...d.querySelectorAll('#summary .wkplan .wkcell[data-ci]')];
+  const rows  = () => [...d.querySelectorAll('#summary .wkplan .wkrow')];
+  ok('the header counts every remaining claim and names the finish week', (() => {
+     const b = d.querySelector('#summary .wkplan .budget');
+     return b !== null && /^\d+ claims · done [A-Z][a-z]{2} \d+$/.test(b.textContent.trim()); })());
+  ok('one row per week, 3 slots each, claims paged into them',
+     rows().length === Math.ceil(cells().length / 3) && cells().length > 3 &&
+     rows().every(r => r.querySelectorAll('.wkcell').length === 3));
+  ok('the first row is the current week, later rows carry their Monday date',
+     rows()[0].querySelector('.wklbl').textContent === 'This week' &&
+     /^[A-Z][a-z]{2} \d+$/.test(rows()[1].querySelector('.wklbl').textContent));
+  ok('every claim cell shows the boss material, what it covers, and who it serves',
+     cells().every(c => c.querySelector('.ico-wrap img') !== null &&
+       /^×[123]$/.test(c.querySelector('.x').textContent) &&
+       c.querySelector('.avatar img') !== null));
+  ok('a shared weekly serves the earlier goal first (P1 = Phoebe here)',
+     cells()[0].querySelector('.avatar img').getAttribute('src').includes('phoebe'));
+  ok('the number of claims matches the aggregate weekly deficit', (() => {
+     const claims = w.eval(`(() => {
+       const live = activeGoals(state.goals);
+       const rem = remainingBag(totalBag(live), state.inv, state.synth).rem;
+       return Object.entries(rem).filter(([id]) => MATS[id].cat === 'Weekly Boss')
+         .reduce((s, [, q]) => s + Math.ceil(q / GAME.waveplates.weekly.drops), 0);
+     })()`);
+     return cells().length === claims; })());
 }
 
 // ── persistence round-trip ──
@@ -496,55 +512,76 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
      /Lv 90$/.test(meta(0).trim()) && !meta(0).includes('→'));
 }
 
-// ── acting on today's plan: click a run to log drops; ✓ claims the weekly ──
+// ── acting on the weekly planner: right-click ✓-claims; left-click logs ──
 {
   reset();
   const farmNext = () => fire([...d.querySelectorAll('#tabs button')]
     .find(b => b.textContent === 'Farm next'), 'click');
   farmNext();
-  const runs = () => [...d.querySelectorAll('#summary .today .run')];
-  const runOf = kind => runs().find(r => w.eval(`RUNS[${+r.dataset.run}].kind`) === kind);
+  const cells = () => [...d.querySelectorAll('#summary .wkplan .wkcell[data-ci]')];
+  const rows  = () => [...d.querySelectorAll('#summary .wkplan .wkrow')];
   const wkLine = () => d.querySelector('#summary .wk-line').textContent;
 
   ok('a fresh week shows all 3 weekly claims left', /3 \/ 3 left this week/.test(wkLine()));
-  ok('only the weekly run carries a ✓ (its drop is deterministic)',
-     runOf('weekly').querySelector('[data-claim]') !== null &&
-     runs().filter(r => r.querySelector('[data-claim]')).length === 1);
-  ok('the EXP-sim run has no ✓ (its yield is only an average)',
-     runOf('exp') !== undefined && runOf('exp').querySelector('[data-claim]') === null);
+  ok('only current-week cells are claimable (marked .cur)',
+     cells().slice(0, 3).every(c => c.classList.contains('cur')) &&
+     cells().slice(3).every(c => !c.classList.contains('cur')));
 
-  // (A) clicking a non-weekly run opens the farm pop-up so you log REAL drops.
-  // The EXP sim opens the potion ladder — the only way those runs can be logged.
-  fire(runOf('exp'), 'click');
-  ok('clicking the EXP-sim run opens the farm pop-up on the potion ladder',
+  // (A) LEFT-click logs: the farm pop-up opens on the claim's boss material
+  const id0 = w.eval('WKSEQ[0].id');
+  fire(cells()[0], 'click');
+  ok('left-clicking a claim opens the farm pop-up on its material',
+     d.querySelector('#farmWrap').hidden === false && w.eval('FARM[0]') === id0);
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
+
+  // the Simulations box keeps the sims loggable: its EXP tile opens the
+  // potion ladder — the only way a sim's yield can be logged at all
+  farmNext();
+  const expTile = [...d.querySelectorAll('#summary .freefarm .tile')]
+    .find(t => (t.getAttribute('title') || '').startsWith('Resonator EXP'));
+  fire(expTile, 'click');
+  ok('the Simulations box’s EXP tile opens the potion ladder',
      d.querySelector('#farmWrap').hidden === false &&
      w.eval('JSON.stringify(FARM) === JSON.stringify(GAME.expItems.map(x => x.id))'));
   d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
 
-  // (B) the weekly ✓ credits the exact yield and spends the claims
+  // (B) RIGHT-click ✓-claims: exactly `drops` mats in, one claim spent
   farmNext();
-  const wkRun = runOf('weekly');
-  const rd = f => w.eval(`RUNS[${+wkRun.dataset.run}].${f}`);
-  const wkId = rd('id'), wkYield = rd('yield'), wkCount = rd('runs');
-  const held = w.eval(`state.inv[${JSON.stringify(wkId)}] || 0`);
-  fire(wkRun.querySelector('[data-claim]'), 'click');
-  ok('✓ credits exactly the weekly yield (deterministic, not an estimate)',
-     w.eval(`state.inv[${JSON.stringify(wkId)}]`) === held + wkYield &&
-     wkYield === wkCount * w.eval('GAME.waveplates.weekly.drops'));
-  ok('…and spends that many of the 3 weekly claims',
-     w.eval('state.week.used') === wkCount &&
-     new RegExp(`${3 - wkCount} / 3 left this week`).test(wkLine()));
+  const held = w.eval(`state.inv[${JSON.stringify(id0)}] || 0`);
+  const nBefore = cells().length;
+  fire(cells()[0], 'contextmenu');
+  ok('right-click credits exactly the deterministic weekly drop',
+     w.eval(`state.inv[${JSON.stringify(id0)}]`) === held + w.eval('GAME.waveplates.weekly.drops'));
+  ok('…and spends one of the 3 weekly claims',
+     w.eval('state.week.used') === 1 && /2 \/ 3 left this week/.test(wkLine()));
+  ok('…and the planner re-flows: one claim gone, one spent slot shown',
+     cells().length === nBefore - 1 &&
+     d.querySelectorAll('#summary .wkplan .wkcell.spent').length === 1);
   d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'z', ctrlKey:true, bubbles:true}));
   ok('claiming is undoable (materials and the claim count both roll back)',
      w.eval('state.week.used') === 0 &&
-     w.eval(`(state.inv[${JSON.stringify(wkId)}] || 0)`) === held);
+     w.eval(`(state.inv[${JSON.stringify(id0)}] || 0)`) === held);
 
-  // an exhausted week stops the plan suggesting weekly runs at all
+  // a future week's claim cannot be ✓ed ahead of time
+  fire(cells().find(c => !c.classList.contains('cur')), 'contextmenu');
+  ok('right-clicking a future-week claim does nothing',
+     w.eval('state.week.used') === 0 && cells().length === nBefore);
+
+  // an exhausted week: the current row is all spent slots, claims move out
   w.eval('state.week.used = 3; save(); render();');
   farmNext();
-  ok('with all 3 claims spent, no weekly run is planned',
-     runOf('weekly') === undefined && /0 \/ 3 left this week/.test(wkLine()));
-  ok('…and the budget still books other activities', runs().length > 0);
+  ok('with all 3 claims spent the current row holds only spent slots',
+     rows()[0].querySelectorAll('.wkcell.spent').length === 3 &&
+     rows()[0].querySelectorAll('.wkcell[data-ci]').length === 0 &&
+     /0 \/ 3 left this week/.test(wkLine()));
+  ok('…and no cell anywhere is claimable', cells().every(c => !c.classList.contains('cur')));
+  ok('…and the planner sinks to the bottom of the tab (nothing actionable up top)',
+     !d.querySelector('#summary').firstElementChild.classList.contains('wkplan') &&
+     d.querySelector('#summary').lastElementChild.classList.contains('wkplan'));
+  w.eval('state.week.used = 2; save(); render();');
+  ok('one claim available again floats the planner back to the top',
+     d.querySelector('#summary').firstElementChild.classList.contains('wkplan'));
+  w.eval('state.week.used = 3; save(); render();');
 
   // the week auto-resets at the Monday-04:00 boundary
   ok('a stale week resets the claim count (Monday 04:00 rollover)', w.eval(`
@@ -552,6 +589,136 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
     stale.used === 0 && stale.start === weekStartMs(Date.now());`));
   ok('a current week keeps its count', w.eval(
     'sanitizeWeek({start: weekStartMs(Date.now()), used: 2}).used === 2'));
+}
+
+// ── dragging claims: manual priority, persisted as state.wkPlan ──
+{
+  reset();
+  const farmNext = () => fire([...d.querySelectorAll('#tabs button')]
+    .find(b => b.textContent === 'Farm next'), 'click');
+  farmNext();
+  const cells = () => [...d.querySelectorAll('#summary .wkplan .wkcell[data-ci]')];
+
+  // pull the LAST claim (Suisui's weekly, behind Jinhsi's and Phoebe's) to the front
+  const n = cells().length;
+  const firstId = w.eval('WKSEQ[0].id');
+  const lastId  = w.eval(`WKSEQ[${n - 1}].id`);
+  ok('the seed queue gives the drag something to reorder', firstId !== lastId);
+  fire(cells()[n - 1], 'dragstart');
+  fire(cells()[0], 'drop');
+  ok('a dragged claim lands where it was dropped (before the target)',
+     w.eval('WKSEQ[0].id') === lastId && cells().length === n);
+  ok('…the manual order persists in the save',
+     JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).wkPlan[0] === lastId);
+  ok('…and a ↺ reset button appears', d.querySelector('#wkReset') !== null);
+  ok('needers stay honest after the pull — the moved claim serves its own goal',
+     cells()[0].querySelector('.avatar img').getAttribute('src').includes('suisui'));
+
+  // claiming under a manual order removes exactly the clicked claim — the
+  // stored pattern must not reshuffle (reconciliation alone would trim the
+  // boss's LAST occurrence instead)
+  const countOf = id => w.eval(`state.wkPlan.filter(x => x === ${JSON.stringify(id)}).length`);
+  const pulled = countOf(lastId);
+  fire(cells()[0], 'contextmenu');                      // ✓ the pulled claim
+  ok('claiming the pulled claim consumes that occurrence of it',
+     countOf(lastId) === pulled - 1 && w.eval('state.wkPlan[0]') !== lastId);
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'z', ctrlKey:true, bubbles:true}));
+  ok('undo restores the manual order too', w.eval('state.wkPlan[0]') === lastId);
+
+  // dropping on a free tail slot schedules the claim last
+  fire(cells()[0], 'dragstart');
+  const empty = d.querySelector('#summary .wkplan .wkcell.empty');
+  if(empty){ fire(empty, 'drop'); }
+  else { w.eval(`moveClaim(0, ${n})`); }               // no free slot this week-shape
+  ok('a claim can be sent to the very end',
+     w.eval(`WKSEQ[${n - 1}].id`) === lastId && w.eval('WKSEQ[0].id') === firstId);
+
+  // ↺ forgets the manual order
+  fire(d.querySelector('#wkReset'), 'click');
+  ok('↺ returns to queue order and clears the saved plan',
+     w.eval('state.wkPlan') === null && w.eval('WKSEQ[0].id') === firstId &&
+     JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).wkPlan === null);
+
+  // sanitize: only real Weekly Boss ids survive; junk collapses to null
+  ok('sanitize keeps only weekly-boss ids in wkPlan', w.eval(`
+     JSON.stringify(sanitize({wkPlan: [${JSON.stringify(lastId)}, 'credits', 'howler0', 'nope']}).wkPlan)
+       === JSON.stringify([${JSON.stringify(lastId)}])`));
+  ok('sanitize: junk-only or absent wkPlan is null (queue order)', w.eval(
+     `sanitize({wkPlan: ['nope']}).wkPlan === null && sanitize({}).wkPlan === null`));
+}
+
+// ── partial claims: ×take shows what a claim covers; overshoot foots as surplus ──
+{
+  reset();
+  // standard templates need 6 weeklies per char here: Dagger (Jinhsi+Phoebe)
+  // 12 − 1 stock = 11 → 4 claims ×3×3×3×2 (1 surplus); Skyward 6 → ×3×3 exact
+  w.eval(`state.inv["wk:Sentinel's Dagger"] = 1; save(); render();`);
+  fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Farm next'), 'click');
+  const cells = () => [...d.querySelectorAll('#summary .wkplan .wkcell[data-ci]')];
+  ok('each cell shows what its claim actually covers, ×2 on the partial one',
+     cells().map(c => c.querySelector('.x').textContent).join() === '×3,×3,×3,×2,×3,×3');
+  ok('the partial ×take is visually marked', (() => {
+     const marked = cells().filter(c => c.querySelector('.x.part'));
+     return marked.length === 1 && marked[0].querySelector('.x').textContent === '×2'; })());
+  ok('…and its tooltip says the claim still drops 3',
+     /only 2 of the 3 it drops/.test(cells()[3].getAttribute('title') || ''));
+  ok('the surplus foots at the end as icon tiles, not text', (() => {
+     const tiles = [...d.querySelectorAll('#summary .wk-spare .tile')];
+     return tiles.length === 1 &&
+       (tiles[0].getAttribute('title') || '').startsWith("Sentinel's Dagger — ×1 spare") &&
+       tiles[0].querySelector('.ico-wrap img') !== null &&
+       tiles[0].querySelector('.qty').textContent === '+1'; })());
+  // a claim straddling two heroes is NOT surplus — the tooltip names both
+  ok('a boundary claim splits its mats between the heroes it serves',
+     /2 for Jinhsi, 1 for Phoebe/.test(cells()[1].getAttribute('title') || ''));
+  // hovering shows the characters as avatar chips (a title can't carry images)
+  fire(cells()[1], 'mouseenter');
+  ok('hovering a boundary claim pops both characters with their share', (() => {
+     const pop = d.querySelector('#tipPop');
+     const chips = [...pop.querySelectorAll('.tip-chip')];
+     return pop.hidden === false && chips.length === 2 &&
+       /Jinhsi/.test(chips[0].textContent) && /×2/.test(chips[0].textContent) &&
+       /Phoebe/.test(chips[1].textContent) && /×1/.test(chips[1].textContent) &&
+       chips[0].querySelector('img.tip-av') !== null &&
+       cells()[1].getAttribute('title') === null; })());   // native tooltip suppressed
+  fire(cells()[1], 'mouseleave');
+  ok('leaving hides the popover and restores the cell title',
+     d.querySelector('#tipPop').hidden === true &&
+     (cells()[1].getAttribute('title') || '').length > 0);
+  // exact multiples: no partial, no surplus line at all
+  w.eval(`delete state.inv["wk:Sentinel's Dagger"]; save(); render();`);
+  ok('exact multiples show all ×3 and no surplus line',
+     cells().every(c => c.querySelector('.x').textContent === '×3') &&
+     d.querySelector('#summary .wk-spare') === null);
+}
+
+// ── dragging a week's date label moves the whole week's claims as a block ──
+{
+  reset();
+  fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Farm next'), 'click');
+  const rows = () => [...d.querySelectorAll('#summary .wkplan .wkrow')];
+  const seqIds = () => w.eval('WKSEQ.map(c => c.id).join("|")');
+  const D = "wk:Sentinel's Dagger", S = 'wk:Skyward Glazed Heart';
+  // standard templates: Dagger 12 → 4 claims, Skyward 6 → 2 → weeks [DDD][DSS]
+  ok('baseline sequence: Dagger claims then Skyward, over two weeks',
+     seqIds() === [D, D, D, D, S, S].join('|') && rows().length === 2);
+  ok('every week label with claims is a drag grip',
+     rows().every(r => r.querySelector('.wklbl[draggable]') !== null));
+  // dropping a week on itself sets no manual order
+  fire(rows()[0].querySelector('.wklbl'), 'dragstart');
+  fire(rows()[0], 'drop');
+  ok('dropping a week onto itself changes nothing', w.eval('state.wkPlan') === null);
+  // pull the second week to the front — its 3 claims move as one block
+  fire(rows()[1].querySelector('.wklbl'), 'dragstart');
+  fire(rows()[0], 'drop');
+  ok('the dragged week now leads, its claims kept together as a block',
+     seqIds() === [D, S, S, D, D, D].join('|'));
+  ok('…and the block order persists as the manual plan',
+     JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).wkPlan.join('|')
+       === [D, S, S, D, D, D].join('|'));
+  ok('a ↺ reset returns to queue order', (() => {
+     fire(d.querySelector('#wkReset'), 'click');
+     return seqIds() === [D, D, D, D, S, S].join('|') && w.eval('state.wkPlan') === null; })());
 }
 
 // ── forte node grid in the pop-up (2×5 matrix with column dependencies) ──
@@ -837,8 +1004,9 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
 
   // Farm next accounts for weapon goals too
   fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Farm next'), 'click');
-  ok('today’s plan still books runs with a weapon queued',
-     d.querySelectorAll('#summary .today .run').length > 0);
+  ok('the weekly planner still plans with a weapon queued (weapons add no weeklies)',
+     d.querySelectorAll('#summary .wkplan .wkcell[data-ci]').length > 0 &&
+     [...d.querySelectorAll('#summary .today-h')].some(h => /Forgery materials/.test(h.textContent)));
   ok('the weapon’s overworld mats appear in the no-waveplate section',
      d.querySelectorAll('#summary .freefarm .tile').length > 0);
 
@@ -1761,7 +1929,7 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok('all paused → Total says so instead of showing an empty deficit',
      /Every goal is paused/.test(d.querySelector('#summary').textContent));
   fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent === 'Farm next'), 'click');
-  ok('all paused → Farm next proposes no runs', d.querySelectorAll('#summary .run').length === 0);
+  ok('all paused → Farm next plans no claims', d.querySelectorAll('#summary .wkcell').length === 0);
   w.eval(`state.goals.forEach(g => g.off = false); state.tab = 'total'; save(); render();`);
   ok('resuming brings the totals back', totalCredits() === before);
 
@@ -1881,6 +2049,66 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   w.eval(`doUndo()`);                                            // put Jinhsi back
   ok('undo restores the character and its link',
      w.eval(`state.goals[0].char`) === 'jinhsi' && w.eval(`state.goals[3].owner`) === 'jinhsi');
+}
+
+// ── un/re-linking everywhere the link is shown: Completed tab, Teams, Echoes ──
+{
+  reset();
+  const rclick = el => el.dispatchEvent(new w.MouseEvent('contextmenu', {bubbles:true, cancelable:true}));
+  // Jinhsi carries a COMPLETED Ages of Harvest (Broadblade)
+  w.eval(`{ const wg = newWpnGoal('agesOfHarvest', false);
+            wg.cur = maxedWpnState(); wg.owner = 'jinhsi';
+            state.done.push(wg); save(); render(); }`);
+  fire([...d.querySelectorAll('#tabs button')].find(b => b.textContent.startsWith('Completed')), 'click');
+  const chip = () => d.querySelector('#summary .dcard [data-down]');
+  ok('a completed weapon tile carries the owner chip with the carrier’s avatar',
+     chip() !== null && !chip().classList.contains('none') &&
+     chip().querySelector('.avatar img').getAttribute('src') === 'images/characters/jinhsi_icon.png');
+  rclick(chip());
+  ok('right-click unlinks a COMPLETED weapon',
+     w.eval('state.done[0].owner') === undefined && chip().classList.contains('none'));
+  fire(chip(), 'click');
+  ok('click opens the owner palette on the done goal (object ref, not a queue index)',
+     d.querySelector('#palWrap').hidden === false &&
+     w.eval('palPick.ref === state.done[0]') === true);
+  fire(d.querySelector('#palList .pal-item'), 'click');   // only Jinhsi wields a Broadblade
+  ok('picking a carrier re-links the completed weapon',
+     w.eval('state.done[0].owner') === 'jinhsi');
+
+  // Teams page: the roster weapon strip and the slot icon both unequip
+  w.eval(`state.teams = [{chars:['jinhsi', null, null]}]; save(); showPage('teams'); render();`);
+  const rstrip = () => d.querySelector('#teams .rcard[data-c="jinhsi"] [data-eq]');
+  ok('the roster strip announces the unequip gesture',
+     /right-click to unequip/.test(rstrip().getAttribute('title') || ''));
+  rclick(rstrip());
+  ok('right-clicking the roster weapon strip unequips',
+     w.eval('state.done[0].owner') === undefined);
+  w.eval(`state.done[0].owner = 'jinhsi'; save(); render();`);
+  const swpn = () => d.querySelector('#teams .slot .swpn');
+  ok('the team slot shows the carried weapon', swpn() !== null && !swpn().classList.contains('none'));
+  rclick(swpn());
+  ok('right-clicking the slot’s weapon icon unequips too',
+     w.eval('state.done[0].owner') === undefined);
+
+  // Echoes page: the header weapon line changes on click, unequips on right-click
+  w.eval(`state.done[0].owner = 'jinhsi'; echoOpen = ['jinhsi']; save(); showPage('echoes'); render();`);
+  const wline = () => d.querySelector('.ebuild[data-ec="jinhsi"] .ehwpn');
+  ok('the Echoes header names the weapon and the gestures',
+     /Ages of Harvest/.test(wline().textContent) &&
+     /right-click to unequip/.test(wline().getAttribute('title') || ''));
+  rclick(wline());
+  ok('right-clicking the Echoes weapon line unequips',
+     w.eval('state.done[0].owner') === undefined && /no weapon linked/.test(wline().textContent));
+  fire(wline(), 'click');
+  ok('clicking it opens the equip palette, completed weapons included',
+     d.querySelector('#palWrap').hidden === false &&
+     w.eval(`palPick && palPick.mode === 'equip' && palPick.char === 'jinhsi'`) === true &&
+     [...d.querySelectorAll('#palList .pal-item')]
+       .some(e => /Ages of Harvest/.test(e.textContent) && /completed/.test(e.textContent)));
+  fire([...d.querySelectorAll('#palList .pal-item')]
+    .find(e => /Ages of Harvest/.test(e.textContent)), 'click');
+  ok('picking it re-links from the Echoes page', w.eval('state.done[0].owner') === 'jinhsi');
+  w.eval(`showPage('ledger'); state.tab = 'total'; save(); render();`);
 }
 
 // ── Teams page: roster panel, drag-to-slot, auto names, reorder, prioritize ──
@@ -2010,9 +2238,14 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   const chips = f => [...d.querySelectorAll(`#palFilt [data-facet="${f}"]`)];
   const items = () => [...d.querySelectorAll('#palList .pal-item')];
   const tags  = () => items().map(e => e.querySelector('.tag').textContent);
-  ok('the chip row offers rarity, every element and every weapon type',
-     chips('r').length === 3 && chips('el').length === 6 && chips('wt').length === 5 &&
+  ok('the chip row offers rarity, every element and every weapon type (+ an All head chip)',
+     chips('r').length === 3 && chips('el').length === 7 && chips('wt').length === 6 &&
+     chips('el')[0].dataset.val === '' && chips('wt')[0].dataset.val === '' &&
+     chips('el')[0].classList.contains('on') &&        // All lit while unfiltered
      d.querySelector('#palFilt .fchip .attr-img') !== null);
+  ok('elements and weapon types list alphabetically after their All chip',
+     (() => { const names = chips('el').slice(1).map(c => c.dataset.val);
+              return names.join() === [...names].sort().join(); })());
   const all = items().length;
 
   fire(chips('r').find(c => c.dataset.val === '4'), 'click');
@@ -2035,9 +2268,15 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   fire(chips('wt').find(c => c.dataset.val === 'Broadblade'), 'click');   // back off
   ok('…and dropping the second facet restores the first', items().length === spectro);
 
+  // the All head chip clears just its own facet
+  ok('picking an element unlights its All chip', !chips('el')[0].classList.contains('on'));
+  fire(chips('el')[0], 'click');
+  ok('clicking All clears that facet and relights itself',
+     items().length === all && chips('el')[0].classList.contains('on'));
+  fire(chips('el').find(c => c.dataset.val === 'Spectro'), 'click');   // refilter for ✕
   fire(d.querySelector('#palFilt [data-facet="clear"]'), 'click');
   ok('✕ clears every facet at once',
-     items().length === all && d.querySelectorAll('#palFilt .fchip.on').length === 0);
+     items().length === all && d.querySelectorAll('#palFilt .fchip.on:not(.all)').length === 0);
 
   // a weapon-type chip alone matches BOTH the characters and the weapons of that type
   fire(chips('wt').find(c => c.dataset.val === 'Rectifier'), 'click');
@@ -2054,7 +2293,7 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
   fire(d.querySelector('#btnAdd'), 'click');
   ok('reopening the palette starts unfiltered',
-     d.querySelectorAll('#palFilt .fchip.on').length === 0 && items().length === all);
+     d.querySelectorAll('#palFilt .fchip.on:not(.all)').length === 0 && items().length === all);
   // the filter row is hidden in a pick mode (nothing to filter there)
   w.eval(`closePal(); openPal({mode:'slot', t:0, s:0})`);
   ok('no filter row in a pick mode', d.querySelector('#palFilt').hidden === true);
@@ -2072,11 +2311,12 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
      w.getComputedStyle(wrap()).pointerEvents === 'none' &&
      d.querySelector('.keys-pop') !== null);
   ok('it lists the grouped shortcuts with keycaps',
-     d.querySelectorAll('#keysBody .keys-grp').length === 4 &&
-     d.querySelectorAll('#keysBody .keys-row').length >= 12 &&
+     d.querySelectorAll('#keysBody .keys-grp').length === 5 &&
+     d.querySelectorAll('#keysBody .keys-row').length >= 14 &&
      d.querySelector('#keysBody kbd') !== null &&
      /Add a character/.test(d.querySelector('#keysBody').textContent) &&
-     /ALREADY BUILT/.test(d.querySelector('#keysBody').textContent));
+     /ALREADY BUILT/.test(d.querySelector('#keysBody').textContent) &&
+     /Weekly planner/.test(d.querySelector('#keysBody').textContent));
   d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'/', ctrlKey:true, bubbles:true}));
   ok('Ctrl+/ again toggles it shut', wrap().hidden === true);
   fire(d.querySelector('#btnKeys'), 'click');
@@ -2092,19 +2332,57 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
 }
 
-// ── Echoes page: a grid of per-character build cards, live + persisted ──
+// ── Echoes page: character bar left, open sheets center, live + persisted ──
 {
   reset();
   const echoTab = () => d.querySelector('.pagenav [data-page="echoes"]');
   const card = id => d.querySelector(`.ebuild[data-ec="${id}"]`);
+  const bar  = id => d.querySelector(`#elist .echar[data-ec="${id}"]`);
   const q = (id, sel) => card(id).querySelector(sel);
   fire(echoTab(), 'click');
   ok('Echoes nav opens the page', d.querySelector('#pageEcho').hidden === false &&
      d.querySelector('#pageLedger').hidden === true && echoTab().classList.contains('on'));
-  ok('one build card per ledger character, shown at once', d.querySelectorAll('#esheets .ebuild').length === 3);
+  ok('with no sheet open the characters SHOWCASE as a full-width grid',
+     d.querySelectorAll('#elist .echar').length === 3 &&
+     d.querySelectorAll('#esheets .ebuild').length === 0 &&
+     d.querySelector('#pageEcho .ecols').classList.contains('showcase'));
+  ok('a bar card: portrait + stats on top, the identity line along the bottom',
+     bar('jinhsi').querySelector('.ectop .avatar img') !== null &&
+     bar('jinhsi').querySelector('.ecbot .ecname').textContent === 'Jinhsi' &&
+     bar('jinhsi').querySelectorAll('.ecbot .attr').length === 2 &&
+     /Lv 1/.test(bar('jinhsi').querySelector('.ecbot .num').textContent) &&
+     /no weapon linked/.test(bar('jinhsi').getAttribute('title')) &&
+     bar('jinhsi').querySelector('.ecw') === null);   // no weapon → no icon
+  // clicking bar cards opens their sheets in the center — several at once
+  for(const id of ['jinhsi', 'phoebe', 'suisui']) fire(bar(id), 'click');
+  ok('opening each character stacks their sheets in the center',
+     d.querySelectorAll('#esheets .ebuild').length === 3 &&
+     [...d.querySelectorAll('#elist .echar')].every(c => c.classList.contains('open')));
+  ok('an open sheet collapses the showcase into the side bar',
+     !d.querySelector('#pageEcho .ecols').classList.contains('showcase'));
+  ok('the newest sheet always opens ON TOP',
+     d.querySelector('#esheets .ebuild').dataset.ec === 'suisui');
   ok('a card names its character and holds 5 echo columns',
      q('jinhsi', '.ehname').textContent === 'Jinhsi' &&
      card('jinhsi').querySelectorAll('.egrid .ecol').length === 5);
+  ok('the sheet header is two columns: identity + sets left, focus + finals right',
+     card('jinhsi').querySelector('.ehdr .ehleft .ehead') !== null &&
+     card('jinhsi').querySelector('.ehdr .ehleft .ehsets') !== null &&
+     card('jinhsi').querySelector('.ehdr .ehright [data-fbtn]') !== null &&
+     card('jinhsi').querySelector('.ehdr .ehright .etotals') !== null &&
+     card('jinhsi').querySelector('.ehdr .ehright .ebudget') !== null);
+  // clicking an OPEN character's bar card closes its sheet (toggle)
+  fire(bar('suisui'), 'click');
+  ok('clicking an open character’s card closes the sheet',
+     card('suisui') === null && !bar('suisui').classList.contains('open'));
+  fire(bar('suisui'), 'click');   // back open for the rest of the block
+  // ⇤ sends a sheet back to the bar
+  fire(card('phoebe').querySelector('[data-eclose]'), 'click');
+  ok('⇤ closes the sheet and un-dims its bar card',
+     d.querySelectorAll('#esheets .ebuild').length === 2 && card('phoebe') === null &&
+     !bar('phoebe').classList.contains('open'));
+  fire(bar('phoebe'), 'click');   // reopen for the rest of the block
+  ok('the reopened sheet lands on top', d.querySelector('#esheets .ebuild').dataset.ec === 'phoebe');
   ok('a fresh card shows the 12/12 budget', /12 \/ 12/.test(q('jinhsi', '.ebudget').textContent) &&
      !q('jinhsi', '.ebudget').classList.contains('over'));
   ok('no build is materialized just by viewing', w.eval('state.builds.jinhsi === undefined'));
@@ -2117,15 +2395,15 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   setSel0.value = 'Freezing Frost'; fire(setSel0, 'change');
   ok('choosing a set on one echo materializes + saves the build',
      w.eval("state.builds.jinhsi && state.builds.jinhsi.echoes[0].set === 'Freezing Frost'"));
-  ok('one piece is not enough — the chip is unlit and says it needs 2',
+  ok('one piece is not enough — the set line is unlit, counting ×1',
      !q('jinhsi', '.eset').classList.contains('on') &&
-     /needs 2/.test(q('jinhsi', '.eset').textContent));
+     /×1/.test(q('jinhsi', '.eset').textContent));
   const setSel1 = q('jinhsi', '[data-eset][data-ei="1"]');
   setSel1.value = 'Freezing Frost'; fire(setSel1, 'change');
-  ok('two pieces switch the 2pc on — chip lit, bonus named, count shown',
+  ok('two pieces switch the 2pc on — line lit, ×2, the effect in its tooltip',
      q('jinhsi', '.eset').classList.contains('on') &&
      /×2/.test(q('jinhsi', '.eset').textContent) &&
-     /\+10% Glacio DMG/.test(q('jinhsi', '.eset').textContent));
+     /Glacio DMG \+10%/.test(q('jinhsi', '.eset').title));
   ok('the Glacio 2pc lands in the card totals',
      /Glacio DMG/.test(q('jinhsi', '.etotals').textContent));
   // 3pc Freezing Frost + 2pc Moonlit Clouds — the split this model exists for
@@ -2140,6 +2418,16 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok('a set chip tooltips its 2pc and 5pc effect text',
      /2pc: Glacio DMG \+10%/.test(q('jinhsi', '.eset').title) &&
      /5pc: /.test(q('jinhsi', '.eset').title));
+  // sonata icons ride the standard pipeline (images/sonata/, slugged names)
+  ok('set lines carry the sonata icon', (() => {
+     const im = q('jinhsi', '.ehsets .eset img.__ico');
+     return im !== null && im.getAttribute('src') === 'images/sonata/freezing_frost_icon.png'; })());
+  ok('a chosen set shows its icon beside the echo’s set select',
+     q('jinhsi', '.ecol[data-ei="0"] .esetrow img.__ico') !== null &&
+     q('jinhsi', '.ecol[data-ei="4"] .esetrow img.__ico') !== null);
+  ok('only the LEAD echo carries a name field',
+     q('jinhsi', '.ecol[data-ei="0"] [data-ename]') !== null &&
+     card('jinhsi').querySelectorAll('[data-ename]').length === 1);
   ok('both 2pc bonuses land: Glacio 10% and Energy Regen 100+10',
      w.eval("finalStats(state.builds.jinhsi,'jinhsi',null,null).stats.find(s=>s.key==='glacio').val") === 10 &&
      w.eval("finalStats(state.builds.jinhsi,'jinhsi',null,null).stats.find(s=>s.key==='er').val") === 110);
@@ -2157,17 +2445,127 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
      /Crit Rate/.test(q('jinhsi', '.etotals').textContent) &&
      w.eval("buildTotals(state.builds.jinhsi, forteStatTotals(state.goals.find(g=>g.char==='jinhsi'),'tgt')).find(t=>t.key==='cr').val") === 16.1);
 
-  // focus substats: toggling a chip persists and highlights matching substats
-  fire(q('jinhsi', '[data-focus="cr"]'), 'click');
-  ok('a focus chip persists onto the build', w.eval("state.builds.jinhsi.focus.includes('cr')"));
-  ok('the active chip is marked on', q('jinhsi', '[data-focus="cr"]').classList.contains('on'));
+  // focus stats: picked AND ORDERED in the Focus pop-up (replaces the chip row)
+  ok('the old inline focus chip row is gone', card('jinhsi').querySelector('[data-focus]') === null);
+  fire(q('jinhsi', '[data-fbtn]'), 'click');
+  ok('Focus ▾ opens the pop-up with add-chips for every focusable stat',
+     q('jinhsi', '.fpop') !== null && q('jinhsi', '[data-fadd="cr"]') !== null);
+  fire(q('jinhsi', '[data-fadd="cr"]'), 'click');
+  ok('adding a stat persists onto the build (and the pop-up survives the render)',
+     w.eval("state.builds.jinhsi.focus.join()") === 'cr' &&
+     /Crit Rate/.test(q('jinhsi', '.fpop .fname').textContent) &&
+     /Focus \(1\)/.test(q('jinhsi', '[data-fbtn]').textContent));
   ok('exactly the Crit-Rate substat row is highlighted',
      card('jinhsi').querySelectorAll('.esub.focus').length === 1 &&
      q('jinhsi', '[data-esub][data-ei="0"][data-si="0"]').closest('.esub').classList.contains('focus'));
-  fire(q('jinhsi', '[data-focus="cr"]'), 'click');
-  ok('toggling the chip off clears the focus and the highlight',
-     w.eval("!state.builds.jinhsi.focus.includes('cr')") &&
+  // the bar card mirrors the focus as a FINAL stat: CR 5 base + 8.1 sub + 8 forte
+  ok('the bar card shows the focused stat at its FINAL value',
+     /Crit Rate/.test(bar('jinhsi').querySelector('.ecfoc').textContent) &&
+     bar('jinhsi').querySelector('.ecfoc .est b').textContent === '21.1%');
+  // bar stats keep the Final-stats panel's order, whatever the toggle order
+  w.eval("state.builds.jinhsi.focus = ['cd','cr']; save(); render();");
+  ok('bar stats follow the Final-stats order, not toggle order',
+     [...bar('jinhsi').querySelectorAll('.ecfoc .est i')].map(e => e.textContent).join(',')
+       === 'Crit Rate,Crit DMG');
+  // ATK + ATK% focused together fold into the ONE final ATK entry
+  w.eval("state.builds.jinhsi.focus = ['atk','atkp']; save(); render();");
+  ok('ATK and ATK% focused together show once, folded into final ATK',
+     bar('jinhsi').querySelectorAll('.ecfoc .est').length === 1 &&
+     bar('jinhsi').querySelector('.ecfoc .est i').textContent === 'ATK');
+  // ONE condensed Elemental-DMG add-chip, between Energy Regen and Basic
+  ok('one Elemental DMG chip sits between Energy Regen and Basic (no per-element chips)', (() => {
+     const keys = [...card('jinhsi').querySelectorAll('[data-fadd]')].map(b => b.dataset.fadd);
+     return keys.indexOf('elem') === keys.indexOf('er') + 1 &&
+            keys.indexOf('elem') === keys.indexOf('basic') - 1 &&
+            !keys.includes('spectro') &&
+            q('jinhsi', '[data-fadd="elem"]').textContent === 'Elemental DMG'; })());
+  fire(q('jinhsi', '[data-fadd="elem"]'), 'click');
+  ok('the element focus reads as the character’s OWN element on the bar',
+     w.eval("state.builds.jinhsi.focus.includes('elem')") &&
+     /Spectro/.test(bar('jinhsi').querySelector('.ecfoc').textContent));
+  ok('sanitizeBuild keeps the elem focus key and drops junk', w.eval(
+     `JSON.stringify(sanitizeBuild({focus:['cr','elem','nope']}).focus) === JSON.stringify(['cr','elem'])`));
+  // ▲▼ reorder the chased stats; ✕ removes one
+  w.eval("state.builds.jinhsi.focus = ['cd','cr']; save(); render();");
+  fire(q('jinhsi', '[data-fdn="0"]'), 'click');
+  ok('▼ moves a chased stat down', w.eval("state.builds.jinhsi.focus.join()") === 'cr,cd');
+  fire(q('jinhsi', '[data-fup="1"]'), 'click');
+  ok('▲ moves it back up', w.eval("state.builds.jinhsi.focus.join()") === 'cd,cr');
+  w.eval("state.builds.jinhsi.focus = ['cr']; save(); render();");
+  fire(q('jinhsi', '[data-frm="0"]'), 'click');
+  ok('✕ stops chasing the stat and clears the highlight',
+     w.eval("state.builds.jinhsi.focus.length === 0") &&
      card('jinhsi').querySelectorAll('.esub.focus').length === 0);
+  // ── stat goals: "≥ N" per chased stat, judged on the FINAL stats ──
+  w.eval("state.builds.jinhsi.focus = ['cr']; save(); render();");
+  const crRow = () => [...card('jinhsi').querySelectorAll('.etrow')]
+    .find(r => r.querySelector('.etk').textContent === 'Crit Rate');
+  const goalIn = () => q('jinhsi', '[data-fgoal="cr"]');
+  goalIn().value = '65'; fire(goalIn(), 'change');
+  ok('typing a goal persists onto the build',
+     w.eval('state.builds.jinhsi.goals.cr') === 65 &&
+     JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).builds.jinhsi.goals.cr === 65);
+  ok('a FOCUSED stat’s name reads bold on the finals grid, others do not',
+     crRow().querySelector('.etk').classList.contains('foc') &&
+     ![...card('jinhsi').querySelectorAll('.etk')]
+       .find(e2 => e2.textContent === 'ATK').classList.contains('foc'));
+  // final CR here is 21.1 (5 base + 8.1 sub + 8 forte) → short of 65:
+  // neutral tone, "value / goal" with the goal tail faint, gap in the tooltip
+  ok('while SHORT the row reads value / goal in the neutral tone', (() => {
+     const v = crRow().querySelector('.etv');
+     return v.classList.contains('short') && !v.classList.contains('met') &&
+            /21\.1% \/ 65%/.test(v.textContent) && v.querySelector('.goalp') !== null &&
+            /43\.9% to go — goal ≥ 65%/.test(v.title); })());
+  ok('…and the bar card shows the unmet stat in the neutral tone too',
+     !bar('jinhsi').querySelector('.ecfoc .est b').classList.contains('met'));
+  goalIn().value = '20'; fire(goalIn(), 'change');
+  ok('a REACHED goal shows just the value in the gold tone, goal in the tooltip', (() => {
+     const v = crRow().querySelector('.etv');
+     return v.classList.contains('met') && v.textContent.trim() === '21.1%' &&
+            /Goal reached — ≥ 20%/.test(v.title) &&
+            bar('jinhsi').querySelector('.ecfoc .est b').classList.contains('met'); })());
+  // a goal survives unfocusing its stat (dormant — still judged on the row)
+  fire(q('jinhsi', '[data-frm="0"]'), 'click');
+  ok('unfocusing keeps the goal dormant in the save',
+     w.eval("state.builds.jinhsi.focus.length === 0 && state.builds.jinhsi.goals.cr === 20"));
+  ok('…and sanitize preserves it (round-trip), dropping junk goals', w.eval(
+     `JSON.stringify(sanitizeBuild({goals:{cr:65, cd:-5, nope:10, elem:30, atkp:'x'}}).goals)
+       === JSON.stringify({cr:65, elem:30})`));
+  ok('…while the dormant goal still marks the finals row',
+     crRow().querySelector('.etv').classList.contains('met'));
+  w.eval("delete state.builds.jinhsi.goals.cr; save(); render();");
+
+  // ── the GLOBAL ⇅ Stat-priority template (Echoes section header) ──
+  fire(d.querySelector('#prioBtn'), 'click');
+  const prio = () => d.querySelector('#prioPopSlot .fpop');
+  const prioRow = lab => [...prio().querySelectorAll('.frow')]
+    .find(r => r.querySelector('.fname').textContent === lab);
+  ok('⇅ opens the template pop-up ranking every focusable stat, canonical by default',
+     prio() !== null && w.eval('state.statPrio') === null &&
+     prio().querySelectorAll('.frow').length === w.eval('focusableKeys().length'));
+  fire(prioRow('Energy Regen').querySelector('[data-pup]'), 'click');
+  ok('▲ materializes and saves the custom ranking', (() => {
+     const p = JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).statPrio;
+     return Array.isArray(p) && p.indexOf('er') === p.indexOf('def') - 1; })());
+  // with ER ranked to the top, focusing stats slots them by template rank
+  w.eval("state.statPrio = ['er']; save(); render();");
+  fire(q('jinhsi', '[data-fadd="cr"]'), 'click');
+  fire(q('jinhsi', '[data-fadd="er"]'), 'click');
+  ok('a newly focused stat slots in at its template rank (ER above CR)',
+     w.eval("state.builds.jinhsi.focus.join()") === 'er,cr');
+  fire(q('jinhsi', '[data-fdn="0"]'), 'click');          // manual: er below cr
+  fire(q('jinhsi', '[data-fadd="cd"]'), 'click');        // ranks below both → appends
+  ok('per-character manual order survives; later stats still slot by rank',
+     w.eval("state.builds.jinhsi.focus.join()") === 'cr,er,cd');
+  ok('sanitize keeps only focusable keys in statPrio', w.eval(
+     `JSON.stringify(sanitize({statPrio:['er','nope','cd','er']}).statPrio) === JSON.stringify(['er','cd'])`));
+  fire(d.querySelector('#prioPopSlot #prioReset'), 'click');
+  ok('↺ forgets the template (back to canonical order)', w.eval('state.statPrio') === null);
+  fire(d.querySelector('#prioBtn'), 'click');
+  ok('⇅ toggles the template pop-up shut', d.querySelector('#prioPopSlot .fpop') === null);
+  w.eval("state.builds.jinhsi.focus = []; save(); render();");
+  fire(q('jinhsi', '[data-fbtn]'), 'click');
+  ok('Focus ▾ toggles the pop-up shut', q('jinhsi', '.fpop') === null);
 
   // editing one card leaves the others untouched (radio groups are scoped by charId)
   ok('editing Jinhsi did not materialize a build for Phoebe', w.eval('state.builds.phoebe === undefined'));
@@ -2187,6 +2585,33 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok('a used substat is removed from the other rows of the same echo',
      !duOpts.includes('cr') && !duOpts.includes('cd') &&
      [...q('jinhsi', '[data-esub][data-ei="0"][data-si="0"]').options].map(o => o.value).includes('cr'));
+  // Crit Value (2×CR + CD from substats) rides the main-stat line, right side
+  ok('an echo with crit substats shows its Crit Value', (() => {
+     const cv = w.eval('echoCV(state.builds.jinhsi.echoes[0])');
+     const el2 = q('jinhsi', '.ecol[data-ei="0"] .ecv');
+     return cv > 16.2 && el2 !== null &&
+            el2.textContent === 'CV ' + w.eval(`echoNum(${cv})`); })());
+  ok('an echo without crit substats shows no CV',
+     q('jinhsi', '.ecol[data-ei="1"] .ecv') === null);
+  // substat rows display in FOCUS order — focused first (your order), the
+  // unfocused rest in canonical order, empties trailing. Assigning a focused
+  // stat makes its row HOP to its slot, keyboard following onto the value.
+  const subVals = () => [...card('jinhsi').querySelectorAll('[data-esub][data-ei="0"]')]
+    .map(s => s.value).filter(Boolean).join();
+  w.eval("state.builds.jinhsi.focus = ['cd','cr']; save(); render();");
+  ok('substat rows follow the focus order (cd ranked first)', subVals() === 'cd,cr');
+  w.eval("state.builds.jinhsi.focus = ['cr','cd']; save(); render();");
+  ok('…and re-follow a reorder (cr back on top)', subVals() === 'cr,cd');
+  w.eval("state.builds.jinhsi.focus = ['er']; save(); render();");
+  ok('unfocused filled stats keep the canonical order', subVals() === 'cr,cd');
+  const hopK = q('jinhsi', '[data-esub][data-ei="0"][data-si="2"]');   // first empty row
+  hopK.value = 'er'; fire(hopK, 'change');
+  ok('assigning the FOCUSED stat hops its row to the top',
+     q('jinhsi', '[data-esub][data-ei="0"][data-si="0"]').value === 'er' && subVals() === 'er,cr,cd');
+  ok('…and the keyboard lands on that row’s value select (Tab flows onward)',
+     d.activeElement === q('jinhsi', '[data-eval][data-ei="0"][data-si="0"]'));
+  w.eval("{ const e0 = state.builds.jinhsi.echoes[0]; e0.subs = e0.subs.filter(s => s.key !== 'er'); } " +
+         "state.builds.jinhsi.focus = []; save(); render();");
   // cost is a compact select (just the number, no "-cost") to the LEFT of the main-stat
   ok('cost shows just the number and sits before the main-stat select',
      [...card('jinhsi').querySelector('[data-ecost][data-ei="0"]').options].map(o => o.textContent).join(',') === '1,3,4' &&
@@ -2225,12 +2650,17 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok("but a remaining character's build is untouched", w.eval('!!state.builds.jinhsi'));
   ok('the grid now shows one fewer card', d.querySelectorAll('#esheets .ebuild').length === 2);
 
-  // filter box narrows the grid without losing focus (input outside #esheets)
+  // filter box narrows the BAR without losing focus (input outside #elist)
   const find = d.querySelector('#echoFind');
   find.value = 'suisui'; fire(find, 'input');
-  ok('the fuzzy filter narrows the card grid',
-     d.querySelectorAll('#esheets .ebuild').length === 1 &&
-     d.querySelector('#esheets .ebuild').dataset.ec === 'suisui');
+  ok('the fuzzy filter narrows the character bar, never the open sheets',
+     d.querySelectorAll('#elist .echar').length === 1 &&
+     d.querySelector('#elist .echar').dataset.ec === 'suisui' &&
+     d.querySelectorAll('#esheets .ebuild').length === 2);
+  // closing every sheet rescales the bar back to the full showcase grid
+  w.eval('echoOpen = []; render();');
+  ok('empty again → the characters rescale to the showcase grid',
+     d.querySelector('#pageEcho .ecols').classList.contains('showcase'));
   reset();
 }
 
@@ -2238,6 +2668,7 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
 {
   reset();
   fire(d.querySelector('.pagenav [data-page="echoes"]'), 'click');
+  w.eval("echoOpen = ['jinhsi', 'suisui']; render();");
   const card = id => d.querySelector(`.ebuild[data-ec="${id}"]`);
   // Jinhsi has Lv90 base on file → a Final stats panel with real totals
   ok('a character with base data shows a Final stats panel with ATK/HP/DEF rows',
@@ -2253,8 +2684,186 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   w.eval("state.goals.push(Object.assign(newWpnGoal('verdantSummit', false), {owner:'jinhsi'})); save(); render();");
   ok('a linked weapon is folded into the finals (sub says + weapon)',
      /\+ weapon/.test(card('jinhsi').querySelector('.et-h .sub').textContent));
+  ok('the bar card grows the weapon icon at the portrait’s side, named in the tooltip',
+     d.querySelector('#elist .echar[data-ec="jinhsi"] .ecw img') !== null &&
+     /Verdant Summit/.test(d.querySelector('#elist .echar[data-ec="jinhsi"]').getAttribute('title')));
   ok('linking the weapon raised final ATK vs no weapon',
      w.eval("finalStats(freshBuild(),'jinhsi',{weapon:'verdantSummit'},null).stats.find(s=>s.key==='atk').val > finalStats(freshBuild(),'jinhsi',null,null).stats.find(s=>s.key==='atk').val"));
+  reset();
+}
+
+// ── Echoes: frozen builds, per-echo locks, open-on-top, bar filter chips ──
+{
+  reset();
+  fire(d.querySelector('.pagenav [data-page="echoes"]'), 'click');
+  const bar = id => d.querySelector(`#elist .echar[data-ec="${id}"]`);
+  const card = id => d.querySelector(`.ebuild[data-ec="${id}"]`);
+
+  // an OPEN character floats to the top of the bar
+  fire(bar('suisui'), 'click');
+  ok('an open character floats to the top of the bar list',
+     d.querySelector('#elist .echar').dataset.ec === 'suisui');
+  fire(bar('suisui'), 'click');
+  ok('closing it sinks it back to ledger order',
+     d.querySelector('#elist .echar').dataset.ec === 'jinhsi');
+
+  // ✓ Complete gates on ALL goals met
+  fire(bar('jinhsi'), 'click');
+  ok('no goals → no Complete button', card('jinhsi').querySelector('[data-freeze]') === null);
+  // final CR = 5 base + 8 forte = 13 → a goal of 10 is met
+  w.eval("{ const b = ensureBuild('jinhsi'); b.focus = ['cr']; b.goals = {cr: 10}; } save(); render();");
+  ok('every goal met → ✓ Complete appears', card('jinhsi').querySelector('[data-freeze]') !== null);
+  fire(card('jinhsi').querySelector('[data-freeze]'), 'click');
+  ok('completing freezes the build, persists, and swaps the button to ✎ Edit',
+     w.eval('state.builds.jinhsi.frozen === true') &&
+     JSON.parse(w.localStorage.getItem('wuwa-planner-v1')).builds.jinhsi.frozen === true &&
+     card('jinhsi').classList.contains('frozen') &&
+     card('jinhsi').querySelector('[data-unfreeze]') !== null);
+  ok('frozen: every echo control is disabled and grips are inert',
+     [...card('jinhsi').querySelectorAll('.egrid select, .egrid input')].every(el => el.disabled) &&
+     card('jinhsi').querySelector('.egrip[draggable="true"]') === null &&
+     [...card('jinhsi').querySelectorAll('[data-elock]')].every(b => b.disabled));
+  fire(card('jinhsi').querySelector('[data-fbtn]'), 'click');
+  ok('frozen: the Focus pop-up leaves ONLY the goals editable',
+     !card('jinhsi').querySelector('[data-fgoal="cr"]').disabled &&
+     card('jinhsi').querySelector('[data-fadd]') === null &&
+     [...card('jinhsi').querySelectorAll('[data-fup],[data-fdn],[data-frm]')].every(b => b.disabled));
+  const gi = card('jinhsi').querySelector('[data-fgoal="cr"]');
+  gi.value = '50'; fire(gi, 'change');
+  ok('a goal still edits while frozen — and the build STAYS frozen when it unmeets',
+     w.eval('state.builds.jinhsi.goals.cr') === 50 &&
+     w.eval('state.builds.jinhsi.frozen === true'));
+  fire(card('jinhsi').querySelector('[data-unfreeze]'), 'click');
+  ok('✎ Edit thaws back to default behavior',
+     w.eval('!state.builds.jinhsi.frozen') && !card('jinhsi').classList.contains('frozen') &&
+     card('jinhsi').querySelector('.egrid select:not([disabled])') !== null);
+  ok('sanitizeBuild round-trips the frozen flag', w.eval(
+     "sanitizeBuild({frozen: true}).frozen === true && sanitizeBuild({}).frozen === undefined"));
+
+  // per-echo LOCK: read-only echo, tinted, flat padlock pinned right
+  fire(card('jinhsi').querySelector('.ecol[data-ei="1"] [data-elock]'), 'click');
+  ok('locking an echo persists and tints its column',
+     w.eval('state.builds.jinhsi.echoes[1].lock === true') &&
+     card('jinhsi').querySelector('.ecol[data-ei="1"]').classList.contains('locked') &&
+     card('jinhsi').querySelector('.ecol[data-ei="1"] .elock svg') !== null);
+  ok('a locked echo is read-only; its neighbours stay editable',
+     [...card('jinhsi').querySelectorAll('.ecol[data-ei="1"] select')].every(s => s.disabled) &&
+     card('jinhsi').querySelector('.ecol[data-ei="1"] .egrip[draggable="true"]') === null &&
+     card('jinhsi').querySelector('.ecol[data-ei="2"] select:not([disabled])') !== null);
+  ok('sanitizeBuild round-trips the echo lock', w.eval(
+     "sanitizeBuild({echoes:[{cost:4, lock:true}]}).echoes[0].lock === true"));
+  fire(card('jinhsi').querySelector('.ecol[data-ei="1"] [data-elock]'), 'click');
+  ok('unlocking frees the echo', w.eval('!state.builds.jinhsi.echoes[1].lock') &&
+     !card('jinhsi').querySelector('.ecol[data-ei="1"]').classList.contains('locked'));
+
+  // conditionals: transcribed weapon/set effects, counted only while ticked
+  const finCR = () => w.eval("finalStats(state.builds.jinhsi, 'jinhsi', null, " +
+    "forteStatTotals(state.goals.find(g => g.char === 'jinhsi'), 'tgt')).stats.find(s => s.key === 'cr').val");
+  const beforeCR = finCR();
+  card('jinhsi').querySelector('[data-condk]').value = 'cr';
+  card('jinhsi').querySelector('[data-condv]').value = '10';
+  fire(card('jinhsi').querySelector('[data-condadd]'), 'click');
+  ok('adding a conditional lands ON in the left column and lifts the finals',
+     w.eval("JSON.stringify(state.builds.jinhsi.conds)") ===
+       JSON.stringify([{key:'cr', val:10, on:true}]) &&
+     /\+10% Crit Rate/.test(card('jinhsi').querySelector('.ehconds').textContent) &&
+     finCR() === beforeCR + 10 &&
+     /\+ conditionals/.test(card('jinhsi').querySelector('.et-h .sub').textContent));
+  const cb = card('jinhsi').querySelector('[data-cond="0"]');
+  cb.checked = false; fire(cb, 'change');
+  ok('unticking pulls it out of the finals but keeps it listed',
+     finCR() === beforeCR && w.eval('state.builds.jinhsi.conds[0].on === false') &&
+     !/\+ conditionals/.test(card('jinhsi').querySelector('.et-h .sub').textContent));
+  fire(card('jinhsi').querySelector('[data-condrm="0"]'), 'click');
+  ok('✕ removes the conditional', w.eval('state.builds.jinhsi.conds.length === 0'));
+  // ONE condensed Elemental DMG option, storing the character's OWN element
+  ok('the conditional dropdown condenses the six elements into one option', (() => {
+     const vals = [...card('jinhsi').querySelectorAll('[data-condk] option')].map(o => o.value);
+     return vals.includes('elem') && !vals.includes('glacio') && !vals.includes('spectro') &&
+            !vals.includes('atk'); })());   // …and still no flat stats
+  card('jinhsi').querySelector('[data-condk]').value = 'elem';
+  card('jinhsi').querySelector('[data-condv]').value = '30';
+  fire(card('jinhsi').querySelector('[data-condadd]'), 'click');
+  ok('adding it stores the character’s own element (Spectro for Jinhsi)',
+     w.eval("state.builds.jinhsi.conds[0].key === 'spectro'") &&
+     /Spectro/.test(card('jinhsi').querySelector('.ehconds').textContent));
+  w.eval('state.builds.jinhsi.conds = []; save(); render();');
+  // a conditional can carry its SOURCE's icon (a worn set / the linked weapon)
+  w.eval("state.builds.jinhsi.echoes[0].set = 'Freezing Frost'; save(); render();");
+  card('jinhsi').querySelector('[data-conds]').value = 'Freezing Frost';
+  card('jinhsi').querySelector('[data-condk]').value = 'cr';
+  card('jinhsi').querySelector('[data-condv]').value = '5';
+  fire(card('jinhsi').querySelector('[data-condadd]'), 'click');
+  ok('the source select attaches the set’s icon to the conditional row',
+     w.eval("state.builds.jinhsi.conds[0].src === 'Freezing Frost'") &&
+     card('jinhsi').querySelector('.econd img.__ico').getAttribute('src')
+       === 'images/sonata/freezing_frost_icon.png');
+  w.eval('state.builds.jinhsi.conds = []; state.builds.jinhsi.echoes[0].set = null; save(); render();');
+  w.eval("state.builds.jinhsi.conds = [{key:'cd', val:20, on:true}]; " +
+         "state.builds.jinhsi.frozen = true; save(); render();");
+  ok('frozen: conditionals lock too (no add row, controls disabled)',
+     card('jinhsi').querySelector('.econd-add') === null &&
+     card('jinhsi').querySelector('[data-cond="0"]').disabled &&
+     card('jinhsi').querySelector('[data-condrm="0"]').disabled);
+  w.eval("delete state.builds.jinhsi.frozen; state.builds.jinhsi.conds = []; save(); render();");
+
+  // bar filter chips: rarity · element · weapon type (palette semantics)
+  const chipRow = () => d.querySelector('#echoChipRow');
+  ok('the bar carries filter chips for rarity, element and weapon type, All chips leading',
+     chipRow().querySelectorAll('.fgrp').length === 3 &&
+     chipRow().querySelector('[data-facet="el"][data-val="Spectro"]') !== null &&
+     chipRow().querySelector('[data-facet="el"][data-val=""]').classList.contains('on') &&
+     chipRow().querySelector('[data-facet="wt"][data-val=""]') !== null);
+  fire(chipRow().querySelector('[data-facet="el"][data-val="Glacio"]'), 'click');
+  ok('an element chip narrows the bar to that element (Suisui is the Glacio here)',
+     [...d.querySelectorAll('#elist .echar')].map(c => c.dataset.ec).join() === 'suisui' &&
+     !chipRow().querySelector('[data-facet="el"][data-val=""]').classList.contains('on'));
+  fire(chipRow().querySelector('[data-facet="el"][data-val=""]'), 'click');
+  ok('the All chip clears its facet and the bar refills',
+     d.querySelectorAll('#elist .echar').length === 3 &&
+     chipRow().querySelector('[data-facet="el"][data-val=""]').classList.contains('on'));
+  fire(chipRow().querySelector('[data-facet="el"][data-val="Glacio"]'), 'click');
+  fire(chipRow().querySelector('[data-facet="clear"]'), 'click');
+  ok('✕ clears the chips and the bar refills',
+     d.querySelectorAll('#elist .echar').length === 3);
+  reset();
+}
+
+// ── set quick-fill: the set area tags the unset echoes per the fill rules ──
+{
+  reset();
+  fire(d.querySelector('.pagenav [data-page="echoes"]'), 'click');
+  const bar = id => d.querySelector(`#elist .echar[data-ec="${id}"]`);
+  const card = id => d.querySelector(`.ebuild[data-ec="${id}"]`);
+  fire(bar('jinhsi'), 'click');
+  const sets = () => w.eval('JSON.stringify(state.builds.jinhsi.echoes.map(e => e.set))');
+  const fill = name => { const s = card('jinhsi').querySelector('[data-setfill]');
+                         s.value = name; fire(s, 'change'); };
+  ok('the set area offers the quick-fill while echoes are unset',
+     card('jinhsi').querySelector('[data-setfill]') !== null);
+  fill('Rejuvenating Glow');
+  ok('a 2/5pc set fills every empty slot (fresh build → ×5), then the fill retires',
+     sets() === JSON.stringify(Array(5).fill('Rejuvenating Glow')) &&
+     card('jinhsi').querySelector('[data-setfill]') === null);
+  // the user's example: Crown of Valor (3pc) takes the 4-, one 3- and one 1-cost…
+  w.eval('state.builds.jinhsi.echoes.forEach(e => { e.set = null; }); save(); render();');
+  fill('Crown of Valor');
+  ok('a 3pc set takes the 4-cost, one 3-cost and one 1-cost',
+     sets() === JSON.stringify(['Crown of Valor', 'Crown of Valor', null, 'Crown of Valor', null]));
+  // …and Void Thunder then tags the remaining 3-cost + 1-cost
+  fill('Void Thunder');
+  ok('the next set fills what remains', sets() === JSON.stringify(
+     ['Crown of Valor', 'Crown of Valor', 'Void Thunder', 'Crown of Valor', 'Void Thunder']));
+  // a LOCKED unset echo is never quick-filled
+  w.eval('state.builds.jinhsi.echoes.forEach(e => { e.set = null; }); ' +
+         'state.builds.jinhsi.echoes[2].lock = true; save(); render();');
+  fill('Rejuvenating Glow');
+  ok('a locked echo keeps its empty set through a quick-fill',
+     sets() === JSON.stringify(['Rejuvenating Glow', 'Rejuvenating Glow', null,
+                                'Rejuvenating Glow', 'Rejuvenating Glow']));
+  // frozen builds offer no quick-fill
+  w.eval('delete state.builds.jinhsi.echoes[2].lock; state.builds.jinhsi.frozen = true; save(); render();');
+  ok('a frozen build offers no quick-fill', card('jinhsi').querySelector('[data-setfill]') === null);
   reset();
 }
 

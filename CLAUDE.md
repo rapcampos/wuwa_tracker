@@ -124,7 +124,11 @@ it goes in block 2 with tests; presentation goes in block 3.
   Enter activates, Esc/backdrop close. The old inline add-menu is gone.
   **Filter chips** (`#palFilt`, add mode only — a pick mode hides the row):
   rarity 5/4/3 · the six element glyphs · the five weapon-type glyphs, from the
-  engine's `ELEMENTS`/`WTYPES` (derived from the roster, definition order).
+  engine's `ELEMENTS`/`WTYPES` (derived from the roster, ALPHABETICAL —
+  user's call, Jul 2026; the Echoes bar chips share them). The element and
+  weapon-type groups each LEAD with an **"All" chip** (`.fchip.all`,
+  `data-val=""`): lit while its facet is unfiltered, clicking clears just
+  that facet (rarity has none — user asked for these two only).
   Transient `palFilt = {r, el, wt}` of Sets, cleared by `openPal`/`closePal`;
   within a facet the chips OR, across facets they AND (`palFiltPass`). An
   element chip implies characters (weapons have none); a weapon-type chip
@@ -137,8 +141,10 @@ it goes in block 2 with tests; presentation goes in block 3.
   you see where it landed. `#palHint` advertises it, and hides in any pick mode (no "maxed"
   concept when filling a slot). **`palPick` selects the mode** (null = the
   normal add palette): `{mode:'slot',t,s}` a team member (roster chars with
-  energy left), `{mode:'owner',g}` who carries weapon goal #g (any roster
-  char), `{mode:'equip',char}` which LEDGER weapon a character carries —
+  energy left), `{mode:'owner',ref}` who carries this weapon goal — `ref` is
+  the goal OBJECT, not a queue index, so the chip on a COMPLETED weapon
+  (living in `state.done`) opens the same palette (any roster char),
+  `{mode:'equip',char}` which LEDGER weapon a character carries —
   entries carry `ref`, the weapon-goal OBJECT, because duplicate weapon goals
   are legal and only the object identifies the copy. `PAL_PH` holds the
   per-mode placeholder; the equip mode's empty state distinguishes "no weapon
@@ -203,11 +209,18 @@ it goes in block 2 with tests; presentation goes in block 3.
   list order wins (the queue is passed ahead of `done`, so it wins).
   `pruneLinks()` (was `pruneTeams`) runs it plus `sanitizeTeams` whenever a
   character leaves the roster. Both palette link modes filter by weapon type
-  and name it in the placeholder and the empty state. Surfaced on the Ledger as
-  the weapon card's **owner chip** (`ownerChip`: the carrier's avatar on the
-  meta line, faint ＋ when unlinked; click assigns/reassigns, RIGHT-CLICK
-  unlinks) and on the Teams page as the roster card's weapon strip plus each
-  team slot's weapon icon (`teamSlot`).
+  and name it in the placeholder and the empty state. **The link is
+  actionable EVERYWHERE it is shown** (user's rule — click assigns/changes,
+  RIGHT-CLICK unlinks): the weapon card's **owner chip** (`ownerChip(g,
+  attrs)` — the carrier's avatar on the meta line, faint ＋ when unlinked;
+  queue cards hook it via `data-act="own"`/`data-g`, and the **Completed
+  tab's weapon tiles carry the same chip** via `data-down` — index into
+  `state.done` — top-left of the tile, ＋ hover-only there), the Teams
+  page's roster weapon strip and each team slot's weapon icon
+  (`teamSlot`; right-click = `unequip(charId)`, a shared helper that drops
+  whatever queued-or-completed weapon the character carries), and the
+  Echoes card header's weapon line (`.ehwpn`: click opens the equip
+  palette, right-click unequips).
 - **Teams (matrix team builder)**: a second page (`#pageTeams`, header nav
   "Ledger | Teams", `location.hash === '#teams'` routing — nav clicks call
   `showPage` directly so jsdom needs no hashchange event; boot calls
@@ -332,30 +345,144 @@ it goes in block 2 with tests; presentation goes in block 3.
   "ATK% 48.4%" never reads the same as "ATK 350".
   Engine (pure, tested): `freshBuild`, `freshEcho`, `sanitizeBuild`,
   `buildCost`, `echoMainVal`, `snapSub` (snaps a substat to the nearest legal
-  roll), `buildTotals`. UI: the page is a STACK of per-character build cards
-  (`#esheets`, `.ebuild` — one per row, full width, so the echo columns stay
-  roomy) — every rostered character shows a card at once, ordered by ledger
-  order (tried 2-per-row, user preferred 1). A top `#echoFind`
-  fuzzy filter narrows them; it sits OUTSIDE `#esheets` so `renderEchoSheets`
-  redraws the grid per keystroke without losing focus (the Teams / inventory
-  rule). Each card carries `data-ec` (its charId): a header (portrait · name ·
-  element/type glyphs · level · linked weapon · a `.ebudget` cost/12 chip that
-  reddens when over — a WARN, never a block), a Sonata select with its 2pc
-  note, a wrapping 5-column `.egrid` of echoes (each: a ⠿ drag grip + a free-text
-  name input in the header, then a compact cost select — just the number — to the
-  LEFT of the main-stat select, its derived value + secondary, and five substat
-  rows), and a per-card totals panel. Every control live-applies via
-  `bindEchoSheet` (per-card, resolving the charId from the enclosing `.ebuild`) →
-  `ensureBuild` → `save(); render()`; substats are re-read from the card densified
-  (`readEchoSubs` drops empty rows, snaps values). The echo NAME input saves on
-  each keystroke WITHOUT re-rendering (caret safety, like the filter inputs). **Focus substats**
-  (`build.focus`, a list of substat keys): a row of toggle chips
-  (`echoFocusRow`, class `.fochip` — NOT the palette's `.fchip`; `CHIP_LABEL`
-  shortens the four skill-DMG names) picks the stats this build chases, and any
-  substat of a focused type is highlighted gold (`.esub.focus`) where it lands;
-  mains are deliberately not highlighted (user's call). `sanitizeBuild` keeps
-  only real substat keys, de-duped. A build materializes only on
-  the first edit; `echoFilter` is transient (a reload starts empty). Echo
+  roll), `buildTotals`, `echoCV` (Crit Value of one echo's SUBSTATS,
+  2×CR + CD — mains/secondaries excluded, null without a crit substat;
+  shown right-aligned on the echo's main-stat line, `.emval .ecv`). UI: **master-detail** (`.ecols`, mirroring the Teams
+  split, Jul 2026 — replaced the old show-every-sheet stack). **With no
+  sheet open the characters SHOWCASE as a full-width grid**
+  (`.ecols.showcase`: the bar spans the page, `#elist` becomes an auto-fill
+  grid with slightly larger portraits, `#esheets` hides); opening the first
+  sheet collapses them to the side bar, closing the last rescales them
+  back. The LEFT bar
+  (`.epanel` → `#elist`) lists every rostered character as a COMPACT
+  `.echar` card — top row (`.ectop`): the portrait with the linked weapon's
+  icon at its side (`.ecw`; absent when unlinked); bottom row (`.ecbot`):
+  name · element/type glyphs · current level ("✓ done" when completed);
+  the weapon's NAME lives in the hover `title` along with name + level
+  (user's calls, Jul 2026) — and the build's
+  FOCUSED stats top-right (`echoFocusStats`, `.ecfoc`/`.est`, gold like
+  the substat highlight), valued from **`finalStats`** (base + echoes +
+  weapon + forte — user's rule; finals fold `atkp`→ATK etc. via a small
+  FOLD map, so ATK + ATK% focused together show ONE entry) with the
+  gear-only totals as the no-base fallback, "–" for a focus with no row,
+  **listed in the Final-stats panel's order** (not toggle order — user's
+  rule). The focus row carries ONE condensed **`elem` chip** ("Elemental
+  DMG", between Energy Regen and Basic — never six per-element chips,
+  user's rule): it resolves to the character's OWN element at display time
+  and only tracks on the bar (no substat rolls an element); `sanitizeBuild`
+  accepts substat keys + `'elem'`. **Clicking a bar card TOGGLES that
+  character's full sheet in the center panel** (`#esheets`) — open if
+  closed, closed if open — and a **newly opened sheet always lands ON TOP**
+  (unshift); several sheets can be open at once (`echoOpen`, an ordered
+  charId list — TRANSIENT view state like `echoFilter`, a reload starts
+  empty; `renderEcho` drops ids that left the roster), the open card dims
+  (`.echar.open`), and each sheet's header also carries **⇤**
+  (`data-eclose`) to send it back to the bar. `#echoFind`
+  fuzzy-filters the BAR only (never the open sheets); it sits OUTSIDE
+  `#elist` so `renderEchoList` redraws per keystroke without losing focus
+  (the Teams / inventory rule). Each sheet carries `data-ec` (its charId) and
+  opens with a **two-column header** (`.ehdr`, Jul 2026 rebuild) above the
+  echo grid: LEFT (`.ehleft`) = the "character info" block (`.ehead`:
+  portrait · name · element/type glyphs · level · the `.ehwpn` weapon link
+  line) over the **Sonata set list** (`echoSetList` → `.ehsets`: one LINE
+  per worn set — the set's ICON (`sonata` icon kind, `.son-ico`) + "Name
+  ×count", most pieces first via `activeSets`, lit `.eset.on` when live,
+  effect text only in the `setTip` tooltip; while UNSET+unlocked echoes
+  remain — and the build isn't frozen — the area also carries a dashed
+  **quick-fill select** (`.setfill`/`fillSet`): a classic 2/5pc set tags
+  EVERY empty slot, a threshold set takes exactly its piece count landing
+  4-cost → 3-cost → 1-cost (user's fill; any unset slot as fallback), so
+  Crown of Valor takes 4/3/1 and a following Void Thunder gets the
+  leftover 3+1) and the **Conditionals block**
+  (`echoCondList` → `.ehconds`): weapon passives and 5pc/threshold set
+  effects are PROSE in-game, so the user transcribes each as stat + value
+  (`build.conds = [{key, val, on, src?}]` — NO text label, the source icon
+  speaks, user's call; sanitized: canonical PERCENT key only — conditional
+  values are %, NO flat stats, user's rule — positive value, ≤20 entries;
+  the add-row's stat select condenses the six element keys into ONE
+  "Elemental DMG" option that stores the character's OWN element key on
+  add, so the row then displays that element; `src` — `'weapon'` or a set
+  NAME — puts the source's icon on the row, offered by the add-row's
+  "— icon —" select listing the linked weapon + the worn sets) — a TICKED entry folds into `buildTotals`
+  (and thus the finals, bar stats and goal checks; the totals sub-header
+  grows "+ conditionals"), unticked ones wait; ✕ removes; the add row
+  (stat select · value · label) hides and the toggles disable while the
+  build is frozen;
+  RIGHT (`.ehright`) = a control row (`.ehctl`: the **Focus ▾ button** with
+  a chased-stat count, the `.ebudget` cost/12 chip — reddens when over, a
+  WARN never a block — and the ⇤ close) over the **Final-stats panel**
+  (`echoTotalsPanel`, moved up from the card bottom). Below the header, the
+  wrapping 5-column `.egrid` of echoes (each: a ⠿ drag grip — plus a
+  free-text name input on the LEAD echo ONLY, user's call Jul 2026 — a
+  per-echo Sonata select with the chosen set's icon beside it (`.esetrow`),
+  a compact cost select — just the number — LEFT of the main-stat select,
+  its derived value + secondary, and five substat rows). Every control live-applies via `bindEchoSheet`
+  (per-card, resolving the charId from the enclosing `.ebuild`) →
+  `ensureBuild` → `save(); render()`; substats are re-read from the card
+  densified (`readEchoSubs` drops empty rows, snaps values). The echo NAME
+  input saves on each keystroke WITHOUT re-rendering (caret safety, like
+  the filter inputs). **Focus stats** (`build.focus`, an ORDERED list of
+  substat keys + `'elem'`): managed in the **Focus pop-up** (`focusPopup`,
+  `.fpop`, anchored under the ▾ button; open state = transient `focusPop`
+  charId, survives re-renders, dies with its sheet) — the chased stats as
+  numbered rows with ▲▼/✕ and the rest as `.fochip` add-chips that append
+  (click-to-add + ▲▼, user's call; `focusableKeys()` inserts `elem` between
+  `er` and `basic`). **The focus ORDER sorts each echo's substat display**
+  (`sortSubsView`: focused first in focus order, unfocused after in
+  canonical order, empties trail; `data-si` = display index, and
+  `readEchoSubs` re-reads display order so storage follows — harmless, subs
+  are a set). It applies ONLY there — the Final-stats panel and bar cards
+  keep their own order (user's call). Assigning a focused stat makes its
+  row HOP to its sorted slot; the `[data-esub]` change handler then
+  re-focuses that row's VALUE select so Tab keeps flowing (user's rule).
+  A focused substat is highlighted gold (`.esub.focus`) where it lands;
+  mains are deliberately not highlighted (user's call). `sanitizeBuild`
+  keeps only substat keys + `'elem'`, de-duped, order preserved.
+  **Stat goals** (`build.goals = {key: n}` — focusable keys, positive
+  finite numbers, stated in FINAL terms: "65" on Crit Rate means final 65%,
+  an ATK-line goal is a flat final ATK): set per chased stat in the Focus
+  pop-up's "≥ __" input (empty/0 clears). On the Final-stats grid a goal'd
+  row reads "value / goal" in the NEUTRAL tone while short (`.etv.short`,
+  faint `.goalp` tail, gap in the tooltip) and JUST the value in the GOLD
+  tone once reached (`.etv.met` — the goal retires to the tooltip; unmet
+  and unset stay neutral; all user's calls). A goal'd stat with no finals
+  row still renders a line at 0; a goal SURVIVES unfocusing (dormant in the
+  map, `goalFor` matches through `finKeyOf`/`FOCUS_FOLD`); the BAR cards
+  follow the same logic — an ACHIEVED stat's value reads ochre
+  (`.est b.met`), unmet/unset neutral ink (user's call); the gear-only
+  fallback shows "value / goal" unjudged. A FOCUSED stat's NAME is bold on
+  the grid (`.etk.foc`, halfway mut→ink — contrast tuned to the user's
+  taste), same for the gear fallback.
+  **⇅ Stat priority** (`state.statPrio`, top-level save field, null =
+  canonical order): the Echoes section header's static button + pop-up
+  (`prioPopup`/`bindPrioPop` into `#prioPopSlot`, transient `prioPop`)
+  ranks ALL focusable stats with ▲▼ (+ ↺ reset to null);
+  `statPrioList()` keeps a partial ranking's order and trails unlisted
+  keys canonically. The template ONLY decides where a newly FOCUSED stat
+  slots into a character's list (`[data-fadd]` inserts at template rank;
+  plain append while unset) and orders the add-chips — an existing
+  per-character order is never re-sorted (user's rule: most characters
+  share one formula, so rank once, tweak per character).
+  **Frozen (completed) builds** (`build.frozen`, persisted; sanitize keeps
+  the flag as-is — it is the user's word, never re-derived): when EVERY
+  goal is met (`allGoalsMet` — needs ≥1 goal and finals on file) the sheet's
+  control row offers **✓ Complete**; clicking freezes the build — every
+  gear control renders `disabled`, grips inert, the weapon line stops
+  linking, the grid dims (`.ebuild.frozen .egrid`), and the Focus pop-up
+  leaves ONLY the "≥" goal inputs live (add/reorder/remove disabled). The
+  button becomes **✎ Edit**, which thaws everything; raising a goal past
+  the build does NOT unfreeze it. **Per-echo locks** (`echo.lock`,
+  persisted via sanitizeBuild): each echo column's flat SVG padlock
+  (`LOCK_ICO`/`UNLOCK_ICO`, `.elock` pinned right of the header — user's
+  calls) toggles that one echo read-only with a gold-tinted background
+  (`.ecol.locked`); lock buttons themselves freeze with the build.
+  **Bar order**: OPEN characters float to the TOP of the bar (stable within
+  groups, like the Teams energy sort). **Bar filter chips**
+  (`#echoChipRow`, `.echips`, transient `echoChips` — palette semantics:
+  rarity 5/4 · six elements · five weapon types; within a facet OR, across
+  facets AND, ✕ clears) narrow the bar alongside the fuzzy box. A build
+  materializes only on the first edit; `echoFilter` is transient (a reload
+  starts empty). Echo
   data (5★ +25) verified Jul 2026 vs Game8 / wutheringwaves.gg / Wuthering
   Insight; softer-verified: the Energy-Regen substat ladder, flat ATK/DEF
   tiers, and Sun-sinking Eclipse's identity (re-check at a phase-2 pass).
@@ -365,11 +492,17 @@ it goes in block 2 with tests; presentation goes in block 3.
   `done` (completed goals), `hideUn` (legacy — the Hide-un-needed filter it
   drove is gone; still sanitized so old saves don't error), `skipCE`
   ("Ignore credits & EXP"), `teams` (Teams page), `week`
-  (`{start, used}` — weekly-boss claims spent this game week), `craftMode`
+  (`{start, used}` — weekly-boss claims spent this game week), `wkPlan`
+  (the weekly planner's drag-reordered claim sequence: an array of
+  Weekly-Boss material ids, one per claim; null/absent = queue order;
+  sanitize keeps only real weekly ids and collapses junk to null), `craftMode`
   (`'reserve'|'priority'`, anything else sanitizes to `'reserve'`), the
   per-goal `off` (paused) and, on weapon goals, `owner` (the character who
   carries it), plus `builds` (the Echoes page — a `{charId: build}` map, kept
-  only for roster characters) — all default safely when absent. A team's old custom `name` is
+  only for roster characters; each build carries `focus`, `goals`, `echoes`)
+  and `statPrio` (the Echoes page's global stat-priority template — an
+  ordered focusable-key list, null = canonical) — all default safely when
+  absent. A team's old custom `name` is
   DROPPED on load (teams are auto-named after their first member now). A saved
   `tab:'left'` (the removed Inventory tab)
   migrates to Total. Never break old-save loading; add migrations instead.
@@ -454,12 +587,15 @@ beta badge is gone; only Firstlight's Herald still carries one.
 
 No images are embedded. Icons resolve from a local folder by convention:
 `GAME.icons` = `{dir:'images/', kinds:{char:'characters/', mat:'materials/',
-weapon:'weapons/', attr:'attributes/'}, exts:['png','webp','jpg'],
+weapon:'weapons/', attr:'attributes/', sonata:'sonata/'}, exts:['png','webp','jpg'],
 overrides:{}}` — kind subfolder is picked by what the icon is for. The `attr`
 kind holds the game's **element and weapon-type glyphs** (6 + 5, one flat
 folder — the vocabularies don't collide), fetched from the wiki's
 `File:<Name> Icon.png` by `fetch-icons.js`; the card meta lines show these
-instead of the words. Slug rule: lowercase display name, drop
+instead of the words. The `sonata` kind holds the 34 **Sonata set icons**
+(Echoes page: header set lines + beside each echo's set select) — wiki files
+are the PREFIX form `File:Icon <Name>.png`, unlike the glyphs' suffix form;
+all 34 fetched Jul 2026. Slug rule: lowercase display name, drop
 apostrophes, non-alphanumeric runs → `_`, suffix `_icon` (e.g. "Loong's
 Pearl" → `images/materials/loongs_pearl_icon.png`, character "Jinhsi" →
 `images/characters/jinhsi_icon.png`). Extensions are tried in order via
@@ -573,7 +709,11 @@ visual aid, not a test — still be careful with CSS-only changes.
   for stale-popover cleanup) restores it. Only ONE tile is hovered at a
   time (`tipTile`). The click handler reads the stashed title when the
   clicked tile is the hovered one. Scoped to `.tile` (cards, Total, Farm
-  next); the inventory pop-up grid (`.itile`) keeps plain name `title`s.
+  next) plus the weekly planner's claim cells — the popover plumbing is
+  `showPop(el, html)` (position + title-stash), which `showTip` (tiles,
+  NEEDERS-derived) and the planner (per-claim `WKTIPS[ci]`, taker chips
+  ×share, built in `weeklyBox`) both feed; the inventory pop-up grid
+  (`.itile`) keeps plain name `title`s.
   **exp/wexp tiles show a top-tier item count, not raw EXP** (`expTopTier`/
   `wexpTopTier`, pure/engine: ceil ÷ 20k — "366", not "7.31M"; `tileQty`
   routes it), and the registry marks exp/wexp `r:5` so the ground matches
@@ -711,46 +851,84 @@ visual aid, not a test — still be careful with CSS-only changes.
   paused ones it left out; every-goal-paused is its own empty state) /
   Farm next (see below) / Completed (finished goals; tab label carries a
   count when non-empty).
-- **Farm next** answers "what do I do now": today's 240⚡ plan (`todayBox`),
-  then a **"No waveplates needed"** section (`.freefarm`) listing every
-  still-missing material that costs no stamina — Specialty pickups and common
-  Enemy Drops — as deficit tiles, grouped by category (`.ffcat`) exactly like
-  the Inventory pop-up, ordered by queue priority. `overworldBag(bag)`
-  (pure/engine) does the filtering; an engine test locks its key set to
-  `waveplateEstimate(bag).overworld` so the two can't drift. The old per-goal
-  walk rows are GONE — they only restated the Ledger's priority order, which
-  the cards and the Total tab already show (user call, Jul 2026).
-- **Today's plan** (`dailyPlan`, pure/engine; `todayBox` renders it at the
-  top of Farm next): splits one day's 240⚡ into WHOLE runs. It takes the
-  walk's per-goal remainders in queue order, books each material to the
-  activity that drops it (same rules as `waveplateEstimate`; forgery tiers
-  collapse onto one domain, weighted 3× per tier), then buys runs one at a
-  time — goal 0's activities first, and a shared activity is capped at the
-  demand of the goals reached so far, so a later goal can't pull runs
-  forward. Inside a goal it water-fills (largest remaining demand takes each
-  run), **except that weekly bosses go first**: their 3-claims-per-week cap
-  is use-it-or-lose-it, and a big forgery demand would otherwise crowd the
-  claim out of the budget for good. Respects `skipCE` (it plans `viewBag`
-  remainders). Overworld mats yield no runs and are named in the footnote.
-- **Acting on a run** (the plan's whole point — otherwise you can't log a
-  sim's yield at all, since `state.inv` has no raw-EXP slot, only potions):
-  - **Yields are crowdsourced AVERAGES** for boss / forgery / sims, so the app
-    NEVER writes them into the inventory. Clicking such a row opens the **farm
-    pop-up** on that material and you log what actually dropped (an EXP-sim row
-    opens the potion ladder, a forgery row its family).
-  - The **weekly boss is the one deterministic drop** (always `weekly.drops`
-    per claim — user-confirmed), so its row gets a **✓** that credits the exact
-    amount AND spends that many weekly claims. Both paths run through
-    `withUndo`.
+- **Farm next** is organized BY ACTIVITY, top to bottom: the **weekly-boss
+  planner** (below) — which leads the tab only WHILE a weekly claim is still
+  available this week; once all 3 are spent it renders at the BOTTOM instead
+  (nothing actionable up top; Monday's reset floats it back — user's rule) —
+  then one `.freefarm` box per waveplate activity —
+  **Boss materials / Forgery materials / Simulations** (`actBox`: the same
+  `deficitTiles` as the Total tab, covered mats keep their dimmed ✓, ordered
+  by queue priority, flat — no per-boss/domain sub-headers, material names
+  are enough, user call Jul 2026; a box only renders while something in it
+  is still missing; the Simulations box respects `skipCE`), and finally the
+  **"No waveplates needed"** box listing every still-missing free material —
+  Specialty pickups and common Enemy Drops — grouped by category (`.ffcat`)
+  like the Inventory pop-up. `overworldBag(bag)` (pure/engine) does that
+  filtering; an engine test locks its key set to
+  `waveplateEstimate(bag).overworld` so the two can't drift. The old
+  per-goal walk rows and the old "Today's 240⚡" box (`dailyPlan`/`todayBox`)
+  are GONE (user call, Jul 2026) — boss/forgery/sim yields are crowdsourced
+  averages, so a multi-day schedule was never honest; the tiles still open
+  the farm pop-up to log real drops (an EXP tile opens the potion ladder —
+  the only way a sim's yield can be logged, since `state.inv` has no raw-EXP
+  slot).
+- **Weekly-boss planner** (`weeklyPlan(bags, weeklyUsed, startMs, order)`,
+  pure/engine; `weeklyBox` renders it at the top of Farm next): lays EVERY
+  remaining weekly-boss claim into game weeks — one `.wkrow` per week
+  ("This week", then Monday dates), three `.wkcell` slots each. Weeklies are
+  the one DETERMINISTIC drop (always `weekly.drops` = 3 per claim), which is
+  what makes the multi-week forecast honest. Internally the plan is a FLAT
+  claim sequence (`{id, goal}` per claim; `WKSEQ` in the UI, cells carry
+  `data-ci` indices — never material ids); weeks merely paginate it (the
+  current week holds `3 − week.used` slots, spent claims show as dimmed ✓,
+  leftover slots as dashed free cells), so moving a claim ripples the
+  displaced one into the next week with no special cases. Claims default to
+  queue order with the wk: merge (a shared weekly's partial-claim spare
+  carries to the later goal); each claim's needer avatar comes from a
+  slot rule — the k-th claim of a boss covers mats [3k, 3k+3) of the
+  queue-ordered demand — so chips stay honest under any reordering. The
+  header counts claims and names the finish week ("done this week" when it
+  all fits in the current one). Cells show **×take — what the claim actually
+  COVERS**, not what it drops: only a boss's LAST claim can be partial
+  (total demand not divisible by 3; gold-tinted `.x.part`, tooltip says the
+  claim still drops 3, ✓ still credits 3). A claim straddling a goal
+  boundary is NOT surplus — its leftover mats serve the next hero needing
+  that boss (user's rule), and the cell's `split` names both takers in the
+  tooltip ("2 for Jinhsi, 1 for Phoebe") and as avatar chips in the hover
+  popover (`WKTIPS`, via the shared `showPop`). Only the genuine overshoot
+  per boss lands in `plan.spare`, footed under the rows as **icon tiles**
+  (`.wk-spare`, qty "+n" — no text, user's call; the "name — " title prefix
+  keeps them on the shared tile hover/click pipeline).
+  - **Drag to reorder** (`moveClaim`, moveGoal splice semantics; drop on a
+    cell inserts before it, on a free tail slot appends): the manual order
+    persists as **`state.wkPlan`** (ordered weekly-mat ids, one per claim;
+    null = queue order). `weeklyPlan` reconciles it every render — entries
+    kept while that boss still needs claims, stale extras dropped, new
+    claims appended in queue order (claims of one boss are interchangeable,
+    so only the ORDER matters). A "↺ queue order" button clears it.
+    **Dragging a week's DATE label moves that whole week's claims as one
+    block** (`moveWeek`; `WKROWS` maps rows to seq slices; drop anywhere on
+    a target row, block lands before its claims — insert-before, like
+    cells; a week-drag and a cell-drag carry separate state, `wkRowDrag`
+    vs `wkDrag`, so a drop only answers its own kind).
+  - **Right-click ✓-claims** — CURRENT week only (`.wkcell.cur`): credits
+    exactly 3 mats, spends one weekly claim, wrapped in `withUndo`. With a
+    manual order in place the handler removes exactly the clicked claim
+    from `wkPlan` (reconciliation alone would trim that boss's LAST
+    occurrence and quietly reshuffle a deliberate interleave).
+  - **Left-click** opens the farm pop-up on the boss material, like every
+    other tile. Both power gestures are documented in the ⌨ cheat sheet's
+    "Weekly planner" group.
 - **The game week** (`state.week = {start, used}`, `weekStartMs(nowMs)` in the
   engine — pure, takes the clock as an argument so tests can pin it): `start`
   is the most recent **Monday 04:00 LOCAL** boundary and identifies the week;
   `sanitizeWeek` resets `used` to 0 whenever the stored week isn't the current
   one — that IS the weekly reset (the user's system clock is assumed to track
-  their server region, user-confirmed). `used` feeds `dailyPlan(bags, plates,
-  weeklyUsed)`, which counts it against the 3/week cap, so an exhausted week
-  stops the plan proposing weekly runs. Farm next shows "Weekly claims N/3
-  left this week".
+  their server region, user-confirmed). `used` shrinks the planner's current
+  row (`weeklyPlan(bags, weeklyUsed, …)`), so an exhausted week shows three
+  spent slots and pushes every claim a week out; successive week starts use
+  set-date arithmetic (`addWeeksMs`) so the boundary survives DST. Farm next
+  shows "Weekly claims N/3 left this week".
 - **"Ignore credits & EXP"** (`state.skipCE`, checkbox on the Total tab):
   a VIEW-level filter — `stripCE(bag)` (pure/engine) drops `credits`/`exp`/
   `wexp` before tiles, readiness bars, waveplate estimates, the Total
@@ -808,11 +986,12 @@ visual aid, not a test — still be careful with CSS-only changes.
 2. **Echoes page — phase 2 (partly done):** the gear-stat MVP shipped Jul 2026,
    then **final numbers** (base char + linked weapon folded with gear →
    `finalStats`; `GAME.charBase`/`GAME.weaponBase`, verified vs Game8/wuthering.gg)
-   — see the Echoes-page bullet. Still open, all additive on the same canonical
-   vocabulary: base stats for the 4 unreleased 5★ (lucy, rebecca, lucilla,
-   suisui — held back, no verified base yet); 5pc Sonata effect text; stat GOALS
-   ("CR 65%+") compared against the finals; cost TEMPLATES (43311/44111) as a
-   fill convenience. Softer-verified data to re-check: Energy-Regen substat
+   — see the Echoes-page bullet. Stat GOALS ("CR 65%+" against the finals)
+   and the global stat-priority template shipped Jul 2026. Still open, all
+   additive on the same canonical vocabulary: base stats for the 4 unreleased
+   5★ (lucy, rebecca, lucilla, suisui — held back, no verified base yet);
+   5pc Sonata effect text; cost TEMPLATES (43311/44111) as a fill
+   convenience. Softer-verified data to re-check: Energy-Regen substat
    ladder, flat ATK/DEF tiers, Sun-sinking Eclipse's identity, Firstlight's
    Herald weapon base (beta, med confidence), and the med-confidence single-source
    char bases (augusta, iuno, galbrena, qiuyuan, mornye, lynae, luukHerssen).

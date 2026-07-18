@@ -27,10 +27,10 @@ const reset = () => w.eval(`
   state = {goals: ['jinhsi','phoebe','suisui'].map(c => newGoal(c, false, D)),
            done: [], inv: {}, synth: true, craftMode: 'reserve', hideUn: false, skipCE: false,
            tab: 'total', teams: [], builds: {}, defaults: D, week: freshWeek(), wkPlan: null,
-           statPrio: null};
+           statPrio: null, echoOpen: null};
   undoStack.length = 0; clearTimeout(undoTimer);
   editIdx = null; editTpl = null; palPick = null; palSel = 0;
-  echoFilter = ''; echoOpen = []; focusPop = null; prioPop = false;
+  echoFilter = ''; focusPop = null; prioPop = false; condDraft = null; setPick = null;
   echoChips = {r: new Set(), el: new Set(), wt: new Set()};
   farmId = null; ordDrag = null; wkDrag = null; invFilter = '';
   for(const s of ['#modalWrap','#palWrap','#ordWrap','#invWrap','#farmWrap','#undoBar'])
@@ -2091,7 +2091,7 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
      w.eval('state.done[0].owner') === undefined);
 
   // Echoes page: the header weapon line changes on click, unequips on right-click
-  w.eval(`state.done[0].owner = 'jinhsi'; echoOpen = ['jinhsi']; save(); showPage('echoes'); render();`);
+  w.eval(`state.done[0].owner = 'jinhsi'; state.echoOpen = 'jinhsi'; save(); showPage('echoes'); render();`);
   const wline = () => d.querySelector('.ebuild[data-ec="jinhsi"] .ehwpn');
   ok('the Echoes header names the weapon and the gestures',
      /Ages of Harvest/.test(wline().textContent) &&
@@ -2346,22 +2346,34 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
      d.querySelectorAll('#elist .echar').length === 3 &&
      d.querySelectorAll('#esheets .ebuild').length === 0 &&
      d.querySelector('#pageEcho .ecols').classList.contains('showcase'));
-  ok('a bar card: portrait + stats on top, the identity line along the bottom',
+  ok('a bar card: top grid (icon spans name/meta/weapon rows), stats section below',
      bar('jinhsi').querySelector('.ectop .avatar img') !== null &&
-     bar('jinhsi').querySelector('.ecbot .ecname').textContent === 'Jinhsi' &&
-     bar('jinhsi').querySelectorAll('.ecbot .attr').length === 2 &&
-     /Lv 1/.test(bar('jinhsi').querySelector('.ecbot .num').textContent) &&
-     /no weapon linked/.test(bar('jinhsi').getAttribute('title')) &&
-     bar('jinhsi').querySelector('.ecw') === null);   // no weapon → no icon
-  // clicking bar cards opens their sheets in the center — several at once
-  for(const id of ['jinhsi', 'phoebe', 'suisui']) fire(bar(id), 'click');
-  ok('opening each character stacks their sheets in the center',
-     d.querySelectorAll('#esheets .ebuild').length === 3 &&
-     [...d.querySelectorAll('#elist .echar')].every(c => c.classList.contains('open')));
-  ok('an open sheet collapses the showcase into the side bar',
+     bar('jinhsi').querySelector('.ectop .ecname').textContent === 'Jinhsi' &&
+     bar('jinhsi').querySelectorAll('.ectop .ecmeta .attr').length === 2 &&
+     /Lv 1/.test(bar('jinhsi').querySelector('.ectop .ecmeta .num').textContent) &&
+     /no weapon/.test(bar('jinhsi').querySelector('.ectop .ecwpn').textContent) &&
+     bar('jinhsi').querySelector('.ectop .ecwpn img') === null);   // no weapon → no icon
+  // clicking a bar card opens ONE sheet in the center (single-open model)
+  fire(bar('suisui'), 'click');
+  ok('clicking a character opens its sheet and collapses the showcase',
+     d.querySelectorAll('#esheets .ebuild').length === 1 && card('suisui') !== null &&
+     bar('suisui').classList.contains('open') &&
      !d.querySelector('#pageEcho .ecols').classList.contains('showcase'));
-  ok('the newest sheet always opens ON TOP',
-     d.querySelector('#esheets .ebuild').dataset.ec === 'suisui');
+  ok('the open build is PERSISTED in state (survives reloads)', w.eval("state.echoOpen === 'suisui'"));
+  ok('sanitize keeps a persisted echoOpen only for a roster char', w.eval(
+     "sanitize({goals:[{char:'jinhsi'}], echoOpen:'jinhsi'}).echoOpen === 'jinhsi' && " +
+     "sanitize({goals:[{char:'jinhsi'}], echoOpen:'nope'}).echoOpen === null"));
+  // opening ANOTHER character swaps to it — only one at a time
+  fire(bar('phoebe'), 'click');
+  ok('opening another character swaps: the previous sheet closes',
+     d.querySelectorAll('#esheets .ebuild').length === 1 &&
+     card('phoebe') !== null && card('suisui') === null && !bar('suisui').classList.contains('open'));
+  // clicking the OPEN character closes it (toggle → showcase)
+  fire(bar('phoebe'), 'click');
+  ok('clicking the open character closes it back to the showcase',
+     d.querySelectorAll('#esheets .ebuild').length === 0 && w.eval('state.echoOpen === null') &&
+     d.querySelector('#pageEcho .ecols').classList.contains('showcase'));
+  fire(bar('jinhsi'), 'click');   // open jinhsi for the rest of the block
   ok('a card names its character and holds 5 echo columns',
      q('jinhsi', '.ehname').textContent === 'Jinhsi' &&
      card('jinhsi').querySelectorAll('.egrid .ecol').length === 5);
@@ -2371,18 +2383,12 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
      card('jinhsi').querySelector('.ehdr .ehright [data-fbtn]') !== null &&
      card('jinhsi').querySelector('.ehdr .ehright .etotals') !== null &&
      card('jinhsi').querySelector('.ehdr .ehright .ebudget') !== null);
-  // clicking an OPEN character's bar card closes its sheet (toggle)
-  fire(bar('suisui'), 'click');
-  ok('clicking an open character’s card closes the sheet',
-     card('suisui') === null && !bar('suisui').classList.contains('open'));
-  fire(bar('suisui'), 'click');   // back open for the rest of the block
-  // ⇤ sends a sheet back to the bar
-  fire(card('phoebe').querySelector('[data-eclose]'), 'click');
+  // ⇤ sends the sheet back to the bar
+  fire(card('jinhsi').querySelector('[data-eclose]'), 'click');
   ok('⇤ closes the sheet and un-dims its bar card',
-     d.querySelectorAll('#esheets .ebuild').length === 2 && card('phoebe') === null &&
-     !bar('phoebe').classList.contains('open'));
-  fire(bar('phoebe'), 'click');   // reopen for the rest of the block
-  ok('the reopened sheet lands on top', d.querySelector('#esheets .ebuild').dataset.ec === 'phoebe');
+     d.querySelectorAll('#esheets .ebuild').length === 0 && card('jinhsi') === null &&
+     !bar('jinhsi').classList.contains('open') && w.eval('state.echoOpen === null'));
+  fire(bar('jinhsi'), 'click');   // reopen jinhsi for the rest of the block
   ok('a fresh card shows the 12/12 budget', /12 \/ 12/.test(q('jinhsi', '.ebudget').textContent) &&
      !q('jinhsi', '.ebudget').classList.contains('over'));
   ok('no build is materialized just by viewing', w.eval('state.builds.jinhsi === undefined'));
@@ -2390,16 +2396,26 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
      /ATK%/.test(card('jinhsi').textContent) &&
      /\+ 150 ATK</.test(q('jinhsi', '.emval').innerHTML));
 
-  // Sonata sets live on each ECHO — counting pieces drives the bonus
-  const setSel0 = q('jinhsi', '[data-eset][data-ei="0"]');
-  setSel0.value = 'Freezing Frost'; fire(setSel0, 'change');
-  ok('choosing a set on one echo materializes + saves the build',
-     w.eval("state.builds.jinhsi && state.builds.jinhsi.echoes[0].set === 'Freezing Frost'"));
+  // Sonata sets live on each ECHO — chosen from an ICON picker (native
+  // <select> can't show icons; the pieces drive the bonus)
+  const pickEchoSet = (ei, name) => {
+    fire(q('jinhsi', `.ecol[data-ei="${ei}"] [data-setpick]`), 'click');
+    fire(card('jinhsi').querySelector(`[data-setopt="${name}"]`), 'click');
+  };
+  fire(q('jinhsi', '.ecol[data-ei="0"] [data-setpick]'), 'click');
+  ok('the set picker opens an icon+name list (34 sets + a clear option)',
+     card('jinhsi').querySelector('.setpop') !== null &&
+     card('jinhsi').querySelectorAll('.setpop [data-setopt]').length === 35 &&
+     card('jinhsi').querySelector('.setpop [data-setopt="Freezing Frost"] img.__ico')
+       .getAttribute('src') === 'images/sonata/freezing_frost_icon.png');
+  fire(card('jinhsi').querySelector('.setpop [data-setopt="Freezing Frost"]'), 'click');
+  ok('choosing a set on one echo materializes + saves the build (picker closes)',
+     w.eval("state.builds.jinhsi && state.builds.jinhsi.echoes[0].set === 'Freezing Frost'") &&
+     w.eval('setPick === null'));
   ok('one piece is not enough — the set line is unlit, counting ×1',
      !q('jinhsi', '.eset').classList.contains('on') &&
      /×1/.test(q('jinhsi', '.eset').textContent));
-  const setSel1 = q('jinhsi', '[data-eset][data-ei="1"]');
-  setSel1.value = 'Freezing Frost'; fire(setSel1, 'change');
+  pickEchoSet(1, 'Freezing Frost');
   ok('two pieces switch the 2pc on — line lit, ×2, the effect in its tooltip',
      q('jinhsi', '.eset').classList.contains('on') &&
      /×2/.test(q('jinhsi', '.eset').textContent) &&
@@ -2407,8 +2423,7 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok('the Glacio 2pc lands in the card totals',
      /Glacio DMG/.test(q('jinhsi', '.etotals').textContent));
   // 3pc Freezing Frost + 2pc Moonlit Clouds — the split this model exists for
-  const wearSet = (ei, name) => { const s = q('jinhsi', `[data-eset][data-ei="${ei}"]`); s.value = name; fire(s, 'change'); };
-  wearSet(2, 'Freezing Frost'); wearSet(3, 'Moonlit Clouds'); wearSet(4, 'Moonlit Clouds');
+  pickEchoSet(2, 'Freezing Frost'); pickEchoSet(3, 'Moonlit Clouds'); pickEchoSet(4, 'Moonlit Clouds');
   const chips = [...card('jinhsi').querySelectorAll('.eset')];
   ok('a 3pc + 2pc split lists both sets with counts, both lit',
      chips.length === 2 && chips.every(c => c.classList.contains('on')) &&
@@ -2422,9 +2437,9 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok('set lines carry the sonata icon', (() => {
      const im = q('jinhsi', '.ehsets .eset img.__ico');
      return im !== null && im.getAttribute('src') === 'images/sonata/freezing_frost_icon.png'; })());
-  ok('a chosen set shows its icon beside the echo’s set select',
-     q('jinhsi', '.ecol[data-ei="0"] .esetrow img.__ico') !== null &&
-     q('jinhsi', '.ecol[data-ei="4"] .esetrow img.__ico') !== null);
+  ok('a chosen set shows its icon on the echo’s picker trigger',
+     q('jinhsi', '.ecol[data-ei="0"] .setbtn img.__ico') !== null &&
+     q('jinhsi', '.ecol[data-ei="4"] .setbtn img.__ico') !== null);
   ok('only the LEAD echo carries a name field',
      q('jinhsi', '.ecol[data-ei="0"] [data-ename]') !== null &&
      card('jinhsi').querySelectorAll('[data-ename]').length === 1);
@@ -2648,17 +2663,19 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   w.eval("state.builds.phoebe = freshBuild(); state.goals = state.goals.filter(g => g.char !== 'phoebe'); pruneLinks(); save(); render();");
   ok('a departing character drops its build', w.eval('state.builds.phoebe === undefined'));
   ok("but a remaining character's build is untouched", w.eval('!!state.builds.jinhsi'));
-  ok('the grid now shows one fewer card', d.querySelectorAll('#esheets .ebuild').length === 2);
+  ok('the bar now shows one fewer character; the open sheet (jinhsi) stays',
+     d.querySelectorAll('#elist .echar').length === 2 && card('jinhsi') !== null);
 
   // filter box narrows the BAR without losing focus (input outside #elist)
   const find = d.querySelector('#echoFind');
   find.value = 'suisui'; fire(find, 'input');
-  ok('the fuzzy filter narrows the character bar, never the open sheets',
+  ok('the fuzzy filter narrows the character BAR, never the open sheet',
      d.querySelectorAll('#elist .echar').length === 1 &&
      d.querySelector('#elist .echar').dataset.ec === 'suisui' &&
-     d.querySelectorAll('#esheets .ebuild').length === 2);
+     d.querySelectorAll('#esheets .ebuild').length === 1 &&
+     d.querySelector('#esheets .ebuild').dataset.ec === 'jinhsi');
   // closing every sheet rescales the bar back to the full showcase grid
-  w.eval('echoOpen = []; render();');
+  w.eval('state.echoOpen = null; render();');
   ok('empty again → the characters rescale to the showcase grid',
      d.querySelector('#pageEcho .ecols').classList.contains('showcase'));
   reset();
@@ -2668,7 +2685,7 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
 {
   reset();
   fire(d.querySelector('.pagenav [data-page="echoes"]'), 'click');
-  w.eval("echoOpen = ['jinhsi', 'suisui']; render();");
+  w.eval("state.echoOpen = 'jinhsi'; render();");
   const card = id => d.querySelector(`.ebuild[data-ec="${id}"]`);
   // Jinhsi has Lv90 base on file → a Final stats panel with real totals
   ok('a character with base data shows a Final stats panel with ATK/HP/DEF rows',
@@ -2677,16 +2694,17 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok('final ATK folds base + gear (well above base 412)',
      w.eval("finalStats(freshBuild(), 'jinhsi', null, forteStatTotals(state.goals.find(g=>g.char==='jinhsi'),'tgt')).stats.find(s=>s.key==='atk').val") > 412);
   // Suisui is unreleased (no base) → the gear-only fallback + a note
+  w.eval("state.echoOpen = 'suisui'; render();");
   ok('a character without base data falls back to Gear totals + a note',
      /Gear totals/.test(card('suisui').querySelector('.et-h').textContent) &&
      /base stats/.test(card('suisui').querySelector('.etnote').textContent));
   // link a Broadblade to Jinhsi → the finals note that the weapon is folded in
-  w.eval("state.goals.push(Object.assign(newWpnGoal('verdantSummit', false), {owner:'jinhsi'})); save(); render();");
+  w.eval("state.echoOpen = 'jinhsi'; state.goals.push(Object.assign(newWpnGoal('verdantSummit', false), {owner:'jinhsi'})); save(); render();");
   ok('a linked weapon is folded into the finals (sub says + weapon)',
      /\+ weapon/.test(card('jinhsi').querySelector('.et-h .sub').textContent));
-  ok('the bar card grows the weapon icon at the portrait’s side, named in the tooltip',
-     d.querySelector('#elist .echar[data-ec="jinhsi"] .ecw img') !== null &&
-     /Verdant Summit/.test(d.querySelector('#elist .echar[data-ec="jinhsi"]').getAttribute('title')));
+  ok('a linked weapon shows on row 3 of the card (icon + name)',
+     d.querySelector('#elist .echar[data-ec="jinhsi"] .ecwpn img') !== null &&
+     /Verdant Summit/.test(d.querySelector('#elist .echar[data-ec="jinhsi"] .ecwpn').textContent));
   ok('linking the weapon raised final ATK vs no weapon',
      w.eval("finalStats(freshBuild(),'jinhsi',{weapon:'verdantSummit'},null).stats.find(s=>s.key==='atk').val > finalStats(freshBuild(),'jinhsi',null,null).stats.find(s=>s.key==='atk').val"));
   reset();
@@ -2756,53 +2774,80 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   ok('unlocking frees the echo', w.eval('!state.builds.jinhsi.echoes[1].lock') &&
      !card('jinhsi').querySelector('.ecol[data-ei="1"]').classList.contains('locked'));
 
-  // conditionals: transcribed weapon/set effects, counted only while ticked
+  // conditionals: added from the ＋ beside a SOURCE (character / weapon / set)
   const finCR = () => w.eval("finalStats(state.builds.jinhsi, 'jinhsi', null, " +
     "forteStatTotals(state.goals.find(g => g.char === 'jinhsi'), 'tgt')).stats.find(s => s.key === 'cr').val");
   const beforeCR = finCR();
-  card('jinhsi').querySelector('[data-condk]').value = 'cr';
-  card('jinhsi').querySelector('[data-condv]').value = '10';
-  fire(card('jinhsi').querySelector('[data-condadd]'), 'click');
-  ok('adding a conditional lands ON in the left column and lifts the finals',
+  const draftFill = (k, v) => { card('jinhsi').querySelector('[data-condk]').value = k;
+                                card('jinhsi').querySelector('[data-condv]').value = v; };
+  // the character always offers a ＋; clicking it opens a draft showing its icon
+  ok('every source has an icon-only ＋; the central add row is gone',
+     card('jinhsi').querySelector('[data-condadd]') === null &&
+     card('jinhsi').querySelector('.gmeta [data-condplus="character"]') !== null &&
+     card('jinhsi').querySelector('[data-condplus="character"]').textContent === '＋');
+  fire(card('jinhsi').querySelector('[data-condplus="character"]'), 'click');
+  ok('the draft opens already showing the source icon + a stat/% editor',
+     w.eval("condDraft && condDraft.char === 'jinhsi' && condDraft.src === 'character'") &&
+     card('jinhsi').querySelector('.econd.draft img.__ico').getAttribute('src') === 'images/characters/jinhsi_icon.png' &&
+     card('jinhsi').querySelector('.econd.draft [data-condk]') !== null);
+  // the draft's stat select condenses the six elements + omits flat stats
+  ok('the draft stat select condenses elements and omits flat stats', (() => {
+     const vals = [...card('jinhsi').querySelectorAll('.econd.draft [data-condk] option')].map(o => o.value);
+     return vals.includes('elem') && !vals.includes('spectro') && !vals.includes('atk'); })());
+  draftFill('cr', '10');
+  fire(card('jinhsi').querySelector('[data-condok]'), 'click');
+  ok('✓ confirms the draft: a live row, source icon, lifts the finals',
      w.eval("JSON.stringify(state.builds.jinhsi.conds)") ===
-       JSON.stringify([{key:'cr', val:10, on:true}]) &&
-     /\+10% Crit Rate/.test(card('jinhsi').querySelector('.ehconds').textContent) &&
+       JSON.stringify([{key:'cr', val:10, on:true, src:'character'}]) &&
+     w.eval('condDraft === null') &&
+     /\+10% Crit Rate/.test(card('jinhsi').querySelector('.econd').textContent) &&
      finCR() === beforeCR + 10 &&
      /\+ conditionals/.test(card('jinhsi').querySelector('.et-h .sub').textContent));
-  const cb = card('jinhsi').querySelector('[data-cond="0"]');
-  cb.checked = false; fire(cb, 'change');
-  ok('unticking pulls it out of the finals but keeps it listed',
+  // the elegant toggle flips it off (kept listed, out of the finals)
+  fire(card('jinhsi').querySelector('[data-cond="0"]'), 'click');
+  ok('the toggle holds the conditional out of the finals but keeps it listed',
      finCR() === beforeCR && w.eval('state.builds.jinhsi.conds[0].on === false') &&
+     !card('jinhsi').querySelector('.econd').classList.contains('on') &&
      !/\+ conditionals/.test(card('jinhsi').querySelector('.et-h .sub').textContent));
   fire(card('jinhsi').querySelector('[data-condrm="0"]'), 'click');
-  ok('✕ removes the conditional', w.eval('state.builds.jinhsi.conds.length === 0'));
-  // ONE condensed Elemental DMG option, storing the character's OWN element
-  ok('the conditional dropdown condenses the six elements into one option', (() => {
-     const vals = [...card('jinhsi').querySelectorAll('[data-condk] option')].map(o => o.value);
-     return vals.includes('elem') && !vals.includes('glacio') && !vals.includes('spectro') &&
-            !vals.includes('atk'); })());   // …and still no flat stats
-  card('jinhsi').querySelector('[data-condk]').value = 'elem';
-  card('jinhsi').querySelector('[data-condv]').value = '30';
-  fire(card('jinhsi').querySelector('[data-condadd]'), 'click');
-  ok('adding it stores the character’s own element (Spectro for Jinhsi)',
+  ok('the borderless ✕ removes the conditional', w.eval('state.builds.jinhsi.conds.length === 0'));
+  // cancel closes a draft without adding
+  fire(card('jinhsi').querySelector('[data-condplus="character"]'), 'click');
+  fire(card('jinhsi').querySelector('[data-condcancel]'), 'click');
+  ok('cancel closes the draft without adding a row',
+     w.eval('condDraft === null && state.builds.jinhsi.conds.length === 0'));
+  // the "Elemental DMG" option resolves to the character's own element on ✓
+  fire(card('jinhsi').querySelector('[data-condplus="character"]'), 'click');
+  draftFill('elem', '30');
+  fire(card('jinhsi').querySelector('[data-condok]'), 'click');
+  ok('the element option stores the character’s own element (Spectro for Jinhsi)',
      w.eval("state.builds.jinhsi.conds[0].key === 'spectro'") &&
-     /Spectro/.test(card('jinhsi').querySelector('.ehconds').textContent));
+     /Spectro/.test(card('jinhsi').querySelector('.econd').textContent));
   w.eval('state.builds.jinhsi.conds = []; save(); render();');
-  // a conditional can carry its SOURCE's icon (a worn set / the linked weapon)
+  // adding from a SET's ＋ binds that set as the source (its icon on the row)
   w.eval("state.builds.jinhsi.echoes[0].set = 'Freezing Frost'; save(); render();");
-  card('jinhsi').querySelector('[data-conds]').value = 'Freezing Frost';
-  card('jinhsi').querySelector('[data-condk]').value = 'cr';
-  card('jinhsi').querySelector('[data-condv]').value = '5';
-  fire(card('jinhsi').querySelector('[data-condadd]'), 'click');
-  ok('the source select attaches the set’s icon to the conditional row',
+  fire(card('jinhsi').querySelector('.eset [data-condplus="Freezing Frost"]'), 'click');
+  draftFill('cr', '5');
+  fire(card('jinhsi').querySelector('[data-condok]'), 'click');
+  ok('a set ＋ tags the set as the source and shows its icon',
      w.eval("state.builds.jinhsi.conds[0].src === 'Freezing Frost'") &&
-     card('jinhsi').querySelector('.econd img.__ico').getAttribute('src')
-       === 'images/sonata/freezing_frost_icon.png');
+     card('jinhsi').querySelector('.econd img.__ico').getAttribute('src') === 'images/sonata/freezing_frost_icon.png');
   w.eval('state.builds.jinhsi.conds = []; state.builds.jinhsi.echoes[0].set = null; save(); render();');
-  w.eval("state.builds.jinhsi.conds = [{key:'cd', val:20, on:true}]; " +
+  // adding from the linked WEAPON's ＋ binds the weapon as the source
+  w.eval("state.goals.push(Object.assign(newWpnGoal('agesOfHarvest', false), {owner:'jinhsi'})); save(); render();");
+  fire(card('jinhsi').querySelector('.ehwrow [data-condplus="weapon"]'), 'click');
+  draftFill('atkp', '12');
+  fire(card('jinhsi').querySelector('[data-condok]'), 'click');
+  ok('a weapon ＋ tags the weapon as the source',
+     w.eval("state.builds.jinhsi.conds[0].src === 'weapon'") &&
+     card('jinhsi').querySelector('.econd img.__ico').getAttribute('src') === 'images/weapons/ages_of_harvest_icon.png');
+  w.eval('state.builds.jinhsi.conds = []; save(); render();');
+  // frozen: no ＋ anywhere, no draft, toggle + remove disabled
+  w.eval("state.builds.jinhsi.conds = [{key:'cd', val:20, on:true, src:'character'}]; " +
          "state.builds.jinhsi.frozen = true; save(); render();");
-  ok('frozen: conditionals lock too (no add row, controls disabled)',
-     card('jinhsi').querySelector('.econd-add') === null &&
+  ok('frozen: conditionals lock too (no ＋, controls disabled)',
+     card('jinhsi').querySelector('[data-condplus]') === null &&
+     card('jinhsi').querySelector('.econd.draft') === null &&
      card('jinhsi').querySelector('[data-cond="0"]').disabled &&
      card('jinhsi').querySelector('[data-condrm="0"]').disabled);
   w.eval("delete state.builds.jinhsi.frozen; state.builds.jinhsi.conds = []; save(); render();");
@@ -2826,6 +2871,14 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   fire(chipRow().querySelector('[data-facet="clear"]'), 'click');
   ok('✕ clears the chips and the bar refills',
      d.querySelectorAll('#elist .echar').length === 3);
+
+  // a DONE (frozen) BUILD gives its card a faint element-tinted background
+  w.eval("ensureBuild('jinhsi').frozen = true; save(); render();");
+  ok('a frozen build gets the .built element tint; others do not',
+     bar('jinhsi').classList.contains('built') &&
+     bar('jinhsi').getAttribute('style').includes('--acc') &&
+     !bar('suisui').classList.contains('built'));
+  w.eval("delete state.builds.jinhsi.frozen; save(); render();");
   reset();
 }
 
@@ -2837,33 +2890,46 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   const card = id => d.querySelector(`.ebuild[data-ec="${id}"]`);
   fire(bar('jinhsi'), 'click');
   const sets = () => w.eval('JSON.stringify(state.builds.jinhsi.echoes.map(e => e.set))');
-  const fill = name => { const s = card('jinhsi').querySelector('[data-setfill]');
-                         s.value = name; fire(s, 'change'); };
-  ok('the set area offers the quick-fill while echoes are unset',
-     card('jinhsi').querySelector('[data-setfill]') !== null);
+  const nSet = name => w.eval(`state.builds.jinhsi.echoes.filter(e => e.set === ${JSON.stringify(name)}).length`);
+  const fill = name => {   // the quick-fill shares the icon picker (ei === 'fill')
+    fire(card('jinhsi').querySelector('[data-setpick="fill"]'), 'click');
+    fire(card('jinhsi').querySelector(`.setpop [data-setopt="${name}"]`), 'click');
+  };
+  ok('the set area offers the quick-fill picker while echoes are unset',
+     card('jinhsi').querySelector('[data-setpick="fill"]') !== null);
   fill('Rejuvenating Glow');
-  ok('a 2/5pc set fills every empty slot (fresh build → ×5), then the fill retires',
+  ok('a fresh build (5 free) lets a classic set reach 5pc → all five, then it retires',
      sets() === JSON.stringify(Array(5).fill('Rejuvenating Glow')) &&
-     card('jinhsi').querySelector('[data-setfill]') === null);
+     card('jinhsi').querySelector('[data-setpick="fill"]') === null);
   // the user's example: Crown of Valor (3pc) takes the 4-, one 3- and one 1-cost…
   w.eval('state.builds.jinhsi.echoes.forEach(e => { e.set = null; }); save(); render();');
   fill('Crown of Valor');
   ok('a 3pc set takes the 4-cost, one 3-cost and one 1-cost',
      sets() === JSON.stringify(['Crown of Valor', 'Crown of Valor', null, 'Crown of Valor', null]));
-  // …and Void Thunder then tags the remaining 3-cost + 1-cost
+  // …and Void Thunder then tags the remaining 3-cost + 1-cost (2pc)
   fill('Void Thunder');
   ok('the next set fills what remains', sets() === JSON.stringify(
      ['Crown of Valor', 'Crown of Valor', 'Void Thunder', 'Crown of Valor', 'Void Thunder']));
+  // with FEWER than 5 free slots a classic set can't 5pc, so it takes only 2
+  w.eval('state.builds.jinhsi.echoes.forEach(e => { e.set = null; }); ' +
+         'state.builds.jinhsi.echoes[0].set = "Void Thunder"; save(); render();');   // 4 free
+  fill('Sierra Gale');
+  ok('4 free slots → a classic set takes only the 2pc (can’t reach 5pc)', nSet('Sierra Gale') === 2);
+  // a 3pc set with too few free slots fills nothing (no partial)
+  w.eval('state.builds.jinhsi.echoes.forEach(e => { e.set = null; }); ' +
+         'state.builds.jinhsi.echoes[0].set = "Void Thunder"; state.builds.jinhsi.echoes[1].set = "Void Thunder"; ' +
+         'state.builds.jinhsi.echoes[2].set = "Void Thunder"; save(); render();');   // 2 free
+  fill('Crown of Valor');
+  ok('a 3pc set with only 2 free slots fills nothing', nSet('Crown of Valor') === 0);
   // a LOCKED unset echo is never quick-filled
   w.eval('state.builds.jinhsi.echoes.forEach(e => { e.set = null; }); ' +
-         'state.builds.jinhsi.echoes[2].lock = true; save(); render();');
+         'state.builds.jinhsi.echoes[2].lock = true; save(); render();');   // idx2 locked → 4 free
   fill('Rejuvenating Glow');
-  ok('a locked echo keeps its empty set through a quick-fill',
-     sets() === JSON.stringify(['Rejuvenating Glow', 'Rejuvenating Glow', null,
-                                'Rejuvenating Glow', 'Rejuvenating Glow']));
+  ok('a locked echo is skipped; with 4 free the classic set still only takes 2',
+     sets() === JSON.stringify(['Rejuvenating Glow', 'Rejuvenating Glow', null, null, null]));
   // frozen builds offer no quick-fill
   w.eval('delete state.builds.jinhsi.echoes[2].lock; state.builds.jinhsi.frozen = true; save(); render();');
-  ok('a frozen build offers no quick-fill', card('jinhsi').querySelector('[data-setfill]') === null);
+  ok('a frozen build offers no quick-fill', card('jinhsi').querySelector('[data-setpick="fill"]') === null);
   reset();
 }
 

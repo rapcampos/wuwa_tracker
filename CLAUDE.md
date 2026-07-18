@@ -354,13 +354,14 @@ it goes in block 2 with tests; presentation goes in block 3.
   grid with slightly larger portraits, `#esheets` hides); opening the first
   sheet collapses them to the side bar, closing the last rescales them
   back. The LEFT bar
-  (`.epanel` → `#elist`) lists every rostered character as a COMPACT
-  `.echar` card — top row (`.ectop`): the portrait with the linked weapon's
-  icon at its side (`.ecw`; absent when unlinked); bottom row (`.ecbot`):
-  name · element/type glyphs · current level ("✓ done" when completed);
-  the weapon's NAME lives in the hover `title` along with name + level
-  (user's calls, Jul 2026) — and the build's
-  FOCUSED stats top-right (`echoFocusStats`, `.ecfoc`/`.est`, gold like
+  (`.epanel` → `#elist`) lists every rostered character as an `.echar` card
+  with two sections (user's design, Jul 2026): a TOP grid (`.ectop`) — a
+  square portrait spanning three rows, then name / element·type glyphs·level
+  / weapon icon·name (`.ecname`/`.ecmeta`/`.ecwpn`) down the right — and a
+  BOTTOM section of the build's FOCUSED stats in **two columns that fill
+  VERTICALLY** (column-major CSS multicol, user's call). A card whose BUILD
+  is DONE (frozen) gets a faint element-tinted wash (`.echar.built`,
+  low-contrast `color-mix`). (`echoFocusStats`, `.ecfoc`/`.est`, gold like
   the substat highlight), valued from **`finalStats`** (base + echoes +
   weapon + forte — user's rule; finals fold `atkp`→ATK etc. via a small
   FOLD map, so ATK + ATK% focused together show ONE entry) with the
@@ -370,14 +371,14 @@ it goes in block 2 with tests; presentation goes in block 3.
   DMG", between Energy Regen and Basic — never six per-element chips,
   user's rule): it resolves to the character's OWN element at display time
   and only tracks on the bar (no substat rolls an element); `sanitizeBuild`
-  accepts substat keys + `'elem'`. **Clicking a bar card TOGGLES that
-  character's full sheet in the center panel** (`#esheets`) — open if
-  closed, closed if open — and a **newly opened sheet always lands ON TOP**
-  (unshift); several sheets can be open at once (`echoOpen`, an ordered
-  charId list — TRANSIENT view state like `echoFilter`, a reload starts
-  empty; `renderEcho` drops ids that left the roster), the open card dims
-  (`.echar.open`), and each sheet's header also carries **⇤**
-  (`data-eclose`) to send it back to the bar. `#echoFind`
+  accepts substat keys + `'elem'`. **Clicking a bar card opens that
+  character's full sheet in the center panel** (`#esheets`) — **ONE build
+  open at a time** (user's call): clicking another swaps to it, clicking the
+  open one closes it (toggle). The open charId lives in **`state.echoOpen`
+  (PERSISTED** across reloads, sanitized to a roster char or null; a
+  departed char closes it), the open card dims (`.echar.open`), and the
+  sheet header carries **⇤** (`data-eclose`) to close it. focus/cond/set
+  pop-ups and the unequip confirm all die when `echoOpen` changes. `#echoFind`
   fuzzy-filters the BAR only (never the open sheets); it sits OUTSIDE
   `#elist` so `renderEchoList` redraws per keystroke without losing focus
   (the Teams / inventory rule). Each sheet carries `data-ec` (its charId) and
@@ -389,21 +390,32 @@ it goes in block 2 with tests; presentation goes in block 3.
   ×count", most pieces first via `activeSets`, lit `.eset.on` when live,
   effect text only in the `setTip` tooltip; while UNSET+unlocked echoes
   remain — and the build isn't frozen — the area also carries a dashed
-  **quick-fill select** (`.setfill`/`fillSet`): a classic 2/5pc set tags
-  EVERY empty slot, a threshold set takes exactly its piece count landing
-  4-cost → 3-cost → 1-cost (user's fill; any unset slot as fallback), so
-  Crown of Valor takes 4/3/1 and a following Void Thunder gets the
-  leftover 3+1) and the **Conditionals block**
+  **quick-fill picker** (`fillSet`, shares the icon picker, `ei==='fill'`):
+  fills up to the LARGEST piece threshold that FITS the free slots — classic
+  sets' thresholds are 2 and 5, so a fresh build (5 free) reaches 5pc but
+  with FEWER than 5 free a classic set can only take 2 (the 2pc), leaving
+  the rest for another set (user's rule); threshold sets take exactly their
+  count (3 or 1) when it fits, else nothing. Slots consumed biggest-cost
+  first (4→3→1), so Crown of Valor takes 4/3/1 and a following Void Thunder
+  gets the leftover 3+1) and the **Conditionals block**
   (`echoCondList` → `.ehconds`): weapon passives and 5pc/threshold set
   effects are PROSE in-game, so the user transcribes each as stat + value
-  (`build.conds = [{key, val, on, src?}]` — NO text label, the source icon
+  (`build.conds = [{key, val, on, src}]` — NO text label, the source icon
   speaks, user's call; sanitized: canonical PERCENT key only — conditional
-  values are %, NO flat stats, user's rule — positive value, ≤20 entries;
-  the add-row's stat select condenses the six element keys into ONE
-  "Elemental DMG" option that stores the character's OWN element key on
-  add, so the row then displays that element; `src` — `'weapon'` or a set
-  NAME — puts the source's icon on the row, offered by the add-row's
-  "— icon —" select listing the linked weapon + the worn sets) — a TICKED entry folds into `buildTotals`
+  values are %, NO flat stats, user's rule — positive value, ≤20 entries).
+  Each is ADDED from an **icon-only ＋** (`condPlusBtn`, `.condplus`) beside
+  its SOURCE — the CHARACTER (gmeta line), the linked WEAPON (`.ehwrow`), or
+  a worn SET (each `.eset`); clicking opens a transient DRAFT row
+  (`condDraft = {char, src}`, dies with its sheet) already showing that
+  source's icon (`condSrcIco`: `'character'`→avatar, `'weapon'`→weapon,
+  set-name→sonata) plus a stat select (`condStatOpts`: percent keys, the
+  six elements condensed to ONE "Elemental DMG" that resolves to the
+  character's OWN element on ✓) and a % input; **✓** (`data-condok`)
+  commits it into a live row, **✕** cancels. A live row is an ELEGANT
+  on/off toggle (`.ctog`, a styled switch — replaced the raw checkbox) +
+  the source icon + "+N% Stat" + a BORDERLESS remove ✕ (`.condrm`, faint
+  until hovered) — all user's calls. The whole conditional block hides
+  its ＋/draft and disables the toggles/removes while the build is frozen) — a TICKED entry folds into `buildTotals`
   (and thus the finals, bar stats and goal checks; the totals sub-header
   grows "+ conditionals"), unticked ones wait; ✕ removes; the add row
   (stat select · value · label) hides and the toggles disable while the
@@ -414,9 +426,12 @@ it goes in block 2 with tests; presentation goes in block 3.
   (`echoTotalsPanel`, moved up from the card bottom). Below the header, the
   wrapping 5-column `.egrid` of echoes (each: a ⠿ drag grip — plus a
   free-text name input on the LEAD echo ONLY, user's call Jul 2026 — a
-  per-echo Sonata select with the chosen set's icon beside it (`.esetrow`),
-  a compact cost select — just the number — LEFT of the main-stat select,
-  its derived value + secondary, and five substat rows). Every control live-applies via `bindEchoSheet`
+  per-echo Sonata **icon PICKER** (`setPickTrigger`/`setPickPop`,
+  transient `setPick = {char, ei}` — a native `<select>` can't show icons
+  and 34 lookalike names confuse, user's call; the trigger shows the chosen
+  set's icon+name, clicking opens a scrollable icon+name list), a compact
+  cost select — just the number — LEFT of the main-stat select, its derived
+  value + secondary, and five substat rows). Every control live-applies via `bindEchoSheet`
   (per-card, resolving the charId from the enclosing `.ebuild`) →
   `ensureBuild` → `save(); render()`; substats are re-read from the card
   densified (`readEchoSubs` drops empty rows, snaps values). The echo NAME

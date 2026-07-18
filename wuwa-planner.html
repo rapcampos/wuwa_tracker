@@ -594,11 +594,12 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
 .ecols.showcase .esheets{display:none}
 .ecols.showcase .rfind{max-width:340px}
 .ecols.showcase #elist{display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:9px}
-/* COMPACT bar card: top row = portrait + weapon icon | focused stats; the
-   identity line (name · element · type · level) sits along the BOTTOM.
-   Click toggles the sheet open (newest on top) / closed. */
-.echar{position:relative; overflow:hidden; display:flex; flex-direction:column; gap:5px;
-  padding:8px 8px 6px; border:1px solid var(--line2); border-radius:10px;
+/* Bar card, two sections. TOP: a grid — square portrait spanning 3 rows,
+   then name / element·type·level / weapon icon·name down the right. BOTTOM:
+   the focused stats across two columns (row-major). Click toggles the sheet
+   open (newest on top) / closed. */
+.echar{position:relative; overflow:hidden; display:flex; flex-direction:column; gap:7px;
+  padding:8px; border:1px solid var(--line2); border-radius:10px;
   background:var(--panel2); cursor:pointer}
 /* the element highlight: edge-to-edge along the top, its BOTTOM a straight
    line — the card's rounded corners clip the bar's ends, so nothing curves
@@ -606,22 +607,33 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
 .echar::before{content:''; position:absolute; top:0; left:0; right:0; height:3px; background:var(--acc)}
 .echar:hover{border-color:var(--cyan)}
 .echar.open{opacity:.5}                       /* already in the center panel — click closes */
-.echar .ectop{display:flex; align-items:center; gap:8px}
-.echar .avatar{width:48px; height:48px; font-size:15px; border-radius:9px; flex:none}
-.echar .ecw{display:inline-flex; flex:none}
-.echar .ecw img{width:20px; height:20px; object-fit:contain; border-radius:4px}
-.echar .ecbot{display:flex; align-items:center; gap:5px; min-width:0; color:var(--mut); font-size:10.5px}
-.echar .ecbot .ecname{font-family:'Chakra Petch',sans-serif; font-weight:600; font-size:12.5px;
-  color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-.echar .ecbot .attr, .echar .ecbot .attr-img{width:14px; height:14px}
-.echar .ecbot .num{white-space:nowrap}       /* flows left with the rest of the line */
-/* right column: the HIGHLIGHTED (focus) stats at FINAL values — roomier type,
-   gold like the .esub.focus rows, in the Final-stats panel's order */
-.echar .ecfoc{margin-left:auto; flex:none; display:flex; flex-direction:column; justify-content:center;
-  align-items:flex-end; gap:3px; padding-left:10px; border-left:1px solid var(--line)}
-.echar .est{display:flex; gap:8px; align-items:baseline; font-size:11px; color:var(--faint)}
-.echar .est i{font-style:normal}
-.echar .est b{color:var(--ink); font-size:14px; font-weight:600}   /* unmet/unset: neutral */
+/* a DONE (frozen) build: a faint wash of its own element — kept low-contrast
+   against the panel (user's call) */
+.echar.built{background:color-mix(in srgb, var(--acc) 9%, var(--panel2)); border-color:color-mix(in srgb, var(--acc) 21%, var(--line2))}
+/* TOP section: icon column + three text rows */
+.echar .ectop{display:grid; grid-template-columns:auto minmax(0,1fr);
+  grid-template-rows:auto auto auto; column-gap:9px; row-gap:2px; align-items:center}
+.echar .avatar{grid-row:1 / 4; grid-column:1; align-self:center;
+  width:54px; height:54px; font-size:16px; border-radius:10px; flex:none}
+.echar .ecname{grid-column:2; grid-row:1; min-width:0; font-family:'Chakra Petch',sans-serif;
+  font-weight:600; font-size:14px; color:var(--ink);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.echar .ecmeta{grid-column:2; grid-row:2; display:flex; align-items:center; gap:5px;
+  min-width:0; color:var(--mut); font-size:10.5px}
+.echar .ecmeta .attr, .echar .ecmeta .attr-img{width:15px; height:15px}
+.echar .ecmeta .num{white-space:nowrap}
+.echar .ecwpn{grid-column:2; grid-row:3; display:flex; align-items:center; gap:5px;
+  min-width:0; color:var(--mut); font-size:10.5px}
+.echar .ecwpn img{width:16px; height:16px; object-fit:contain; border-radius:3px; flex:none}
+.echar .ecwpn .wname{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+/* BOTTOM section: focused stats at FINAL values, TWO columns that fill
+   VERTICALLY (column-major, down the first column then the second — user's
+   call); gold when their goal is met, in the Final-stats panel's order */
+.echar .ecfoc{columns:2; column-gap:16px; padding-top:6px; border-top:1px solid var(--line)}
+.echar .est{break-inside:avoid; display:flex; align-items:baseline; justify-content:space-between;
+  gap:8px; min-width:0; font-size:11px; color:var(--faint); padding-bottom:2px}
+.echar .est i{font-style:normal; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.echar .est b{flex:none; color:var(--ink); font-size:13px; font-weight:600}   /* unmet/unset: neutral */
 .echar .est b.met{color:var(--gold)}          /* its stat goal is REACHED — ochre */
 .ebuild .eclose{margin-left:6px}
 .esheets{display:grid; grid-template-columns:1fr; gap:16px; align-items:start}
@@ -655,23 +667,47 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
 @media(max-width:900px){ .ehdr{grid-template-columns:1fr} }
 .ehsets{display:flex; flex-direction:column; align-items:flex-start; gap:4px}
 .ehsets .eset{font-size:12px; padding:2px 9px}
-.setfill{font-size:11px; padding:2px 6px; border-radius:20px; border:1px dashed var(--line2);
-  background:var(--panel2); color:var(--faint); max-width:180px}
-.setfill:hover{border-color:var(--cyan); color:var(--ink)}
+/* the left-column quick-fill picker trigger (dashed, like the old select) */
+.setfillwrap .setbtn{border-style:dashed; max-width:190px}
 /* conditionals: ticked = counted into the totals; the add row transcribes
    a weapon passive / 5pc effect (stat · value · label) */
 .ehconds{display:flex; flex-direction:column; align-items:flex-start; gap:4px; margin-top:10px}
 .ehconds .elab{font-size:11px; text-transform:uppercase; letter-spacing:.12em; color:var(--faint);
   font-family:'Chakra Petch',sans-serif}
-.econd{display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--faint); cursor:pointer}
+.econd{display:flex; align-items:center; gap:7px; font-size:11.5px; color:var(--faint)}
 .econd.on{color:var(--ink)}
-.econd b{color:var(--mut)}
+.econd b{color:var(--mut); font-weight:600; font-variant-numeric:tabular-nums}
 .econd.on b{color:var(--gold)}
-.econd .tiny{padding:0 5px}
-.econd-add{display:flex; align-items:center; gap:4px; flex-wrap:wrap}
-.econd-add select{max-width:112px; font-size:10.5px; padding:2px 3px}
-.econd-add input[type="number"]{width:58px; font-size:11px; padding:2px 4px}
-.econd-add input[type="text"]{width:150px; font-size:11px; padding:2px 5px}
+.econd .son-ico{width:16px; height:16px}
+/* elegant on/off toggle (replaces the raw checkbox) */
+.ctog{position:relative; flex:none; width:26px; height:15px; padding:0; border-radius:9px;
+  border:1px solid var(--line2); background:var(--panel); cursor:pointer;
+  transition:background .15s, border-color .15s}
+.ctog::after{content:''; position:absolute; top:1px; left:1px; width:11px; height:11px;
+  border-radius:50%; background:var(--faint); transition:left .15s, background .15s}
+.econd.on .ctog{background:rgba(229,181,102,.22); border-color:var(--gold)}
+.econd.on .ctog::after{left:12px; background:var(--gold)}
+.ctog:disabled{opacity:.5; cursor:default}
+/* borderless remove — just an X, a touch faint until hovered */
+.condrm{flex:none; border:none; background:none; color:var(--faint); opacity:.6;
+  cursor:pointer; padding:0 2px; font-size:12px; line-height:1}
+.condrm:hover{opacity:1; color:var(--red)}
+.condrm:disabled{opacity:.3; cursor:default}
+/* icon-only "add a conditional from this source" button */
+.condplus{flex:none; border:none; background:none; color:var(--faint); cursor:pointer;
+  padding:0 2px; font-size:13px; line-height:1; vertical-align:middle}
+.condplus:hover{color:var(--cyan)}
+/* the draft row: source icon already shown, stat select + %, confirm */
+.econd.draft select{max-width:118px; font-size:10.5px; padding:2px 3px}
+.econd.draft input[type="number"]{width:52px; font-size:11px; padding:2px 4px}
+.ctiny{flex:none; border:1px solid var(--line2); background:var(--panel2); color:var(--mut);
+  border-radius:6px; cursor:pointer; padding:1px 6px; font-size:11px; line-height:1.4}
+.ctiny.ok{color:var(--green); border-color:rgba(123,216,143,.5)}
+.ctiny.ok:hover{background:rgba(123,216,143,.12)}
+/* weapon line + its add-conditional button share a row */
+.ehwrow{display:flex; align-items:center; gap:4px; min-width:0}
+.ehwrow .ehwpn{min-width:0}
+.gmeta .condplus{margin-left:2px}
 .ehctl{position:relative; display:flex; align-items:center; gap:8px; margin-bottom:10px}
 .ehctl .ebudget{margin-left:auto}
 .fbtn.on{border-color:var(--gold); color:var(--gold)}
@@ -723,8 +759,6 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
   border:1px solid var(--line2); background:var(--panel); color:var(--ink)}
 .ename:focus{outline:none; border-color:var(--cyan)}
 .ename::placeholder{color:var(--faint)}
-/* which Sonata set this echo belongs to — counting these drives 3pc+2pc splits */
-.esetsel{width:100%; min-width:0; padding:2px 4px; font-size:10.5px}
 /* header set list: one line per set worn (icon + name ×count), lit when its
    bonus is live; the full effect text stays in the tooltip (setTip) */
 .eset{display:inline-flex; align-items:center; gap:5px; font-size:11px; padding:2px 8px;
@@ -733,10 +767,27 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
 .eset.on{border-style:solid; border-color:var(--cyan); color:var(--ink)}
 .eset b{font-variant-numeric:tabular-nums; color:var(--cyan)}
 .son-ico{width:16px; height:16px; object-fit:contain; flex:none}
-/* per-echo set row: the set's icon sits beside its select */
-.esetrow{display:flex; align-items:center; gap:4px}
-.esetrow .esetsel{flex:1 1 auto; min-width:0}
-.esetrow .son-ico{width:18px; height:18px}
+/* ── Sonata-set picker: an icon+name trigger over a scrollable icon list
+   (native <select> can't show icons; 34 lookalike names confuse) ── */
+.esetwrap{position:relative}
+.setbtn{display:flex; align-items:center; gap:5px; width:100%; min-width:0; padding:3px 6px;
+  border:1px solid var(--line2); border-radius:7px; background:var(--panel); color:var(--ink);
+  font:inherit; font-size:10.5px; text-align:left; cursor:pointer}
+.setbtn:hover{border-color:var(--cyan)}
+.setbtn:disabled{opacity:.55; cursor:default}
+.setbtn .son-ico{width:18px; height:18px}
+.setbtn .sname{flex:1 1 auto; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.setbtn .scaret{flex:none; color:var(--faint); font-size:9px}
+.setpop{position:absolute; top:calc(100% + 3px); left:0; z-index:55; min-width:210px; max-width:260px;
+  max-height:280px; overflow-y:auto; background:var(--panel); border:1px solid var(--line2);
+  border-radius:9px; padding:4px; box-shadow:0 12px 30px rgba(0,0,0,.5)}
+.setopt{display:flex; align-items:center; gap:7px; width:100%; padding:4px 7px; border:none;
+  background:none; color:var(--mut); font:inherit; font-size:11px; text-align:left;
+  cursor:pointer; border-radius:6px}
+.setopt:hover{background:var(--line); color:var(--ink)}
+.setopt.none{color:var(--faint); font-style:italic}
+.setopt .son-ico{width:20px; height:20px}
+.setopt .sname{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 /* the cost sits to the LEFT of the main-stat select, shortened to just the number */
 .ecostmain{display:flex; gap:4px}
 .ecostmain .ecost{flex:none; width:42px; padding:3px 2px; font-size:11.5px; text-align:center}
@@ -2040,8 +2091,8 @@ function sanitizeBuild(raw){
     for(const c of raw.conds.slice(0, 20)){
       if(!(c && GAME.echoStats[c.key] && GAME.echoStats[c.key].pct && Number.isFinite(+c.val) && +c.val > 0)) continue;
       const cond = {key: c.key, val: +c.val, on: c.on === true};   // no text label — the icon speaks
-      // optional source icon: the linked weapon, or a Sonata set by name
-      if(c.src === 'weapon' || isSet(c.src)) cond.src = c.src;
+      // optional source icon: the character, the linked weapon, or a set name
+      if(c.src === 'weapon' || c.src === 'character' || isSet(c.src)) cond.src = c.src;
       b.conds.push(cond);
     }
   // a COMPLETED (frozen) build: gear is read-only, only the goals edit.
@@ -2908,7 +2959,7 @@ const defaultState = () => ({
   goals: [newGoal('jinhsi', true), newGoal('phoebe', false), newGoal('suisui', false)],
   done: [], inv:{}, synth:true, craftMode:'reserve', hideUn:false, skipCE:false, tab:'total', teams: [],
   builds: {}, defaults: {4: defaultGoalTgt(4), 5: defaultGoalTgt(5)}, week: freshWeek(), wkPlan: null,
-  statPrio: null,
+  statPrio: null, echoOpen: null,
 });
 
 function sanitize(raw){
@@ -3001,6 +3052,9 @@ function sanitize(raw){
   const rawB = (raw && raw.builds && typeof raw.builds === 'object') ? raw.builds : {};
   for(const id of new Set(rosterIds))
     if(rawB[id]) st.builds[id] = sanitizeBuild(rawB[id]);
+  // the ONE open Echoes build (persisted): keep only if still on the roster
+  st.echoOpen = (raw && typeof raw.echoOpen === 'string' && rosterIds.includes(raw.echoOpen))
+    ? raw.echoOpen : null;
   return st;
 }
 
@@ -4054,9 +4108,12 @@ function prioritizeTeam(i){
    block). A build materializes only on the first edit (viewing shows a
    fresh preview). echoFilter is transient (a reload starts empty). */
 let echoFilter = '';                   // transient fuzzy filter over the character bar
-let echoOpen = [];                     // charIds whose sheets are open in the center, in open order (transient)
+// the open build lives in state.echoOpen (charId | null) — ONE at a time,
+// PERSISTED across reloads (user's call). Clicking another char swaps it.
 let focusPop = null;                   // charId whose Focus pop-up is open (transient; survives render)
 let prioPop = false;                   // the ⇅ Stat-priority pop-up (Echoes header; transient)
+let condDraft = null;                  // {char, src} — the open conditional draft (transient)
+let setPick = null;                    // {char, ei} — the open Sonata-set picker (ei number | 'fill')
 let echoChips = {r: new Set(), el: new Set(), wt: new Set()};   // bar filters (transient, like palFilt)
 
 const echoNum = v => (Math.round(v * 100) / 100).toString();
@@ -4071,7 +4128,7 @@ function ensureBuild(id){
    fuzzyScore as Teams / the inventory pop-up) */
 function echoRosterGoals(){
   const q = echoFilter.trim();
-  const open = g => echoOpen.includes(g.char) ? 1 : 0;
+  const open = g => g.char === state.echoOpen ? 1 : 0;
   // chip filters: within a facet the picks OR, across facets they AND
   const pass = ch =>
     (!echoChips.r.size || echoChips.r.has(ch.rarity)) &&
@@ -4112,93 +4169,129 @@ function setTip(name){
 /* the header's Sonata list: one LINE per set worn — just name ×count, most
    pieces first (activeSets already sorts that way); lit when the bonus is
    live, the effect text lives in the tooltip */
-function echoSetList(build, frozen){
+function echoSetList(build, frozen, id){
   const sets = activeSets(build);
   // while unset (and unlocked) echoes remain, the area also ADDS a set:
-  // the quick-fill select tags them per the fill rules (fillSet)
+  // the quick-fill picker tags them per the fill rules (fillSet)
   const fillable = !frozen && build.echoes.some(e => !e.set && !e.lock);
   return `<div class="ehsets">` +
     sets.map(s => `<span class="eset${s.on ? ' on' : ''}" title="${esc(setTip(s.name))}">` +
-      `${icoImg(s.name, 'sonata', 'son-ico')}${esc(s.name)} <b>×${s.count}</b></span>`).join('') +
+      `${icoImg(s.name, 'sonata', 'son-ico')}${esc(s.name)} <b>×${s.count}</b>` +
+      condPlusBtn(s.name, s.name, frozen) + `</span>`).join('') +
     (fillable
-      ? `<select class="setfill" data-setfill title="Quick-fill the empty slots: a 3pc set takes a 4-, a 3- and a 1-cost; a 1pc takes one; a 2/5pc set takes every empty slot">` +
-          `<option value="">＋ fill a set…</option>` +
-          GAME.echo.sonata.map(s => `<option value="${esc(s.name)}">${esc(s.name)}</option>`).join('') +
-        `</select>`
+      ? `<div class="esetwrap setfillwrap">` +
+          setPickTrigger(null, 'fill', false, '＋ fill a set…') +
+          ((setPick && setPick.char === id && setPick.ei === 'fill') ? setPickPop('fill') : '') +
+        `</div>`
       : (sets.length ? '' : `<span class="enote">No sets yet — pick one per echo.</span>`)) +
   `</div>`;
 }
 
-/* quick-fill `name` onto the build's UNSET (and unlocked) echoes.
-   Threshold sets take exactly their piece count — a 3pc lands on a 4-cost,
-   then a 3-cost, then a 1-cost (user's fill; any unset slot as fallback), a
-   1pc on the biggest free slot. Classic 2/5 sets take EVERY empty slot, so
-   "Rejuvenating Glow on a fresh build" tags all five, and filling Crown of
-   Valor (4/3/1) then Void Thunder leaves the remaining 3+1 as Void Thunder. */
+/* quick-fill `name` onto the build's UNSET (and unlocked) echoes, up to the
+   LARGEST piece threshold that FITS the free slots. A classic 2/5 set's
+   thresholds are 2 and 5, so a fresh build (5 free) tags all five (5pc) but
+   with fewer than 5 free it can only reach 2pc — it takes just 2, leaving
+   the rest for another set (user's rule). Threshold sets take exactly their
+   piece count (3 or 1) when it fits, else nothing. Slots are consumed
+   biggest-cost first (4 → 3 → 1). */
 function fillSet(id, name){
   const b = ensureBuild(id);
   const s = GAME.echo.sonata.find(x => x.name === name);
   if(!s) return;
   const empty = b.echoes.map((e, i) => (!e.set && !e.lock) ? i : null).filter(i => i !== null);
-  if(!empty.length) return;
-  let take = empty;                            // classic 2/5: as many as fit
-  if(s.thr){                                   // threshold: exactly its piece count
-    const need = setNeed(s);
-    take = [];
-    for(const c of [4, 3, 1]){
-      const i = empty.find(i2 => !take.includes(i2) && b.echoes[i2].cost === c);
-      if(i !== undefined) take.push(i);
-      if(take.length === need) break;
-    }
-    for(const i of empty){ if(take.length >= need) break; if(!take.includes(i)) take.push(i); }
-    take = take.slice(0, need);
+  const thresholds = s.thr ? [setNeed(s)] : [2, 5];
+  const fits = thresholds.filter(t => t <= empty.length);
+  const count = fits.length ? Math.max(...fits) : 0;   // can't reach even the smallest tier → no-op
+  if(!count) return;
+  const take = [];
+  for(const c of [4, 3, 1]){                    // ONE per cost tier, biggest first (4 → 3 → 1)
+    if(take.length >= count) break;
+    const i = empty.find(x => !take.includes(x) && b.echoes[x].cost === c);
+    if(i !== undefined) take.push(i);
   }
-  for(const i of take) b.echoes[i].set = name;
+  for(const i of empty){ if(take.length >= count) break; if(!take.includes(i)) take.push(i); }  // 5pc fill-out
+  for(const i of take.slice(0, count)) b.echoes[i].set = name;
   save(); render();
 }
 
-/* CONDITIONAL effects (left column, under the sets): weapon passives and
-   5pc/threshold set bonuses are prose in the game, so the user transcribes
-   them — stat + value + label (the texts sit in the weapon-line and set
-   tooltips). Ticked entries fold into the totals/finals; unticked wait. */
-function echoCondList(build, frozen, wp){
+/* Sonata-set PICKER (a native <select> can't show icons, and 34 lookalike
+   names are hard to tell apart). The trigger shows the chosen set's icon +
+   name; clicking opens a scrollable list of icon+name options. `ei` is the
+   echo index, or 'fill' for the left-column quick-fill. */
+function setPickTrigger(cur, ei, dis, ph){
+  const body = cur ? `${icoImg(cur, 'sonata', 'son-ico')}<span class="sname">${esc(cur)}</span>`
+                   : `<span class="faint sname">${esc(ph || '— no set —')}</span>`;
+  return `<button type="button" class="setbtn${cur ? '' : ' none'}" data-setpick="${esc(String(ei))}"${dis ? ' disabled' : ''} ` +
+    `title="${esc(cur ? setTip(cur) : 'Choose a Sonata set')}">${body}<span class="scaret">▾</span></button>`;
+}
+function setPickPop(ei){
+  const clear = ei === 'fill' ? '' :
+    `<button type="button" class="setopt none" data-setopt="" title="Clear this echo's set">— no set —</button>`;
+  const opts = GAME.echo.sonata.map(s =>
+    `<button type="button" class="setopt" data-setopt="${esc(s.name)}" title="${esc(setTip(s.name))}">` +
+      `${icoImg(s.name, 'sonata', 'son-ico')}<span class="sname">${esc(s.name)}</span></button>`).join('');
+  return `<div class="setpop">${clear}${opts}</div>`;
+}
+
+/* the SOURCE's icon for a conditional: the character, the linked weapon, or
+   a Sonata set by name (all through the standard icon pipeline) */
+function condSrcIco(src, wp, ch){
+  if(src === 'character') return ch ? icoImg(ch.name, 'char', 'son-ico') : '';
+  if(src === 'weapon')    return wp ? icoImg(wp.name, 'weapon', 'son-ico') : '';
+  return src ? icoImg(src, 'sonata', 'son-ico') : '';
+}
+/* the stat options for a conditional (percent keys only — user's rule); the
+   six element keys condense to ONE "Elemental DMG" that resolves to the
+   character's own element on confirm */
+function condStatOpts(){
+  const ELEM_SET = ['glacio','fusion','electro','aero','spectro','havoc'];
+  const keys = [];
+  for(const k of GAME.echoStatOrder){
+    if(!GAME.echoStats[k].pct) continue;
+    if(ELEM_SET.includes(k)){ if(!keys.includes('elem')) keys.push('elem'); continue; }
+    keys.push(k);
+  }
+  return keys.map(k => `<option value="${k}">${esc(k === 'elem' ? CHIP_LABEL.elem : GAME.echoStats[k].label)}</option>`).join('');
+}
+/* the small icon-only "add a conditional from this source" button — sits
+   beside the character, the weapon line, and each worn set */
+const condPlusBtn = (src, label, frozen) => frozen ? '' :
+  `<button type="button" class="condplus" data-condplus="${esc(src)}" ` +
+  `title="Add a conditional from ${esc(label)}">＋</button>`;
+
+/* CONDITIONAL effects (left column, under the sets): weapon passives, set
+   bonuses, and character self-buffs are prose in the game, so the user
+   transcribes each as stat + %. They're ADDED from the ＋ beside their
+   SOURCE (character/weapon/set) — a draft row opens already showing that
+   source's icon; on ✓ it becomes a real row. A ticked row folds into the
+   totals/finals; unticked ones wait. */
+function echoCondList(build, frozen, wp, ch, id){
   const conds = build.conds || [];
+  const draft = (condDraft && condDraft.char === id && !frozen) ? condDraft.src : null;
   if(frozen && !conds.length) return '';
   const dis = frozen ? ' disabled' : '';
-  // a conditional may carry its SOURCE's icon: the linked weapon or a worn set
-  const srcIco = c => c.src === 'weapon' ? (wp ? icoImg(wp.name, 'weapon', 'son-ico') : '')
-                    : c.src ? icoImg(c.src, 'sonata', 'son-ico') : '';
   const rows = conds.map((c, i) =>
-    `<label class="econd${c.on ? ' on' : ''}">` +
-      `<input type="checkbox" data-cond="${i}"${c.on ? ' checked' : ''}${dis}>` +
-      srcIco(c) +
+    `<div class="econd${c.on ? ' on' : ''}">` +
+      `<button type="button" class="ctog" data-cond="${i}"${dis} role="switch" aria-checked="${c.on}" ` +
+        `title="${c.on ? 'Active — counts into the finals · click to hold' : 'Inactive — click to apply'}"></button>` +
+      condSrcIco(c.src, wp, ch) +
       `<b class="num">+${echoNum(c.val)}${GAME.echoStats[c.key].pct ? '%' : ''} ${esc(CHIP_LABEL[c.key] || GAME.echoStats[c.key].label)}</b>` +
-      `<button class="tiny danger" data-condrm="${i}"${dis} title="Remove it">✕</button>` +
-    `</label>`).join('');
-  const srcs = [...(wp ? [['weapon', 'Weapon — ' + wp.name]] : []),
-                ...activeSets(build).map(s => [s.name, s.name])];
-  const addRow = frozen ? '' :
-    `<div class="econd-add">` +
-      (srcs.length ? `<select data-conds title="Attach the source’s icon — the linked weapon or a worn set">` +
-        `<option value="">— icon —</option>` +
-        srcs.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('') +
-      `</select>` : '') +
-      `<select data-condk title="Which stat the effect grants — conditional values are percentages">${(() => {
-        // the six element keys condense into ONE "Elemental DMG" option that
-        // resolves to the character's OWN element when added (user's rule)
-        const ELEM_SET = ['glacio','fusion','electro','aero','spectro','havoc'];
-        const keys = [];
-        for(const k of GAME.echoStatOrder){
-          if(!GAME.echoStats[k].pct) continue;
-          if(ELEM_SET.includes(k)){ if(!keys.includes('elem')) keys.push('elem'); continue; }
-          keys.push(k);
-        }
-        return keys.map(k => `<option value="${k}">${esc(k === 'elem' ? CHIP_LABEL.elem : GAME.echoStats[k].label)}</option>`).join('');
-      })()}</select>` +
-      `<input type="number" data-condv min="0" step="any" placeholder="%" title="How much it grants, in percent">` +
-      `<button class="tiny" data-condadd title="Add — counts into the finals only while ticked">＋</button>` +
-    `</div>`;
-  return `<div class="ehconds"><span class="elab">Conditionals</span>${rows}${addRow}</div>`;
+      `<button type="button" class="condrm" data-condrm="${i}"${dis} title="Remove it">✕</button>` +
+    `</div>`).join('');
+  // the open draft: the source icon shows immediately; fill stat + % and ✓
+  const draftRow = draft
+    ? `<div class="econd draft">` +
+        condSrcIco(draft, wp, ch) +
+        `<select data-condk title="Which stat the effect grants — conditional values are percentages">${condStatOpts()}</select>` +
+        `<input type="number" data-condv min="0" step="any" placeholder="%" title="How much it grants, in percent">` +
+        `<button type="button" class="ctiny ok" data-condok title="Confirm">✓</button>` +
+        `<button type="button" class="condrm" data-condcancel title="Cancel">✕</button>` +
+      `</div>`
+    : '';
+  if(!rows && !draftRow)
+    return frozen ? '' : `<div class="ehconds"><span class="elab">Conditionals</span>` +
+      `<span class="enote">Use ＋ beside the character, weapon or a set to add one.</span></div>`;
+  return `<div class="ehconds"><span class="elab">Conditionals</span>${rows}${draftRow}</div>`;
 }
 
 // a substat row; highlighted (`.focus`) when its stat is one this build chases.
@@ -4245,13 +4338,9 @@ function echoCol(e, ei, cid, focus, frozen){
       `<button class="tiny elock${e.lock ? ' on' : ''}" data-elock="${ei}"${frozen ? ' disabled' : ''} ` +
         `title="${e.lock ? 'Unlock this echo — editable again' : 'Lock this echo — keeps it from being altered'}">${e.lock ? LOCK_ICO : UNLOCK_ICO}</button>` +
     `</div>` +
-    `<div class="esetrow">` +
-      (e.set ? icoImg(e.set, 'sonata', 'son-ico') : '') +
-      `<select class="esetsel" data-ei="${ei}" data-eset${dis} title="${esc(setTip(e.set))}">` +
-        `<option value="">— no set —</option>` +
-        GAME.echo.sonata.map(s =>
-          `<option value="${esc(s.name)}"${s.name === e.set ? ' selected' : ''}>${esc(s.name)}</option>`).join('') +
-      `</select>` +
+    `<div class="esetwrap">` +
+      setPickTrigger(e.set, ei, !!dis) +
+      ((setPick && setPick.char === cid && setPick.ei === String(ei) && !dis) ? setPickPop(ei) : '') +
     `</div>` +
     `<div class="ecostmain">` +
       `<select class="ecost" data-ei="${ei}" data-ecost${dis} title="Echo cost">${GAME.echo.costs.map(c =>
@@ -4450,16 +4539,20 @@ function echoBuildCard(g){
         `<div class="ehead">` +
           `<span class="avatar" style="background:${avaBg(ch)}">${ch.mono}${icoImg(ch.name, 'char', 'avatar-img')}</span>` +
           `<div class="ehmeta"><div class="ehname">${esc(ch.name)}</div>` +
-            `<div class="gmeta">${attrIco(ch.element, 'element')}${attrIco(ch.wtype, 'weapon type')}<span class="lvl">· ${lvlLabel(g)}</span></div>` +
-            `<div class="ehwpn" title="${esc(wp ? wpnTip(w.weapon) + ' · click to change · right-click to unequip'
-                                                : 'No weapon linked — click to pick one from your ledger')}">` +
-            (wp ? icoImg(wp.name, 'weapon') + esc(wp.name) +
-                  (GAME.weaponFx[w.weapon] ? ` <i class="wfx">${esc(GAME.weaponFx[w.weapon].n)}</i>` : '')
-                : '<span class="faint">no weapon linked</span>') + `</div>` +
+            `<div class="gmeta">${attrIco(ch.element, 'element')}${attrIco(ch.wtype, 'weapon type')}<span class="lvl">· ${lvlLabel(g)}</span>` +
+              condPlusBtn('character', ch.name, frozen) + `</div>` +
+            `<div class="ehwrow">` +
+              `<div class="ehwpn" title="${esc(wp ? wpnTip(w.weapon) + ' · click to change · right-click to unequip'
+                                                  : 'No weapon linked — click to pick one from your ledger')}">` +
+              (wp ? icoImg(wp.name, 'weapon') + esc(wp.name) +
+                    (GAME.weaponFx[w.weapon] ? ` <i class="wfx">${esc(GAME.weaponFx[w.weapon].n)}</i>` : '')
+                  : '<span class="faint">no weapon linked</span>') + `</div>` +
+              (wp ? condPlusBtn('weapon', wp.name, frozen) : '') +
+            `</div>` +
           `</div>` +
         `</div>` +
-        echoSetList(build, frozen) +
-        echoCondList(build, frozen, wp) +
+        echoSetList(build, frozen, g.char) +
+        echoCondList(build, frozen, wp, ch, g.char) +
       `</div>` +
       `<div class="ehright">` +
         `<div class="ehctl">` +
@@ -4502,10 +4595,9 @@ function readEchoSubs(card, ei){
 function bindEchoSheet(grid){
   grid.querySelectorAll('.ebuild').forEach(card => {
     const id = card.dataset.ec;
-    // ⇤ sends the sheet back to the character bar (view state only)
+    // ⇤ sends the sheet back to the character bar
     card.querySelector('[data-eclose]').addEventListener('click', () => {
-      echoOpen = echoOpen.filter(x => x !== id);
-      render();
+      state.echoOpen = null; save(); render();
     });
     const frozen = !!(state.builds[id] && state.builds[id].frozen);
     // ✓ Complete freezes the build (gear read-only, goals still edit);
@@ -4529,8 +4621,19 @@ function bindEchoSheet(grid){
       wline.addEventListener('click', () => openPal({mode:'equip', char: id}));
       wline.addEventListener('contextmenu', e => { e.preventDefault(); unequip(id); });
     }
-    card.querySelectorAll('[data-eset]').forEach(s => s.addEventListener('change', e => {
-      ensureBuild(id).echoes[+e.target.dataset.ei].set = e.target.value || null;
+    // Sonata-set picker: a trigger toggles the icon list; picking an option
+    // sets that echo's set (or quick-fills, when ei === 'fill')
+    card.querySelectorAll('[data-setpick]').forEach(b => b.addEventListener('click', e => {
+      e.stopPropagation();
+      const ei = e.currentTarget.dataset.setpick;
+      setPick = (setPick && setPick.char === id && setPick.ei === ei) ? null : {char: id, ei};
+      render();
+    }));
+    card.querySelectorAll('[data-setopt]').forEach(b => b.addEventListener('click', e => {
+      const name = e.currentTarget.dataset.setopt, pick = setPick;
+      setPick = null;
+      if(pick && pick.ei === 'fill'){ if(name) fillSet(id, name); else render(); return; }
+      if(pick) ensureBuild(id).echoes[+pick.ei].set = name || null;
       save(); render();
     }));
     card.querySelectorAll('[data-ecost]').forEach(s => s.addEventListener('change', e => {
@@ -4578,20 +4681,27 @@ function bindEchoSheet(grid){
       f.splice(at, 0, k);
       save(); render();
     }));
-    // set quick-fill: tags the unset echoes per the fill rules
-    const sf = card.querySelector('[data-setfill]');
-    if(sf) sf.addEventListener('change', e => { if(e.target.value) fillSet(id, e.target.value); });
-    // conditionals: tick to count, ✕ removes, the add row appends (on by default)
-    card.querySelectorAll('[data-cond]').forEach(cb => cb.addEventListener('change', e => {
-      ensureBuild(id).conds[+e.currentTarget.dataset.cond].on = e.currentTarget.checked;
-      save(); render();
+    // (the set quick-fill is handled by the shared [data-setpick]/[data-setopt]
+    // picker above — ei === 'fill')
+    // conditionals: ＋ beside a source opens a draft bound to it; the elegant
+    // toggle flips a row on/off; ✕ removes; ✓ confirms the draft into a row
+    card.querySelectorAll('[data-condplus]').forEach(b => b.addEventListener('click', e => {
+      e.stopPropagation();                    // the weapon + sits by the link surface
+      condDraft = {char: id, src: e.currentTarget.dataset.condplus};
+      render();
+    }));
+    card.querySelectorAll('[data-cond]').forEach(b => b.addEventListener('click', e => {
+      const c = ensureBuild(id).conds[+e.currentTarget.dataset.cond];
+      c.on = !c.on; save(); render();
     }));
     card.querySelectorAll('[data-condrm]').forEach(b => b.addEventListener('click', e => {
       ensureBuild(id).conds.splice(+e.currentTarget.dataset.condrm, 1);
       save(); render();
     }));
-    const condAdd = card.querySelector('[data-condadd]');
-    if(condAdd) condAdd.addEventListener('click', () => {
+    const condCancel = card.querySelector('[data-condcancel]');
+    if(condCancel) condCancel.addEventListener('click', () => { condDraft = null; render(); });
+    const condOk = card.querySelector('[data-condok]');
+    if(condOk) condOk.addEventListener('click', () => {
       let key = card.querySelector('[data-condk]').value;
       if(key === 'elem') key = GAME.characters[id].element.toLowerCase();   // own element
       const val = parseFloat(card.querySelector('[data-condv]').value);
@@ -4599,9 +4709,9 @@ function bindEchoSheet(grid){
       const b = ensureBuild(id);
       if(!b.conds) b.conds = [];
       const cond = {key, val, on: true};
-      const srcSel = card.querySelector('[data-conds]');
-      if(srcSel && srcSel.value) cond.src = srcSel.value;
+      if(condDraft && condDraft.char === id && condDraft.src) cond.src = condDraft.src;
       b.conds.push(cond);
+      condDraft = null;
       save(); render();
     });
     // stat goals: "≥ N" on a chased-stat row; empty or 0 clears it
@@ -4705,23 +4815,28 @@ function echoCharCard(g){
   const build = state.builds[g.char] || freshBuild();
   const w = equipOf(wpnGoals(), g.char);
   const wp = w && GAME.weapons[w.weapon];
-  const open = echoOpen.includes(g.char);
+  const open = state.echoOpen === g.char;
+  const done = state.done.includes(g);       // ledger goal completed → "✓ done" level label
+  const built = !!build.frozen;              // the echo BUILD is done (frozen) → element tint
   const foc = echoFocusStats(g, build);
-  const tip = `${ch.name} — ${state.done.includes(g) ? 'completed' : ORD_LABEL(g.cur.ord)}` +
-    ` · ${wp ? wp.name : 'no weapon linked'}` +
+  const tip = `${ch.name} — ${done ? 'completed' : ORD_LABEL(g.cur.ord)}` +
+    ` · ${wp ? wp.name : 'no weapon linked'}${built ? ' · build complete' : ''}` +
     (open ? ' · click to close the sheet' : ' · click to open the echo sheet');
-  return `<div class="echar${open ? ' open' : ''}" data-ec="${g.char}" style="--acc:${ch.elColor}" ` +
+  // TOP section — a grid: square portrait spanning 3 rows, then name /
+  // element+type+level / weapon icon+name down the right. BOTTOM section —
+  // the focused stats across two columns (row-major). A DONE (frozen) build
+  // gets a faint element-tinted background.
+  return `<div class="echar${open ? ' open' : ''}${built ? ' built' : ''}" data-ec="${g.char}" style="--acc:${ch.elColor}" ` +
       `title="${esc(tip)}">` +
     `<div class="ectop">` +
       `<span class="avatar" style="background:${avaBg(ch)}">${ch.mono}${icoImg(ch.name, 'char', 'avatar-img')}</span>` +
-      (wp ? `<span class="ecw">${icoImg(wp.name, 'weapon')}</span>` : '') +
-      (foc ? `<div class="ecfoc">${foc}</div>` : '') +
+      `<div class="ecname">${esc(ch.name)}</div>` +
+      `<div class="ecmeta">${attrIco(ch.element, 'element')}${attrIco(ch.wtype, 'weapon type')}` +
+        `<span class="num">${done ? '✓ done' : esc(ORD_LABEL(g.cur.ord))}</span></div>` +
+      `<div class="ecwpn">${wp ? icoImg(wp.name, 'weapon') + `<span class="wname">${esc(wp.name)}</span>`
+                               : '<span class="faint">no weapon</span>'}</div>` +
     `</div>` +
-    `<div class="ecbot">` +
-      `<span class="ecname">${esc(ch.name)}</span>` +
-      attrIco(ch.element, 'element') + attrIco(ch.wtype, 'weapon type') +
-      `<span class="num">${state.done.includes(g) ? '✓ done' : esc(ORD_LABEL(g.cur.ord))}</span>` +
-    `</div>` +
+    (foc ? `<div class="ecfoc">${foc}</div>` : '') +
   `</div>`;
 }
 
@@ -4770,22 +4885,22 @@ function renderEchoList(){
                                               : 'No characters yet — add goals on the Ledger page first.'}</div>`;
   list.querySelectorAll('.echar').forEach(c => c.addEventListener('click', () => {
     const id = c.dataset.ec;
-    // click TOGGLES: open if closed (newest lands ON TOP), close if open
-    echoOpen = echoOpen.includes(id) ? echoOpen.filter(x => x !== id) : [id, ...echoOpen];
-    render();
+    // ONE build open at a time: clicking another swaps to it; clicking the
+    // open one closes it. Persisted so a reload reopens the same character.
+    state.echoOpen = (state.echoOpen === id) ? null : id;
+    save(); render();
   }));
   bindIcons(list);
 }
 
-/* the center panel: one full sheet per OPEN character, in open order */
+/* the center panel: the ONE open character's sheet (or the pick-one hint) */
 function renderEchoSheets(){
   const grid = $('#esheets');
   if(!grid) return;
-  const roster = rosterGoals();
-  const open = echoOpen.map(id => roster.find(g => g.char === id)).filter(Boolean);
-  grid.innerHTML = open.length ? open.map(echoBuildCard).join('')
-    : `<div class="empty">${roster.length
-        ? 'Pick a character on the left to open their echo sheet — several can be open at once.'
+  const g = state.echoOpen && rosterGoals().find(x => x.char === state.echoOpen);
+  grid.innerHTML = g ? echoBuildCard(g)
+    : `<div class="empty">${rosterGoals().length
+        ? 'Pick a character on the left to open their echo sheet.'
         : 'No characters yet — add goals on the Ledger page first.'}</div>`;
   bindEchoSheet(grid);
   bindIcons(grid);
@@ -4795,11 +4910,13 @@ function renderEcho(){
   const box = $('#echoBody');
   if(!box) return;
   // view state follows the roster: a character who left closes their sheet
-  echoOpen = echoOpen.filter(id => rosterGoals().some(g => g.char === id));
-  if(focusPop && !echoOpen.includes(focusPop)) focusPop = null;   // pop-up dies with its sheet
+  if(state.echoOpen && !rosterGoals().some(g => g.char === state.echoOpen)) state.echoOpen = null;
+  if(focusPop && focusPop !== state.echoOpen) focusPop = null;            // pop-up dies with its sheet
+  if(condDraft && condDraft.char !== state.echoOpen) condDraft = null;    // draft dies with its sheet
+  if(setPick && setPick.char !== state.echoOpen) setPick = null;          // set picker too
   // no sheet open → the characters SHOWCASE as a full-width grid; opening one
-  // collapses them to the side bar, closing the last rescales them back
-  const showcase = !echoOpen.length;
+  // collapses them to the side bar, closing it rescales them back
+  const showcase = !state.echoOpen;
   box.innerHTML =
     `<div class="ecols${showcase ? ' showcase' : ''}">
        <aside class="epanel">

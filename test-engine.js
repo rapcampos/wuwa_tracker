@@ -899,10 +899,11 @@ eq('stripCE never mutates its input', (() => {
                              {key:'atk', val:50},                    // flat key: values are % (user's rule)
                              {key:'cr', val:-2}, {key:'cr', val:'8', on:'yes'}]}).conds,
        [{key:'cd', val:20, on:true}, {key:'cr', val:8, on:false}]);
-    eq('a conditional keeps its source-icon ref (weapon or a real set); junk drops',
-       sanitizeBuild({conds:[{key:'cd', val:20, src:'weapon'}, {key:'cr', val:8, src:'Freezing Frost'},
-                             {key:'er', val:10, src:'Nope Set'}]}).conds.map(c => c.src),
-       ['weapon', 'Freezing Frost', undefined]);
+    eq('a conditional keeps its source-icon ref (character/weapon/real set); junk drops',
+       sanitizeBuild({conds:[{key:'cd', val:20, src:'character'}, {key:'cr', val:8, src:'weapon'},
+                             {key:'er', val:10, src:'Freezing Frost'}, {key:'cd', val:5, src:'Nope Set'}]})
+         .conds.map(c => c.src),
+       ['character', 'weapon', 'Freezing Frost', undefined]);
   }
 
   // echoCV: 2×CR + CD from the SUBSTATS only (mains/secondaries excluded)

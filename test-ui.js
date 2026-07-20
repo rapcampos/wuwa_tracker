@@ -30,7 +30,7 @@ const reset = () => w.eval(`
            statPrio: null, echoOpen: null};
   undoStack.length = 0; clearTimeout(undoTimer);
   editIdx = null; editTpl = null; palPick = null; palSel = 0;
-  echoFilter = ''; focusPop = null; prioPop = false; condDraft = null; setPick = null;
+  echoFilter = ''; focusPop = null; prioPop = false; condDraft = null; setPick = null; unequipAsk = null;
   echoChips = {r: new Set(), el: new Set(), wt: new Set()};
   farmId = null; ordDrag = null; wkDrag = null; invFilter = '';
   for(const s of ['#modalWrap','#palWrap','#ordWrap','#invWrap','#farmWrap','#undoBar'])
@@ -2933,14 +2933,49 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   reset();
 }
 
-// ── conditional ordering · Sonata icons on the card ──
+// ── clear substats · unequip all (confirm + undoable) · conditional order ──
 {
   reset();
   fire(d.querySelector('.pagenav [data-page="echoes"]'), 'click');
   const card = id => d.querySelector(`.ebuild[data-ec="${id}"]`);
   const bar = id => d.querySelector(`#elist .echar[data-ec="${id}"]`);
   fire(bar('jinhsi'), 'click');
-  w.eval("ensureBuild('jinhsi'); save(); render();");
+
+  // clear ONE echo's substats (only offered when it has some), undoable
+  w.eval("const b = ensureBuild('jinhsi'); b.echoes[0].subs = [{key:'cr',val:8.1},{key:'cd',val:15}]; save(); render();");
+  ok('a clear-substats button shows only on an echo that has substats',
+     card('jinhsi').querySelector('.ecol[data-ei="0"] [data-clearsubs]') !== null &&
+     card('jinhsi').querySelector('.ecol[data-ei="1"] [data-clearsubs]') === null);
+  fire(card('jinhsi').querySelector('.ecol[data-ei="0"] [data-clearsubs]'), 'click');
+  ok('⌫ clears that echo’s substats', w.eval('state.builds.jinhsi.echoes[0].subs.length === 0'));
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'z', ctrlKey:true, bubbles:true}));
+  ok('…and it is undoable', w.eval('state.builds.jinhsi.echoes[0].subs.length === 2'));
+
+  // unequip all: confirm required, skips locked, drops set-conditionals, undoable
+  w.eval("const b = ensureBuild('jinhsi'); " +
+         "b.echoes.forEach(e => { e.set = 'Freezing Frost'; e.subs = [{key:'cr',val:8.1}]; }); " +
+         "b.echoes[2].lock = true; " +
+         "b.conds = [{key:'cd',val:20,on:true,src:'Freezing Frost'}, {key:'atkp',val:12,on:true,src:'weapon'}, " +
+         "           {key:'cr',val:5,on:true,src:'character'}]; save(); render();");
+  fire(card('jinhsi').querySelector('[data-uqall]'), 'click');
+  ok('⌫ Unequip all asks for confirmation first (nothing cleared yet)',
+     card('jinhsi').querySelector('.uqask') !== null &&
+     w.eval("state.builds.jinhsi.echoes[0].set === 'Freezing Frost'"));
+  fire(card('jinhsi').querySelector('[data-uqno]'), 'click');
+  ok('✕ cancels the confirm, echoes intact',
+     card('jinhsi').querySelector('.uqask') === null &&
+     w.eval("state.builds.jinhsi.echoes[0].set === 'Freezing Frost'"));
+  fire(card('jinhsi').querySelector('[data-uqall]'), 'click');
+  fire(card('jinhsi').querySelector('[data-uqyes]'), 'click');
+  ok('✓ resets every UNLOCKED echo, keeps the locked one, restores 4-3-3-1-1 costs',
+     w.eval("state.builds.jinhsi.echoes[0].set === null && state.builds.jinhsi.echoes[0].subs.length === 0") &&
+     w.eval("state.builds.jinhsi.echoes[2].set === 'Freezing Frost'") &&        // idx2 locked
+     w.eval("[0,1,3,4].map(i => state.builds.jinhsi.echoes[i].cost).join() === '4,3,1,1'"));
+  ok('…drops the SET-sourced conditional, keeps weapon + character ones',
+     w.eval("JSON.stringify(state.builds.jinhsi.conds.map(c => c.src).sort()) === JSON.stringify(['character','weapon'])"));
+  d.dispatchEvent(new w.KeyboardEvent('keydown', {key:'z', ctrlKey:true, bubbles:true}));
+  ok('…and the whole unequip is undoable',
+     w.eval("state.builds.jinhsi.echoes[0].set === 'Freezing Frost' && state.builds.jinhsi.conds.length === 3"));
 
   // conditionals always DISPLAY ordered character → weapon → sonata
   w.eval("state.builds.jinhsi.echoes.forEach(e => e.set = 'Freezing Frost'); " +

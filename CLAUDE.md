@@ -494,7 +494,13 @@ it goes in block 2 with tests; presentation goes in block 3.
   persisted via sanitizeBuild): each echo column's flat SVG padlock
   (`LOCK_ICO`/`UNLOCK_ICO`, `.elock` pinned right of the header — user's
   calls) toggles that one echo read-only with a gold-tinted background
-  (`.ecol.locked`); lock buttons themselves freeze with the build.
+  (`.ecol.locked`); lock buttons themselves freeze with the build. Each echo
+  header also carries a **⌫ clear-substats** button (`.eclr`, `ERASE_ICO`,
+  shown only when the echo has substats) — `clearEchoSubs`, undoable. The
+  sheet control row has **⌫ Unequip all** (`unequipAll`, two-step
+  `unequipAsk` confirm, undoable): resets every UNLOCKED echo to fresh
+  (empty set, default main, no subs/name, 4-3-3-1-1 costs) and drops
+  SET-sourced conditionals; focus/goals kept.
   **Bar order**: OPEN characters float to the TOP of the bar (stable within
   groups, like the Teams energy sort). **Bar filter chips**
   (`#echoChipRow`, `.echips`, transient `echoChips` — palette semantics:

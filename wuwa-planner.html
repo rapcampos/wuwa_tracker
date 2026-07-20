@@ -757,6 +757,10 @@ td.qty.ok{color:var(--green)} td.qty.short{color:var(--red)}
 /* per-echo LOCK: pinned to the right of the header; a locked echo tints */
 .elock{flex:none; margin-left:auto; padding:1px 5px; color:var(--faint)}
 .elock.on{color:var(--gold); border-color:rgba(229,181,102,.5)}
+.eclr{flex:none; padding:1px 5px; color:var(--faint)}   /* clear this echo's substats */
+.eclr:hover{color:var(--red); border-color:var(--red)}
+/* inline confirm for "unequip all echoes" */
+.uqask{display:inline-flex; align-items:center; gap:5px; font-size:11px; color:var(--mut)}
 .ecol.locked{background:rgba(229,181,102,.06); border-color:rgba(229,181,102,.35)}
 /* a FROZEN build: gear reads dimmed (controls are disabled in markup) */
 .ebuild.frozen .egrid{opacity:.6}
@@ -4119,6 +4123,7 @@ let focusPop = null;                   // charId whose Focus pop-up is open (tra
 let prioPop = false;                   // the ⇅ Stat-priority pop-up (Echoes header; transient)
 let condDraft = null;                  // {char, src} — the open conditional draft (transient)
 let setPick = null;                    // {char, ei} — the open Sonata-set picker (ei number | 'fill')
+let unequipAsk = null;                  // charId awaiting the "unequip all echoes?" confirm (transient)
 let echoChips = {r: new Set(), el: new Set(), wt: new Set()};   // bar filters (transient, like palFilt)
 
 const echoNum = v => (Math.round(v * 100) / 100).toString();
@@ -4217,6 +4222,25 @@ function fillSet(id, name){
   for(const i of empty){ if(take.length >= count) break; if(!take.includes(i)) take.push(i); }  // 5pc fill-out
   for(const i of take.slice(0, count)) b.echoes[i].set = name;
   save(); render();
+}
+
+/* Unequip ALL echoes: reset every UNLOCKED echo to fresh (empty set, default
+   main, no substats/name, standard 4-3-3-1-1 cost), and DROP any conditional
+   whose source is a Sonata SET — those set effects are gone with the gear
+   (weapon/character conditionals and the 2pc-auto totals are unaffected).
+   Undoable (one Ctrl+Z restores the whole build); the ⌫ button confirms
+   first via the transient `unequipAsk`. Focus/goals are deliberately kept. */
+function unequipAll(id){
+  unequipAsk = null;
+  withUndo('Unequip all echoes', () => {
+    const b = ensureBuild(id), costs = [4, 3, 3, 1, 1];
+    b.echoes = b.echoes.map((e, i) => e.lock ? e : freshEcho(costs[i]));
+    b.conds = (b.conds || []).filter(c => !GAME.echo.sonata.some(s => s.name === c.src));
+  });
+}
+/* clear ONE echo's substats (undoable) — the fast "wrong rolls, start over" */
+function clearEchoSubs(id, ei){
+  withUndo('Clear substats', () => { ensureBuild(id).echoes[ei].subs = []; });
 }
 
 /* Sonata-set PICKER (a native <select> can't show icons, and 34 lookalike
@@ -4329,6 +4353,9 @@ const LOCK_ICO = '<svg viewBox="0 0 24 24" width="11" height="11" fill="currentC
   '<path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9V6z"/></svg>';
 const UNLOCK_ICO = '<svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" aria-hidden="true">' +
   '<path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6h2c0-1.66 1.34-3 3-3s3 1.34 3 3v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2z"/></svg>';
+// eraser glyph for "clear this echo's substats"
+const ERASE_ICO = '<svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" aria-hidden="true">' +
+  '<path d="M16.24 3.56l4.2 4.2c.78.78.78 2.05 0 2.83l-8.49 8.49H8.49l-4.95-4.95c-.78-.78-.78-2.05 0-2.83l9.9-9.9c.78-.78 2.02-.78 2.8-.04zM4.95 12.66l4.95 4.95 1.41-1.41-4.95-4.95-1.41 1.41z"/></svg>';
 function echoCol(e, ei, cid, focus, frozen){
   const sec = GAME.echo.secondary[e.cost];
   const mv = echoMainVal(e.cost, e.main);
@@ -4344,6 +4371,9 @@ function echoCol(e, ei, cid, focus, frozen){
         ? `<input class="ename" type="text" data-ei="${ei}" data-ename value="${esc(e.name || '')}"${dis} ` +
             `placeholder="lead echo…" autocomplete="off" spellcheck="false" ` +
             `title="Name this echo (e.g. the lead monster you want)">`
+        : '') +
+      ((e.subs && e.subs.length && !dis)
+        ? `<button type="button" class="tiny eclr" data-clearsubs="${ei}" title="Clear this echo's substats">${ERASE_ICO}</button>`
         : '') +
       `<button class="tiny elock${e.lock ? ' on' : ''}" data-elock="${ei}"${frozen ? ' disabled' : ''} ` +
         `title="${e.lock ? 'Unlock this echo — editable again' : 'Lock this echo — keeps it from being altered'}">${e.lock ? LOCK_ICO : UNLOCK_ICO}</button>` +
@@ -4575,6 +4605,10 @@ function echoBuildCard(g){
             : allGoalsMet(g, build)
               ? `<button class="tiny good" data-freeze title="Every goal is met — freeze the build; only the goals stay editable">✓ Complete</button>`
               : '') +
+          // ⌫ unequip all echoes — a two-step confirm (undoable either way)
+          (frozen ? '' : unequipAsk === g.char
+            ? `<span class="uqask">Clear all echoes?<button type="button" class="ctiny ok" data-uqyes>✓</button><button type="button" class="condrm" data-uqno title="Keep them">✕</button></span>`
+            : `<button type="button" class="tiny" data-uqall title="Unequip all echoes — reset every unlocked echo (keeps focus &amp; goals; drops set effects)">⌫ Unequip all</button>`) +
           `<span class="ebudget${over ? ' over' : ''}" title="Total echo cost — the standard cap is 12">${cost} / ${GAME.echo.budget}</span>` +
           `<button class="tiny eclose" data-eclose title="Close this sheet — ${esc(ch.name)} goes back to the character bar">⇤</button>` +
         `</div>` +
@@ -4623,6 +4657,16 @@ function bindEchoSheet(grid){
       if(echo.lock) delete echo.lock; else echo.lock = true;
       save(); render();
     }));
+    // ⌫ clear one echo's substats (undoable)
+    card.querySelectorAll('[data-clearsubs]').forEach(b => b.addEventListener('click',
+      e => clearEchoSubs(id, +e.currentTarget.dataset.clearsubs)));
+    // ⌫ Unequip all — a two-step confirm, then an undoable reset
+    const uqAll = card.querySelector('[data-uqall]');
+    if(uqAll) uqAll.addEventListener('click', () => { unequipAsk = id; render(); });
+    const uqYes = card.querySelector('[data-uqyes]');
+    if(uqYes) uqYes.addEventListener('click', () => unequipAll(id));
+    const uqNo = card.querySelector('[data-uqno]');
+    if(uqNo) uqNo.addEventListener('click', () => { unequipAsk = null; render(); });
     // the header's weapon line is a link surface like the Teams strips:
     // click picks/changes the ledger weapon, right-click unequips — but a
     // FROZEN build keeps its weapon too
@@ -4931,6 +4975,7 @@ function renderEcho(){
   if(focusPop && focusPop !== state.echoOpen) focusPop = null;            // pop-up dies with its sheet
   if(condDraft && condDraft.char !== state.echoOpen) condDraft = null;    // draft dies with its sheet
   if(setPick && setPick.char !== state.echoOpen) setPick = null;          // set picker too
+  if(unequipAsk && unequipAsk !== state.echoOpen) unequipAsk = null;      // unequip confirm too
   // no sheet open → the characters SHOWCASE as a full-width grid; opening one
   // collapses them to the side bar, closing it rescales them back
   const showcase = !state.echoOpen;

@@ -2933,6 +2933,35 @@ ok('corrupt save: bad inventory scrubbed', !('hack' in inv4) && !('exp4' in inv4
   reset();
 }
 
+// ── conditional ordering · Sonata icons on the card ──
+{
+  reset();
+  fire(d.querySelector('.pagenav [data-page="echoes"]'), 'click');
+  const card = id => d.querySelector(`.ebuild[data-ec="${id}"]`);
+  const bar = id => d.querySelector(`#elist .echar[data-ec="${id}"]`);
+  fire(bar('jinhsi'), 'click');
+  w.eval("ensureBuild('jinhsi'); save(); render();");
+
+  // conditionals always DISPLAY ordered character → weapon → sonata
+  w.eval("state.builds.jinhsi.echoes.forEach(e => e.set = 'Freezing Frost'); " +
+         "state.builds.jinhsi.conds = [{key:'cd',val:20,on:true,src:'Freezing Frost'}, " +
+         "  {key:'atkp',val:12,on:true,src:'weapon'}, {key:'cr',val:5,on:true,src:'character'}]; save(); render();");
+  ok('conditional rows display character → weapon → sonata (data order [set,weapon,char])',
+     [...card('jinhsi').querySelectorAll('.econd [data-cond]')].map(b => b.dataset.cond).join() === '2,1,0');
+
+  // worn Sonata icons stack on the CARD (top-right), ordered 1pc → 3pc → 2pc
+  w.eval("const b = ensureBuild('jinhsi'); b.echoes.forEach((e,i) => e.set = i < 3 ? 'Freezing Frost' : 'Moonlit Clouds'); save(); render();");  // 3pc + 2pc
+  ok('the card stacks worn-set icons top-right, 3pc before 2pc', (() => {
+     const ics = [...bar('jinhsi').querySelectorAll('.ectop .ecsets .ecset img.__ico')].map(im => im.getAttribute('src'));
+     return ics.length === 2 && ics[0].includes('freezing_frost') && ics[1].includes('moonlit_clouds'); })());
+  w.eval("const b = ensureBuild('jinhsi'); b.echoes[0].set='Void Thunder'; b.echoes[1].set='Void Thunder'; " +
+         "b.echoes[2].set='Sierra Gale'; b.echoes[3].set='Sierra Gale'; b.echoes[4].set='Freezing Frost'; save(); render();");  // 2+2+1
+  ok('a 1pc split floats to the top of the card set stack', (() => {
+     const ics = [...bar('jinhsi').querySelectorAll('.ectop .ecsets .ecset img.__ico')].map(im => im.getAttribute('src'));
+     return ics.length === 3 && ics[0].includes('freezing_frost'); })());   // the single (1pc) set leads
+  reset();
+}
+
 dom.window.close();    // kill pending toast timers so Node exits promptly
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

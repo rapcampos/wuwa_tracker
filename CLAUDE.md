@@ -357,7 +357,9 @@ it goes in block 2 with tests; presentation goes in block 3.
   (`.epanel` → `#elist`) lists every rostered character as an `.echar` card
   with two sections (user's design, Jul 2026): a TOP grid (`.ectop`) — a
   square portrait spanning three rows, then name / element·type glyphs·level
-  / weapon icon·name (`.ecname`/`.ecmeta`/`.ecwpn`) down the right — and a
+  / weapon icon·name (`.ecname`/`.ecmeta`/`.ecwpn`) down the right, plus the
+  worn-Sonata icons stacked TOP-RIGHT (`.ecsets`/`.ecset`, small; ordered by
+  piece count 1pc → 3pc → 2pc, user's call) — and a
   BOTTOM section of the build's FOCUSED stats in **two columns that fill
   VERTICALLY** (column-major CSS multicol, user's call). A card whose BUILD
   is DONE (frozen) gets a faint element-tinted wash (`.echar.built`,
@@ -414,7 +416,9 @@ it goes in block 2 with tests; presentation goes in block 3.
   commits it into a live row, **✕** cancels. A live row is an ELEGANT
   on/off toggle (`.ctog`, a styled switch — replaced the raw checkbox) +
   the source icon + "+N% Stat" + a BORDERLESS remove ✕ (`.condrm`, faint
-  until hovered) — all user's calls. The whole conditional block hides
+  until hovered) — all user's calls. Rows always DISPLAY ordered
+  character → weapon → sonata (`srcRank`), keeping each row's ORIGINAL
+  index for its toggle/remove handlers. The whole conditional block hides
   its ＋/draft and disables the toggles/removes while the build is frozen) — a TICKED entry folds into `buildTotals`
   (and thus the finals, bar stats and goal checks; the totals sub-header
   grows "+ conditionals"), unticked ones wait; ✕ removes; the add row
